@@ -87,37 +87,35 @@ class ListFragment : Fragment() {
     }
 
     private fun loadInterstitialAds(adRequest: AdRequest) {
-        if(context!=null){
-            InterstitialAd.load(context,Constant.PROD_INTERSTITIAL_AD_ID, adRequest, object : InterstitialAdLoadCallback() {
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    Log.d("TAG", adError.message)
-                    mInterstitialAd = null
-                }
+        InterstitialAd.load(requireContext(),Constant.PROD_INTERSTITIAL_AD_ID, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                Log.d("TAG", adError.message)
+                mInterstitialAd = null
+            }
 
-                override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                    Log.d("TAG", "Ad was loaded.")
-                    mInterstitialAd = interstitialAd
+            override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                Log.d("TAG", "Ad was loaded.")
+                mInterstitialAd = interstitialAd
 
-                    if (mInterstitialAd != null) {
-                        mInterstitialAd?.show(requireActivity())
-                    } else {
-                        Log.d("TAG", "The interstitial ad wasn't ready yet.")
-                    }
+                if (mInterstitialAd != null) {
+                    mInterstitialAd?.show(requireActivity())
+                } else {
+                    Log.d("TAG", "The interstitial ad wasn't ready yet.")
                 }
-            })
-            mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d("TAG", "Ad was dismissed.")
-                }
+            }
+        })
+        mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                Log.d("TAG", "Ad was dismissed.")
+            }
 
-                override fun onAdFailedToShowFullScreenContent(adError: AdError?) {
-                    Log.d("TAG", "Ad failed to show.")
-                }
+            override fun onAdFailedToShowFullScreenContent(p0: AdError) {
+                Log.d("TAG", "Ad failed to show.")
+            }
 
-                override fun onAdShowedFullScreenContent() {
-                    Log.d("TAG", "Ad showed fullscreen content.")
-                    mInterstitialAd = null;
-                }
+            override fun onAdShowedFullScreenContent() {
+                Log.d("TAG", "Ad showed fullscreen content.")
+                mInterstitialAd = null;
             }
         }
 
@@ -130,48 +128,43 @@ class ListFragment : Fragment() {
         if(diplayFavWordsFavourite==null || diplayFavWordsFavourite == false){
             inflater.inflate(R.menu.option_menu, menu)
             val searchItem = menu.findItem(R.id.action_search)
-            val searchView = searchItem?.actionView as SearchView
-            val searchTextView: SearchAutoComplete = searchView.findViewById(R.id.search_src_text)
-            try {
-                val field: Field = TextView::class.java.getDeclaredField("mCursorDrawableRes")
-                field.isAccessible = true
-                field.set(searchTextView, R.drawable.cursor)
-            } catch (e: Exception) {
-                // Ignore exception
+            val searchView = searchItem?.actionView as? SearchView ?: return
+
+// Set up SearchView appearance
+            searchView.apply {
+                queryHint = "Search..."
             }
+
+// Set up SearchView listeners
             searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean {
-                    if (query != null) {
-                        wordsViewModel.filterData(query)
-                        wordsViewModel.liveQuery.observe(viewLifecycleOwner, {
+                    query?.let { safeQuery ->
+                        wordsViewModel.filterData(safeQuery)
+                        wordsViewModel.liveQuery.observe(viewLifecycleOwner) {
                             fetchWordsFromDictionary(query = true)
-                        })
-
-
+                        }
+                        Log.i(MainActivity.TAG, "Query submitted: $safeQuery")
                     }
-                    Log.i(MainActivity.TAG, "Llego al querysubmit $query")
                     return false
                 }
 
-                override fun onQueryTextChange(query: String): Boolean {
-
-                    if (query.length > 2) {
-                        wordsViewModel.filterData(query)
-                        wordsViewModel.liveQuery.observe(viewLifecycleOwner, {
+                override fun onQueryTextChange(newText: String): Boolean {
+                    if (newText.length > 2) {
+                        wordsViewModel.filterData(newText)
+                        wordsViewModel.liveQuery.observe(viewLifecycleOwner) {
                             fetchWordsFromDictionary(query = true)
-                        })
+                        }
                     }
                     return true
                 }
             })
-            searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
-                override fun onMenuItemActionExpand(item: MenuItem?): Boolean {
-                    return true
-                }
 
-                override fun onMenuItemActionCollapse(item: MenuItem?): Boolean {
-                    emptyMessage.visibility = GONE
-                    fetchWordsFromDictionary(false);
+            searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+                override fun onMenuItemActionExpand(item: MenuItem): Boolean = true
+
+                override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
+                    emptyMessage.visibility = View.GONE
+                    fetchWordsFromDictionary(false)
                     return true
                 }
             })

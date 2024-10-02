@@ -90,7 +90,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun setDefaultValue() {
-        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(activity)
+        val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val username = prefs.getString("signature", "");
         username.apply {
             ownerDictionaryName.text = " ${username} དབྱིན་བོད་ཚིག་མཛོད་"
@@ -186,10 +186,11 @@ class HomeFragment : Fragment() {
                 }
             })
             flipToAnimation.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator?) {
+
+                override fun onAnimationEnd(animation: Animator) {
                     super.onAnimationEnd(animation)
                     val bundle = bundleOf("favourite" to false)
-                    findNavController().navigate(R.id.listFragment,bundle)
+                    findNavController().navigate(R.id.listFragment, bundle)
                 }
             })
             //

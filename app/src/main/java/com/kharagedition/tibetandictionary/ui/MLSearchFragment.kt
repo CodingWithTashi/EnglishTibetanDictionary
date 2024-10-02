@@ -34,7 +34,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textview.MaterialTextView
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.TextRecognizerOptions
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.util.Constant
 import com.kharagedition.tibetandictionary.viewmodel.WordsViewModel
@@ -128,9 +128,9 @@ class MLSearchFragment : Fragment() {
 
     private fun detectTextFromImage() {
         val image:InputImage = if(imageUri!=null && context!=null){
-            InputImage.fromFilePath(context, imageUri)
+            InputImage.fromFilePath(requireContext(), imageUri!!)
         }else{
-            InputImage.fromBitmap(cameraBitMap, 0)
+            InputImage.fromBitmap(cameraBitMap!!, 0)
         }
 
 
