@@ -76,7 +76,7 @@ class ListFragment : Fragment() {
                 //IF LIST PAGE<SHOW BANNINTERSTITIALER ADS ONLY
                 mAdView.visibility=GONE
                 Handler(Looper.getMainLooper()).postDelayed({
-                    loadInterstitialAds(adRequest);
+                    //loadInterstitialAds(adRequest);
                 }, 7000)
 
             }
