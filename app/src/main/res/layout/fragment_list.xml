@@ -43,6 +43,7 @@
      android:text="No data found"
      android:textSize="20sp"
      android:id="@+id/empty_msg"
+     android:textColor="@color/white"
      android:layout_width="wrap_content"
      android:layout_height="wrap_content"
      ads:layout_constraintTop_toTopOf="parent"
