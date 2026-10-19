@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 interface SavedRepository {
     fun observeAll(): Flow<List<SavedEntry>>
 
+    /** Saved entries in [folderId]; null means entries with no folder (unfiled). "All" uses [observeAll]. */
     fun observeFolder(folderId: Long?): Flow<List<SavedEntry>>
 
     /** Saved entries whose headword, Wylie or gloss matches [query]. */
@@ -28,9 +29,13 @@ interface SavedRepository {
 
     fun observeFolders(): Flow<List<Folder>>
 
-    /** Creates a folder and returns its id. */
+    /**
+     * Creates a folder and returns its id.
+     * @throws IllegalArgumentException when a folder with the same name (trimmed, case-insensitive) exists.
+     */
     suspend fun createFolder(name: String): Long
 
+    /** @throws IllegalArgumentException when another folder has the same name (trimmed, case-insensitive). */
     suspend fun renameFolder(id: Long, name: String)
 
     /** Deletes the folder; its entries stay saved with no folder. */

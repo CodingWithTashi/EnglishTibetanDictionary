@@ -13,10 +13,13 @@ import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Rule
@@ -141,6 +144,21 @@ class UserPreferencesRepositoryImplTest {
     }
 
     @Test
+    fun readFailureWithIOExceptionGivesDefaults() = runTest {
+        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IOException("disk unavailable")))
+
+        assertThat(failing.snapshot()).isEqualTo(UserPrefs())
+    }
+
+    @Test
+    fun readFailureWithOtherExceptionsIsRethrown() = runTest {
+        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IllegalStateException("bug")))
+
+        val error = runCatching { failing.snapshot() }.exceptionOrNull()
+        assertThat(error).isInstanceOf(IllegalStateException::class.java)
+    }
+
+    @Test
     fun unknownStoredValuesFallBackToDefaults() = runTest {
         store.edit {
             it[stringPreferencesKey("app_language")] = "fr"
@@ -153,4 +171,11 @@ class UserPreferencesRepositoryImplTest {
         assertThat(p.appearance).isEqualTo(Appearance.SYSTEM)
         assertThat(p.textSize).isEqualTo(AppTextSize.DEFAULT)
     }
+}
+
+/** A [DataStore] whose reads and writes always fail with [error]. */
+private class FailingDataStore(private val error: Throwable) : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { throw error }
+
+    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = throw error
 }

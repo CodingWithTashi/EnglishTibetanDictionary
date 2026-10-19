@@ -6,6 +6,7 @@ import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.prefs.WotdNotificationMinute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -23,7 +24,7 @@ class FakeUserPreferencesRepository(initial: UserPrefs = UserPrefs()) : UserPref
     override suspend fun setDefaultDirectionId(id: String) = prefs.update { it.copy(defaultDirectionId = id) }
     override suspend fun setLastUsedFolderId(id: Long?) = prefs.update { it.copy(lastUsedFolderId = id) }
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) = prefs.update {
-        it.copy(wotdNotificationEnabled = enabled, wotdNotificationMinute = minuteOfDay.coerceIn(0, 24 * 60 - 1))
+        it.copy(wotdNotificationEnabled = enabled, wotdNotificationMinute = WotdNotificationMinute.clamp(minuteOfDay))
     }
     override suspend fun setLegacyCleanupDone(done: Boolean) = prefs.update { it.copy(legacyCleanupDone = done) }
 }

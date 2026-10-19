@@ -16,7 +16,7 @@ data class UserPrefs(
     /** Folder the last word was saved to; new saves go there. */
     val lastUsedFolderId: Long? = null,
     val wotdNotificationEnabled: Boolean = false,
-    /** Local time of the word-of-the-day notification, in minutes after midnight (540 = 09:00). */
-    val wotdNotificationMinute: Int = 540,
+    /** Local time of the word-of-the-day notification, always within [WotdNotificationMinute] (540 = 09:00). */
+    val wotdNotificationMinute: Int = WotdNotificationMinute.DEFAULT,
     val legacyCleanupDone: Boolean = false,
 )

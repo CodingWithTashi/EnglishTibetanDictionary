@@ -43,7 +43,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) {
         store.edit {
             it[WOTD_NOTIFICATION_ENABLED] = enabled
-            it[WOTD_NOTIFICATION_MINUTE] = clampMinute(minuteOfDay)
+            it[WOTD_NOTIFICATION_MINUTE] = WotdNotificationMinute.clamp(minuteOfDay)
         }
     }
     override suspend fun setLegacyCleanupDone(done: Boolean) = put(LEGACY_CLEANUP_DONE, done)
@@ -63,15 +63,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             defaultDirectionId = this[DEFAULT_DIRECTION_ID] ?: defaults.defaultDirectionId,
             lastUsedFolderId = this[LAST_USED_FOLDER_ID],
             wotdNotificationEnabled = this[WOTD_NOTIFICATION_ENABLED] ?: defaults.wotdNotificationEnabled,
-            wotdNotificationMinute = clampMinute(this[WOTD_NOTIFICATION_MINUTE] ?: defaults.wotdNotificationMinute),
+            wotdNotificationMinute = WotdNotificationMinute.clamp(
+                this[WOTD_NOTIFICATION_MINUTE] ?: defaults.wotdNotificationMinute,
+            ),
             legacyCleanupDone = this[LEGACY_CLEANUP_DONE] ?: defaults.legacyCleanupDone,
         )
     }
 
-    private fun clampMinute(minuteOfDay: Int): Int = minuteOfDay.coerceIn(0, LAST_MINUTE_OF_DAY)
-
     private companion object {
-        const val LAST_MINUTE_OF_DAY = 24 * 60 - 1
         val ONBOARDED = booleanPreferencesKey("onboarded")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val APPEARANCE = stringPreferencesKey("appearance")

@@ -26,7 +26,7 @@ interface UserPreferencesRepository {
     /** Null clears it. */
     suspend fun setLastUsedFolderId(id: Long?)
 
-    /** [minuteOfDay] is minutes after local midnight, kept within 0..1439. */
+    /** [minuteOfDay] is minutes after local midnight, clamped to [WotdNotificationMinute] on write and on read. */
     suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int)
 
     suspend fun setLegacyCleanupDone(done: Boolean)
