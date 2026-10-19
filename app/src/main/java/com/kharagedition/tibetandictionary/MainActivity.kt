@@ -31,8 +31,8 @@ import javax.inject.Inject
 
 /**
  * The single activity. Keeps the system splash up while [AppRootState.Loading], then shows the installing screen
- * or the app. A cold-start `app://` link is handled by the nav graph's deep links; one delivered to the running
- * activity goes through [NavigationEventBus].
+ * or the app. Every `app://` link, at cold start or delivered to the running activity, goes through
+ * [NavigationEventBus] (see [takeAppLink]).
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
             statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
+        takeAppLink(intent, follow = savedInstanceState == null)
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             when (val s = state) {
@@ -63,7 +64,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        DeepLinks.parse(intent)?.let(navigationEvents::emit)
+        setIntent(intent)
+        takeAppLink(intent, follow = true)
+    }
+
+    /**
+     * Sends the `app://` link in [intent] (if any) to the nav host through [NavigationEventBus], which waits until
+     * onboarding is done, and removes it from the activity's intent so NavController never handles it itself (that
+     * would stack Entry over Onboarding, or restart the task for NEW_TASK). A link replayed from Recents, or seen
+     * again after recreation ([follow] false), is removed without being followed.
+     */
+    private fun takeAppLink(intent: Intent, follow: Boolean) {
+        val link = DeepLinks.parse(intent) ?: return
+        val fromRecents = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (follow && !fromRecents) navigationEvents.emit(link)
+        setIntent(Intent(intent).setData(null))
     }
 }
 
