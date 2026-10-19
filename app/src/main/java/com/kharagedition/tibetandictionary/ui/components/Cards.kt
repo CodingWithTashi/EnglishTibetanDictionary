@@ -194,7 +194,7 @@ fun StatsCard(
 fun AccountCard(account: AccountUi, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = DictTheme.colors
     val type = DictTheme.type
-    AccountCardFrame(modifier.clickable(onClick = onClick)) {
+    AccountCardFrame(modifier, onClick) {
         Box(
             Modifier
                 .size(Avatar)
@@ -239,7 +239,7 @@ fun SignedOutAccountCard(
 ) {
     val colors = DictTheme.colors
     val type = DictTheme.type
-    AccountCardFrame(modifier) {
+    AccountCardFrame(modifier, onClick = null) {
         Box(
             Modifier
                 .size(Avatar)
@@ -256,15 +256,16 @@ fun SignedOutAccountCard(
     }
 }
 
+/** The surface1 card both account cards share; the caller's [modifier] wraps it (padding stays outside). */
 @Composable
-private fun AccountCardFrame(modifier: Modifier, content: @Composable RowScope.() -> Unit) {
+private fun AccountCardFrame(modifier: Modifier, onClick: (() -> Unit)?, content: @Composable RowScope.() -> Unit) {
     val dimens = DictTheme.dimens
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(DictShapes.medium)
             .background(DictTheme.colors.surface1)
-            .then(modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = dimens.cardPaddingHorizontal, vertical = dimens.cardPaddingVertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CardGap),
@@ -298,7 +299,7 @@ private const val SAMPLE_WYLIE = "bkra shis"
 private const val SAMPLE_GLOSS_1 = "auspicious, fortunate"
 private const val SAMPLE_GLOSS_2 = "good luck, blessing"
 private const val SAMPLE_TIBETAN_SENSE = "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།"
-private const val NBSP = " "
+private const val NBSP = "\u00A0"
 
 /**
  * A live sample entry drawn at [textSize] and [lineSpacing] (not the app's current settings), for the
