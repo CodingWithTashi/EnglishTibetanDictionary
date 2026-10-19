@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.dp
  *
  * Paths are black and carry no theme colour: `Icon(icon, cd, tint = …)` tints the whole vector (the spec's
  * `currentColor`), and `Icon` without a tint uses `LocalContentColor` (ink under [DictTheme]). Use [DictIcons]
- * for the default 1.75 stroke, [DictIcons.Active] for active nav items (2) and [DictIcons.EmptyState] for
- * empty-state illustrations (1.5).
+ * for the default 1.75 stroke, [DictIcons.Active] for active nav items (2), [DictIcons.Bold] for check marks
+ * (2.4) and [DictIcons.EmptyState] for empty-state illustrations (1.5).
  */
 open class DictIconSet(val strokeWidth: Float) {
 
@@ -182,10 +182,13 @@ open class DictIconSet(val strokeWidth: Float) {
     }
 }
 
-/** Icons at the default 1.75 stroke, plus the [Active] (2) and [EmptyState] (1.5) sets. */
+/** Icons at the default 1.75 stroke, plus the [Active] (2), [Bold] (2.4) and [EmptyState] (1.5) sets. */
 object DictIcons : DictIconSet(strokeWidth = 1.75f) {
     /** Active bottom-nav items. */
     val Active = DictIconSet(strokeWidth = 2f)
+
+    /** Check marks in selected chips, options and toasts. */
+    val Bold = DictIconSet(strokeWidth = 2.4f)
 
     /** Empty-state illustrations. */
     val EmptyState = DictIconSet(strokeWidth = 1.5f)

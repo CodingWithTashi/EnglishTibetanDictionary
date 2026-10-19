@@ -22,7 +22,13 @@ class DictIconsTest {
 
     @Test
     fun `icons are 24-unit round-capped strokes at the set width and only HeartFilled is filled`() {
-        for ((set, width) in listOf(DictIcons to 1.75f, DictIcons.Active to 2f, DictIcons.EmptyState to 1.5f)) {
+        val sets = listOf(
+            DictIcons to 1.75f,
+            DictIcons.Active to 2f,
+            DictIcons.Bold to 2.4f,
+            DictIcons.EmptyState to 1.5f,
+        )
+        for ((set, width) in sets) {
             assertThat(set.strokeWidth).isEqualTo(width)
             for ((name, icon) in set.all) {
                 assertWithMessage("$name viewport").that(icon.viewportWidth).isEqualTo(24f)
@@ -50,6 +56,7 @@ class DictIconsTest {
     fun `icons are built once per set`() {
         assertThat(DictIcons.Search).isSameInstanceAs(DictIcons.Search)
         assertThat(DictIcons.Active.Search).isNotSameInstanceAs(DictIcons.Search)
+        assertThat(DictIcons.Bold.Check).isSameInstanceAs(DictIcons.Bold.Check)
     }
 
     private fun VectorGroup.paths(): List<VectorPath> = flatMap { node: VectorNode ->
