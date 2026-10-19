@@ -39,6 +39,10 @@ interface FolderDao {
     )
     suspend fun existsByNameIgnoreCase(name: String, exceptId: Long?): Boolean
 
+    /** True when a folder with [id] exists. */
+    @Query("SELECT EXISTS(SELECT 1 FROM folders WHERE id = :id)")
+    suspend fun exists(id: Long): Boolean
+
     /** The position after the highest one (0 when there are no folders). */
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM folders")
     suspend fun nextPosition(): Int

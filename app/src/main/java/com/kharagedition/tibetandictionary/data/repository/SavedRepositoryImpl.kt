@@ -35,6 +35,10 @@ class SavedRepositoryImpl @Inject constructor(
     override fun observeFolder(folderId: Long?): Flow<List<SavedEntry>> =
         (if (folderId == null) savedDao.observeUnfiled() else savedDao.observeInFolder(folderId)).mapToDomain()
 
+    /**
+     * Matches [query] anywhere in the headword, Wylie or gloss preview. Case-insensitivity is ASCII-only (SQLite
+     * `LIKE`); full Unicode case folding is not attempted. `%` and `_` in [query] match themselves.
+     */
     override fun search(query: String): Flow<List<SavedEntry>> = savedDao.search(query).mapToDomain()
 
     override fun observeIsSaved(entryId: Long): Flow<Boolean> =
@@ -47,7 +51,8 @@ class SavedRepositoryImpl @Inject constructor(
 
     /**
      * Saves a snapshot of [entry]. Saving an entry that is already saved refreshes the snapshot, folder and times
-     * but keeps its note; the old row is replaced in one transaction, so observers never see it unsaved.
+     * but keeps its note; the old row is replaced in one transaction, so observers never see it unsaved. A
+     * [folderId] that no longer exists (a stale "last used folder") saves the entry with no folder.
      */
     override suspend fun save(entry: EntrySummary, folderId: Long?) {
         withContext(io) {
@@ -55,7 +60,7 @@ class SavedRepositoryImpl @Inject constructor(
             db.withTransaction {
                 val existing = savedDao.get(entry.id)
                 if (existing != null) savedDao.delete(entry.id)
-                savedDao.insert(entry.toSavedEntity(now, folderId).copy(note = existing?.note))
+                savedDao.insert(entry.toSavedEntity(now, existingFolderOrNull(folderId), note = existing?.note))
             }
         }
     }
@@ -64,8 +69,13 @@ class SavedRepositoryImpl @Inject constructor(
         withContext(io) { savedDao.delete(entryId) }
     }
 
+    /** Moves the entry to [folderId]; a folder that no longer exists leaves the entry with no folder. */
     override suspend fun setFolder(entryId: Long, folderId: Long?) {
-        withContext(io) { savedDao.setFolder(entryId, folderId, clock.now().toEpochMilli()) }
+        withContext(io) {
+            db.withTransaction {
+                savedDao.setFolder(entryId, existingFolderOrNull(folderId), clock.now().toEpochMilli())
+            }
+        }
     }
 
     override fun observeFolders(): Flow<List<Folder>> =
@@ -74,6 +84,10 @@ class SavedRepositoryImpl @Inject constructor(
             folders.map { it.toDomain(count = countByFolder[it.id] ?: 0) }
         }.distinctUntilChanged().flowOn(io)
 
+    /**
+     * Creates a folder named [name] (trimmed) after the highest position. Duplicates are detected with ASCII-only case
+     * folding (SQLite `NOCASE`), so "Verbs" and "verbs" clash but "É" and "é" do not.
+     */
     override suspend fun createFolder(name: String): Long {
         val trimmed = validFolderName(name)
         return withContext(io) {
@@ -96,6 +110,7 @@ class SavedRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Renames the folder to [name] (trimmed); the duplicate check is ASCII-case-insensitive, like [createFolder]. */
     override suspend fun renameFolder(id: Long, name: String) {
         val trimmed = validFolderName(name)
         withContext(io) {
@@ -116,6 +131,9 @@ class SavedRepositoryImpl @Inject constructor(
 
     private fun Flow<List<SavedEntryEntity>>.mapToDomain(): Flow<List<SavedEntry>> =
         map { rows -> rows.map { it.toDomain() } }.flowOn(io)
+
+    /** [folderId] if that folder exists, else null (unfiled), so a stale id cannot break the foreign key. */
+    private suspend fun existingFolderOrNull(folderId: Long?): Long? = folderId?.takeIf { folderDao.exists(it) }
 
     private fun validFolderName(name: String): String =
         name.trim().also { require(it.isNotEmpty()) { "A folder name cannot be blank" } }

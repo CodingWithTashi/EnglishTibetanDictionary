@@ -19,15 +19,15 @@ internal fun SavedEntryEntity.toDomain(): SavedEntry = SavedEntry(
     savedAt = savedAt,
 )
 
-/** Snapshots [this] for user.db at [now] (epoch milliseconds); the note starts empty. */
-internal fun EntrySummary.toSavedEntity(now: Long, folderId: Long?): SavedEntryEntity = SavedEntryEntity(
+/** Snapshots [this] for user.db at [now] (epoch milliseconds); [note] is carried over when re-saving. */
+internal fun EntrySummary.toSavedEntity(now: Long, folderId: Long?, note: String? = null): SavedEntryEntity = SavedEntryEntity(
     entryId = id,
     directionId = directionId,
     headword = headword,
     wylie = wylie,
     glossPreview = glossPreview,
     folderId = folderId,
-    note = null,
+    note = note,
     savedAt = now,
     updatedAt = now,
 )

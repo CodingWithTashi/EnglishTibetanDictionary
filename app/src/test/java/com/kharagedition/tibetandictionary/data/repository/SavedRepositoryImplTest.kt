@@ -193,6 +193,31 @@ class SavedRepositoryImplTest {
     }
 
     @Test
+    fun saveWithDeletedFolderIdSavesUnfiled() = runTest {
+        val verbs = repo.createFolder("Verbs")
+        repo.deleteFolder(verbs)
+
+        repo.save(tashi, folderId = verbs)
+        repo.save(nyingje, folderId = 999)
+
+        assertThat(repo.observeFolder(null).first().map { it.entryId }).containsExactly(tashi.id, nyingje.id)
+        assertThat(repo.observeAll().first().map { it.folderId }).containsExactly(null, null)
+    }
+
+    @Test
+    fun setFolderWithDeletedFolderIdUnfiles() = runTest {
+        val verbs = repo.createFolder("Verbs")
+        val nouns = repo.createFolder("Nouns")
+        repo.save(tashi, folderId = verbs)
+        repo.deleteFolder(nouns)
+
+        repo.setFolder(tashi.id, nouns)
+
+        assertThat(repo.observeFolder(null).first().map { it.entryId }).containsExactly(tashi.id)
+        assertThat(repo.observeFolder(verbs).first()).isEmpty()
+    }
+
+    @Test
     fun deleteFolderKeepsItsEntriesWithNoFolder() = runTest {
         val verbs = repo.createFolder("Verbs")
         repo.save(tashi, folderId = verbs)
