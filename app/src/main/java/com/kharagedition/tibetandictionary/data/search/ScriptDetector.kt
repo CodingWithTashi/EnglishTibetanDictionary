@@ -7,7 +7,8 @@ import com.kharagedition.tibetandictionary.data.model.Script
  * The script a query is written in: [Script.TIBETAN] when any character is in the Tibetan block (U+0F00..U+0FFF), so
  * mixed input such as "བཀྲ shis" is Tibetan; otherwise [Script.HAN] when any character is a CJK ideograph (Unified
  * Ideographs U+4E00..U+9FFF or Extension A U+3400..U+4DBF); otherwise [Script.LATIN], including blank input, digits,
- * punctuation and scripts the dictionary has no direction for.
+ * punctuation and scripts the dictionary has no direction for. Only these two BMP blocks count as Han for now:
+ * Extension B and later (supplementary planes) and the compatibility ideographs U+F900..U+FAFF are not detected.
  */
 object ScriptDetector {
     private val CJK_UNIFIED = '\u4E00'..'\u9FFF'
