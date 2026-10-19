@@ -55,7 +55,7 @@ fun DictPreview(
 private const val LATIN_SAMPLE = "Compassion"
 private const val TIBETAN_SAMPLE = "སྙིང་རྗེ། བོད་ཡིག"
 
-/** Every colour token of [this] palette by name, for [TokensSheet]. */
+/** Every colour token of [this] palette by name, for [PaletteSheet]. */
 private fun DictColors.swatches(): List<Pair<String, Color>> = listOf(
     "background" to background, "surface1" to surface1, "surface2" to surface2,
     "accentContainer" to accentContainer, "onAccentContainer" to onAccentContainer, "accent" to accent,
@@ -66,14 +66,13 @@ private fun DictColors.swatches(): List<Pair<String, Color>> = listOf(
     "flagRed" to flagRed, "flagGreen" to flagGreen, "flagYellow" to flagYellow,
 )
 
-/** The current palette as swatches, then every type role (Latin roles in Latin, Tibetan roles in Tibetan). */
+/** The current palette as named swatches. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun TokensSheet() {
+internal fun PaletteSheet() {
     val colors = DictTheme.colors
-    val type = DictTheme.type
     Column(Modifier.padding(DictTheme.dimens.screenPadding)) {
-        Text(if (colors.isDark) "Dark palette" else "Light palette", style = type.screenTitle)
+        Text(if (colors.isDark) "Dark palette" else "Light palette", style = DictTheme.type.screenTitle)
         Spacer(Modifier.height(DictTheme.dimens.blockGap))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap),
@@ -81,12 +80,26 @@ internal fun TokensSheet() {
         ) {
             colors.swatches().forEach { (name, color) -> Swatch(name, color) }
         }
-        Spacer(Modifier.height(DictTheme.dimens.sectionGap))
-        Text("Latin · Noto Sans", style = type.sectionLabel, color = colors.muted)
-        type.latinRoles.forEach { (name, style) -> TypeSample(name, style, LATIN_SAMPLE) }
-        Spacer(Modifier.height(DictTheme.dimens.sectionGap))
-        Text("Tibetan · Jomolhari", style = type.sectionLabel, color = colors.muted)
-        type.tibetanRoles.forEach { (name, style) -> TypeSample(name, style, TIBETAN_SAMPLE) }
+    }
+}
+
+/** Every Latin (Noto Sans) role, set in Latin. */
+@Composable
+internal fun LatinTypeSheet() {
+    TypeSheet("Latin · Noto Sans", DictTheme.type.latinRoles, LATIN_SAMPLE)
+}
+
+/** Every Tibetan (Jomolhari) role, set in Tibetan. */
+@Composable
+internal fun TibetanTypeSheet() {
+    TypeSheet("Tibetan · Jomolhari", DictTheme.type.tibetanRoles, TIBETAN_SAMPLE)
+}
+
+@Composable
+private fun TypeSheet(title: String, roles: Map<String, TextStyle>, sample: String) {
+    Column(Modifier.padding(DictTheme.dimens.screenPadding)) {
+        Text(title, style = DictTheme.type.sectionLabel, color = DictTheme.colors.muted)
+        roles.forEach { (name, style) -> TypeSample(name, style, sample) }
     }
 }
 
@@ -144,11 +157,25 @@ private fun IconCell(name: String, icon: ImageVector, tint: Color) {
     }
 }
 
-@Preview(name = "Tokens · light", widthDp = 400, heightDp = 2400)
-@Preview(name = "Tokens · dark", widthDp = 400, heightDp = 2400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Palette · light", widthDp = 400)
+@Preview(name = "Palette · dark", widthDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun TokensPreview() {
-    DictPreview(dark = isSystemInDarkTheme()) { TokensSheet() }
+private fun PalettePreview() {
+    DictPreview(dark = isSystemInDarkTheme()) { PaletteSheet() }
+}
+
+@Preview(name = "Latin type · light", widthDp = 400)
+@Preview(name = "Latin type · dark", widthDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LatinTypePreview() {
+    DictPreview(dark = isSystemInDarkTheme()) { LatinTypeSheet() }
+}
+
+@Preview(name = "Tibetan type · light", widthDp = 400)
+@Preview(name = "Tibetan type · dark", widthDp = 400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun TibetanTypePreview() {
+    DictPreview(dark = isSystemInDarkTheme()) { TibetanTypeSheet() }
 }
 
 @Preview(name = "Icons · light", widthDp = 400)
@@ -159,6 +186,7 @@ private fun IconsPreview() {
         Column {
             IconsSheet(DictIcons)
             IconsSheet(DictIcons.Active)
+            IconsSheet(DictIcons.Bold)
             IconsSheet(DictIcons.EmptyState)
             Row(Modifier.padding(DictTheme.dimens.screenPadding), verticalAlignment = Alignment.CenterVertically) {
                 Icon(DictIcons.Search, contentDescription = null)

@@ -21,7 +21,9 @@ import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.kharagedition.tibetandictionary.ui.preview.DictPreview
 import com.kharagedition.tibetandictionary.ui.preview.IconsSheet
-import com.kharagedition.tibetandictionary.ui.preview.TokensSheet
+import com.kharagedition.tibetandictionary.ui.preview.LatinTypeSheet
+import com.kharagedition.tibetandictionary.ui.preview.PaletteSheet
+import com.kharagedition.tibetandictionary.ui.preview.TibetanTypeSheet
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,12 +73,12 @@ class DictThemeRenderTest {
     }
 
     @Test
-    fun `token and icon sheets compose with the bundled fonts in the light theme`() {
+    fun `palette type and icon sheets compose with the bundled fonts in the light theme`() {
         assertSheetsCompose(dark = false)
     }
 
     @Test
-    fun `token and icon sheets compose with the bundled fonts in the dark theme`() {
+    fun `palette type and icon sheets compose with the bundled fonts in the dark theme`() {
         assertSheetsCompose(dark = true)
     }
 
@@ -84,15 +86,18 @@ class DictThemeRenderTest {
         compose.setContent {
             DictPreview(dark = dark) {
                 Column {
-                    TokensSheet()
-                    IconsSheet()
+                    PaletteSheet()
+                    LatinTypeSheet()
+                    TibetanTypeSheet()
+                    IconsSheet(DictIcons.Bold)
                 }
             }
         }
 
         compose.onNodeWithText(if (dark) "Dark palette" else "Light palette").assertExists()
+        compose.onNodeWithText("screenTitle", substring = true).assertExists()
         compose.onNodeWithText("tibetanEntryHeadword", substring = true).assertExists()
-        compose.onNodeWithText("Icons", substring = true).assertExists()
+        compose.onNodeWithText("Icons · stroke 2.4").assertExists()
     }
 
     @Composable
