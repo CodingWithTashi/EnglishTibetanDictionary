@@ -9,11 +9,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
 
 /**
- * In-memory [SavedRepository]. [saved] is newest first; [folders] holds folder rows (their [Folder.count] is
- * recomputed from [saved] when observed). Deleting a folder keeps its entries with no folder, as user.db does.
+ * In-memory [SavedRepository] with user.db semantics:
+ * - [saved] rows may be seeded in any order; every list is observed newest first by [SavedEntry.savedAt].
+ * - `observeFolder(null)` returns unfiled entries; re-saving keeps the entry's note.
+ * - Folder names are unique (trimmed, case-insensitive); a new folder goes after the highest position.
+ * - Deleting a folder keeps its entries, with no folder.
  */
 class FakeSavedRepository(
     initial: List<SavedEntry> = emptyList(),
@@ -24,12 +26,14 @@ class FakeSavedRepository(
     val folders = MutableStateFlow(initialFolders)
     private var nextFolderId = (initialFolders.maxOfOrNull { it.id } ?: 0L) + 1
 
-    override fun observeAll(): Flow<List<SavedEntry>> = saved
+    private val newestFirst: Flow<List<SavedEntry>> = saved.map { list -> list.sortedByDescending { it.savedAt } }
+
+    override fun observeAll(): Flow<List<SavedEntry>> = newestFirst
 
     override fun observeFolder(folderId: Long?): Flow<List<SavedEntry>> =
-        saved.map { list -> list.filter { it.folderId == folderId } }
+        newestFirst.map { list -> list.filter { it.folderId == folderId } }
 
-    override fun search(query: String): Flow<List<SavedEntry>> = saved.map { list ->
+    override fun search(query: String): Flow<List<SavedEntry>> = newestFirst.map { list ->
         list.filter {
             it.headword.contains(query, ignoreCase = true) ||
                 it.wylie?.contains(query, ignoreCase = true) == true ||
@@ -43,7 +47,8 @@ class FakeSavedRepository(
 
     override fun observeCount(): Flow<Int> = saved.map { it.size }
 
-    override suspend fun save(entry: EntrySummary, folderId: Long?) = saved.update { list ->
+    override suspend fun save(entry: EntrySummary, folderId: Long?) {
+        val existing = saved.value.firstOrNull { it.entryId == entry.id }
         val row = SavedEntry(
             entryId = entry.id,
             directionId = entry.directionId,
@@ -51,16 +56,18 @@ class FakeSavedRepository(
             wylie = entry.wylie,
             glossPreview = entry.glossPreview,
             folderId = folderId,
-            note = null,
+            note = existing?.note,
             savedAt = clock.now().toEpochMilli(),
         )
-        listOf(row) + list.filterNot { it.entryId == entry.id }
+        saved.value = listOf(row) + saved.value.filterNot { it.entryId == entry.id }
     }
 
-    override suspend fun unsave(entryId: Long) = saved.update { list -> list.filterNot { it.entryId == entryId } }
+    override suspend fun unsave(entryId: Long) {
+        saved.value = saved.value.filterNot { it.entryId == entryId }
+    }
 
-    override suspend fun setFolder(entryId: Long, folderId: Long?) = saved.update { list ->
-        list.map { if (it.entryId == entryId) it.copy(folderId = folderId) else it }
+    override suspend fun setFolder(entryId: Long, folderId: Long?) {
+        saved.value = saved.value.map { if (it.entryId == entryId) it.copy(folderId = folderId) else it }
     }
 
     override fun observeFolders(): Flow<List<Folder>> = combine(folders, saved) { folderRows, savedRows ->
@@ -68,18 +75,27 @@ class FakeSavedRepository(
     }
 
     override suspend fun createFolder(name: String): Long {
-        require(folders.value.none { it.name == name }) { "Folder \"$name\" already exists" }
+        requireUniqueName(name, exceptId = null)
         val id = nextFolderId++
-        folders.update { it + Folder(id = id, name = name, position = it.size, count = 0) }
+        val position = (folders.value.maxOfOrNull { it.position } ?: -1) + 1
+        folders.value = folders.value + Folder(id = id, name = name, position = position, count = 0)
         return id
     }
 
-    override suspend fun renameFolder(id: Long, name: String) = folders.update { list ->
-        list.map { if (it.id == id) it.copy(name = name) else it }
+    override suspend fun renameFolder(id: Long, name: String) {
+        requireUniqueName(name, exceptId = id)
+        folders.value = folders.value.map { if (it.id == id) it.copy(name = name) else it }
     }
 
     override suspend fun deleteFolder(id: Long) {
-        folders.update { list -> list.filterNot { it.id == id } }
-        saved.update { list -> list.map { if (it.folderId == id) it.copy(folderId = null) else it } }
+        folders.value = folders.value.filterNot { it.id == id }
+        saved.value = saved.value.map { if (it.folderId == id) it.copy(folderId = null) else it }
+    }
+
+    private fun requireUniqueName(name: String, exceptId: Long?) {
+        val wanted = name.trim()
+        require(folders.value.none { it.id != exceptId && it.name.trim().equals(wanted, ignoreCase = true) }) {
+            "A folder named \"$wanted\" already exists"
+        }
     }
 }
