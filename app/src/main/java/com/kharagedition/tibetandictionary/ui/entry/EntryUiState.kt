@@ -10,14 +10,18 @@ import com.kharagedition.tibetandictionary.ui.model.SenseUi
 
 /**
  * The entry screen (1h/1l). [loading] until the entry is read; then either [entry] or [missing] (the id is not in
- * the installed dictionary). [savedFolderName] is the folder the saved word is filed in (null when unsaved or
- * unfiled); [folderPicker] is non-null while the "Save to folder" sheet is open.
+ * the installed dictionary, or reading it failed); [folderPicker] is non-null while the "Save to folder" sheet is
+ * open.
  */
 @Immutable
 data class EntryUiState(
     val loading: Boolean = true,
     val entry: EntryUi? = null,
     val isSaved: Boolean = false,
+    /**
+     * Folder the saved word is filed in (null when unsaved or unfiled): the folder the saved toast names, not drawn
+     * yet and reserved for a folder line under the header.
+     */
     val savedFolderName: String? = null,
     val folderPicker: FolderPickerUi? = null,
     val missing: Boolean = false,
@@ -26,7 +30,7 @@ data class EntryUiState(
 /**
  * One entry ready to draw. [partsOfSpeech] are display abbreviations ("adj.", "n."); [label] is the usage label
  * every sense shares (null when none); [senses] are flattened sub-senses, numbered only when the entry has more
- * than one sense; [related] is empty when there is nothing to see also.
+ * than one sense, and then only on each sense's first card; [related] is empty when there is nothing to see also.
  */
 @Immutable
 data class EntryUi(
@@ -45,14 +49,17 @@ data class EntryUi(
     val isTruncated: Boolean,
 )
 
-/** State of the hoisted [com.kharagedition.tibetandictionary.ui.components.FolderPickerSheet]. */
+/**
+ * State of the hoisted [com.kharagedition.tibetandictionary.ui.components.FolderPickerSheet]; [createError] is
+ * resolved by the screen in the app language.
+ */
 @Immutable
 data class FolderPickerUi(
     val folders: List<FolderUi>,
     val selectedId: Long?,
     val creating: Boolean = false,
     val newFolderName: String = "",
-    val createError: String? = null,
+    val createError: UiText? = null,
 )
 
 /** User actions on the entry screen. */
@@ -109,7 +116,8 @@ sealed interface EntryEffect {
         val onAction: (() -> Unit)? = null,
     ) : EntryEffect
 
-    data class CopyToClipboard(val text: String) : EntryEffect
+    /** Copies [text]; [label] (the headword) names the clip for the system. */
+    data class CopyToClipboard(val label: String, val text: String) : EntryEffect
 
     data class ShareText(val text: String) : EntryEffect
 

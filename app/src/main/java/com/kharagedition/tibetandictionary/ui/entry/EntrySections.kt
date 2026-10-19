@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -266,7 +267,7 @@ internal fun EntryMissing(onBack: () -> Unit, modifier: Modifier = Modifier) {
         FullEmptyState(
             DictIcons.EmptyState.SearchOff,
             title = stringResource(R.string.entry_missing),
-            body = "",
+            body = stringResource(R.string.entry_missing_body),
             iconTint = DictTheme.colors.muted,
         ) {
             OutlinedButton(
@@ -293,6 +294,6 @@ internal fun EntryFolderPicker(picker: FolderPickerUi, onEvent: (EntryEvent) -> 
         onCancelCreate = { onEvent(EntryEvent.CancelCreateFolder) },
         onCreate = { onEvent(EntryEvent.CreateFolder(it)) },
         onDismiss = { onEvent(EntryEvent.DismissFolderPicker) },
-        createError = picker.createError,
+        createError = picker.createError?.resolve(LocalResources.current),
     )
 }

@@ -21,9 +21,9 @@ internal const val DOT_SEPARATOR = " · "
  * its direction id; a target missing from it is opened as a search, and its badge shows a direction from
  * [directions] (the current one when unknown).
  *
- * Sub-senses become separate cards with their sense's number; numbers show only when more than one sense remains,
- * and a sense's part of speech only when the entry has several (on its first card). Glosses that are blank with no
- * example are dropped, so a redirect-only entry has no empty card.
+ * Sub-senses become separate cards; a sense's number and part of speech go on its first card only. Numbers show
+ * only when more than one sense remains, and parts of speech only when the entry has several. Glosses that are blank
+ * with no example are dropped, so a redirect-only entry has no empty card.
  */
 internal fun Entry.toUi(
     direction: Direction,
@@ -48,7 +48,7 @@ internal fun Entry.toUi(
         senses = visibleSenses.flatMap { sense ->
             sense.items.mapIndexed { index, item ->
                 SenseUi(
-                    number = sense.number.takeIf { numbered },
+                    number = sense.number.takeIf { numbered && index == 0 },
                     partOfSpeech = sense.partOfSpeech
                         ?.takeIf { perSensePos && index == 0 && it.isNotBlank() }
                         ?.let(::abbreviatePartOfSpeech),

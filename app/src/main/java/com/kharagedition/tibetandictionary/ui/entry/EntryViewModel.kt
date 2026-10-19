@@ -6,6 +6,7 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.audio.AudioPlayer
 import com.kharagedition.tibetandictionary.core.audio.AudioSource
+import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
@@ -18,6 +19,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Optional
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +38,9 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * One dictionary entry (1h/1l): reads [entryId] once, follows whether it is saved and in which folder, and turns
- * user actions into repository calls and one-shot [effects]. [audioPlayer] is absent until a player is bound.
+ * user actions into repository calls and one-shot [effects]. Failures are recorded through [errors]: a failed read
+ * shows the entry as missing, a failed save shows a generic error toast. [audioPlayer] is absent until a player is
+ * bound.
  */
 @HiltViewModel(assistedFactory = EntryViewModel.Factory::class)
 class EntryViewModel @AssistedInject constructor(
@@ -45,6 +49,7 @@ class EntryViewModel @AssistedInject constructor(
     private val saved: SavedRepository,
     private val activity: ActivityRepository,
     private val prefs: UserPreferencesRepository,
+    private val errors: ErrorReporter,
     audioPlayer: Optional<AudioPlayer>,
 ) : ViewModel() {
 
@@ -61,7 +66,7 @@ class EntryViewModel @AssistedInject constructor(
     }
 
     /** The open folder picker's own state; folders and the selection come from the repository. */
-    private data class PickerDraft(val creating: Boolean = false, val name: String = "", val error: String? = null)
+    private data class PickerDraft(val creating: Boolean = false, val name: String = "", val error: UiText? = null)
 
     private val audio: AudioPlayer? = audioPlayer.orElse(null)
     private var playedAudio = false
@@ -120,7 +125,9 @@ class EntryViewModel @AssistedInject constructor(
             is EntryEvent.NewFolderNameChanged -> picker.update { it?.copy(name = event.name, error = null) }
             is EntryEvent.CreateFolder -> withEntry { createFolder(it, event.name) }
             EntryEvent.DismissFolderPicker -> picker.value = null
-            EntryEvent.Copy -> loaded()?.let { send(EntryEffect.CopyToClipboard(it.ui.headwordWithWylie())) }
+            EntryEvent.Copy -> loaded()?.let {
+                send(EntryEffect.CopyToClipboard(label = it.ui.headword, text = it.ui.headwordWithWylie()))
+            }
             EntryEvent.Share -> loaded()?.let { send(EntryEffect.ShareText(it.ui.shareText())) }
             EntryEvent.PlayAudio -> playAudio()
             is EntryEvent.OpenRelated -> {
@@ -136,13 +143,22 @@ class EntryViewModel @AssistedInject constructor(
     }
 
     private suspend fun load() {
-        val entry = dictionary.entry(entryId)
-        val direction = entry?.let { dictionary.direction(it.summary.directionId) }
-        if (entry == null || direction == null) {
+        // A failed read is recorded and shown like a missing entry.
+        val loaded = recorded { read() }
+        if (loaded == null) {
             content.value = Content.Missing
             effectChannel.send(EntryEffect.Toast(UiText(R.string.entry_missing)))
             return
         }
+        content.value = loaded
+        // Activity stats only: a failure is recorded but does not hide the entry.
+        recorded { activity.markEntryOpened() }
+    }
+
+    /** Reads the entry and its see-also targets; null when the entry or its direction is not installed. */
+    private suspend fun read(): Content.Loaded? {
+        val entry = dictionary.entry(entryId) ?: return null
+        val direction = dictionary.direction(entry.summary.directionId) ?: return null
         val targetIds = entry.related.mapNotNull { it.targetEntryId }.distinct()
         val targetDirections = if (targetIds.isEmpty()) {
             emptyMap()
@@ -153,8 +169,7 @@ class EntryViewModel @AssistedInject constructor(
             .mapNotNull { dictionary.direction(it) }
             .plus(direction)
             .associateBy(Direction::id)
-        content.value = Content.Loaded(entry, entry.toUi(direction, directions, targetDirections))
-        activity.markEntryOpened()
+        return Content.Loaded(entry, entry.toUi(direction, directions, targetDirections))
     }
 
     private suspend fun toggleSave(loaded: Content.Loaded) {
@@ -166,16 +181,18 @@ class EntryViewModel @AssistedInject constructor(
                 val undo = { undoUnsave(loaded, folderId) }
                 effectChannel.send(EntryEffect.Toast(UiText(R.string.removed), R.string.undo, undo))
             } else {
-                val folderId = prefs.snapshot().lastUsedFolderId
-                saved.save(summary, folderId)
-                val message = savedMessage(summary.headword, folderName(folderId))
+                // A last-used folder that has since been deleted falls back to no folder.
+                val lastUsed = prefs.snapshot().lastUsedFolderId
+                val folder = saved.observeFolders().first().firstOrNull { it.id == lastUsed }
+                saved.save(summary, folder?.id)
+                val message = savedMessage(summary.headword, folder?.name)
                 effectChannel.send(EntryEffect.Toast(message, R.string.change) { onEvent(EntryEvent.ChangeFolder) })
             }
         }
     }
 
     private fun undoUnsave(loaded: Content.Loaded, folderId: Long?) {
-        viewModelScope.launch { saveLock.withLock { saved.save(loaded.entry.summary, folderId) } }
+        viewModelScope.launch { guarded { saveLock.withLock { saved.save(loaded.entry.summary, folderId) } } }
     }
 
     private suspend fun pickFolder(loaded: Content.Loaded, folderId: Long?) {
@@ -197,8 +214,8 @@ class EntryViewModel @AssistedInject constructor(
         val folderId = try {
             saved.createFolder(trimmed)
         } catch (e: IllegalArgumentException) {
-            // The repository rejects duplicate names; its message names the clash.
-            picker.update { it?.copy(error = e.message?.takeIf(String::isNotBlank) ?: trimmed) }
+            // The repository rejects only duplicate names (trimmed, case-insensitive).
+            picker.update { it?.copy(error = UiText(R.string.folder_exists, listOf(trimmed))) }
             return
         }
         pickFolder(loaded, folderId)
@@ -226,7 +243,22 @@ class EntryViewModel @AssistedInject constructor(
     /** Runs [block] with the loaded entry; ignored while loading or when the entry is missing. */
     private fun withEntry(block: suspend (Content.Loaded) -> Unit) {
         val loaded = loaded() ?: return
-        viewModelScope.launch { block(loaded) }
+        viewModelScope.launch { guarded { block(loaded) } }
+    }
+
+    /** Runs a change to the saved words; a failure is recorded and shown as a generic error toast. */
+    private suspend fun guarded(block: suspend () -> Unit) {
+        if (recorded { block() } == null) effectChannel.send(EntryEffect.Toast(UiText(R.string.entry_action_failed)))
+    }
+
+    /** What [block] returns, or null when it fails; any failure but cancellation is recorded. */
+    private inline fun <T> recorded(block: () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (t: Throwable) {
+        errors.record(t)
+        null
     }
 
     private fun send(effect: EntryEffect) {

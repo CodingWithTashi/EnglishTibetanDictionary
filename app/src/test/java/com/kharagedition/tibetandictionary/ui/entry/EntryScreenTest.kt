@@ -159,6 +159,7 @@ class EntryScreenTest {
         show(EntryUiState(loading = false, missing = true))
 
         compose.onNodeWithText("This entry is no longer in the dictionary.").assertIsDisplayed()
+        compose.onNodeWithText("It may have been removed in a dictionary update", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("entry_save").assertDoesNotExist()
         compose.onNodeWithTag("entry_missing_back").performClick()
         assertThat(events).containsExactly(EntryEvent.Back)

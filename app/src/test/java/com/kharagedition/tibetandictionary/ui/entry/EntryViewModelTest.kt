@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.audio.AudioPlayer
 import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.data.model.Entry
+import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Example
 import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.model.RelatedEntry
@@ -16,16 +17,22 @@ import com.kharagedition.tibetandictionary.data.model.Relation
 import com.kharagedition.tibetandictionary.data.model.Sense
 import com.kharagedition.tibetandictionary.data.model.SenseItem
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
+import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.model.ExampleUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
+import java.io.IOException
 import java.util.Optional
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -47,13 +54,22 @@ class EntryViewModelTest {
     )
     private val activity = FakeActivityRepository(clock)
     private val prefs = FakeUserPreferencesRepository()
+    private val errors = RecordingErrorReporter()
     private val audio = RecordingAudioPlayer()
 
     private val tashi = SampleData.tashi
 
-    /** A view model whose state is collected for the whole test, as the screen does. */
-    private fun TestScope.viewModel(entryId: Long = tashi.id): EntryViewModel {
-        val vm = EntryViewModel(entryId, dictionary, saved, activity, prefs, Optional.of(audio))
+    /**
+     * A view model whose state is collected for the whole test, as the screen does. The repositories default to the
+     * fakes above; a test passes its own to make one call fail.
+     */
+    private fun TestScope.viewModel(
+        entryId: Long = tashi.id,
+        dictionary: DictionaryRepository = this@EntryViewModelTest.dictionary,
+        saved: SavedRepository = this@EntryViewModelTest.saved,
+        activity: ActivityRepository = this@EntryViewModelTest.activity,
+    ): EntryViewModel {
+        val vm = EntryViewModel(entryId, dictionary, saved, activity, prefs, errors, Optional.of(audio))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -130,7 +146,7 @@ class EntryViewModelTest {
     }
 
     @Test
-    fun `sub-senses become cards with the sense number and the part of speech on the first`() = runTest {
+    fun `sub-senses become cards with the number and part of speech on the sense's first card`() = runTest {
         val items = listOf(item("to dwell"), item("to remain", example = "གནས་སྡོད།"))
         add(
             SampleData.houseEntry.copy(
@@ -146,7 +162,7 @@ class EntryViewModelTest {
         assertThat(entry.label).isEqualTo("hon")
         assertThat(entry.senses).containsExactly(
             SenseUi(1, "vi.", "to dwell", null),
-            SenseUi(1, null, "to remain", ExampleUi("གནས་སྡོད།", null, textIsTibetan = true)),
+            SenseUi(null, null, "to remain", ExampleUi("གནས་སྡོད།", null, textIsTibetan = true)),
             SenseUi(2, "n.", "a dwelling", null),
         ).inOrder()
     }
@@ -214,6 +230,57 @@ class EntryViewModelTest {
         assertThat(entry.related).containsExactly(RelatedUi(tashi.id, SampleData.boEn, tashi.headword, isTibetan = true))
     }
 
+    @Test
+    fun `items with a blank gloss and no example are dropped`() = runTest {
+        add(
+            SampleData.houseEntry.copy(
+                senses = listOf(
+                    Sense(1, "vi", emptyList(), null, emptyList(), listOf(item("  "), item("to dwell"))),
+                    Sense(2, "n", emptyList(), null, emptyList(), listOf(item("", example = "ཁང་པ།"))),
+                ),
+            ),
+        )
+
+        val entry = viewModel(SampleData.house.id).entry()
+
+        assertThat(entry.senses).containsExactly(
+            SenseUi(1, "vi.", "to dwell", null),
+            // A blank gloss with an example keeps its card.
+            SenseUi(2, "n.", "", ExampleUi("ཁང་པ།", null, textIsTibetan = true)),
+        ).inOrder()
+    }
+
+    @Test
+    fun `a failed read is recorded and shown as missing`() = runTest {
+        val failure = IllegalStateException("database closed")
+        val failing = object : DictionaryRepository by dictionary {
+            override suspend fun entry(id: Long): Entry? = throw failure
+        }
+
+        val vm = viewModel(dictionary = failing)
+
+        assertThat(vm.uiState.value).isEqualTo(EntryUiState(loading = false, entry = null, missing = true))
+        assertThat(errors.recorded).containsExactly(failure)
+        assertThat(activity.days.value).isEmpty()
+        vm.effects.test {
+            assertThat(awaitItem()).isEqualTo(EntryEffect.Toast(UiText(R.string.entry_missing)))
+        }
+    }
+
+    @Test
+    fun `a failed activity update is recorded and the entry still shows`() = runTest {
+        val failure = IOException("disk full")
+        val failing = object : ActivityRepository by activity {
+            override suspend fun markEntryOpened() = throw failure
+        }
+
+        val vm = viewModel(activity = failing)
+
+        assertThat(vm.uiState.value.entry?.id).isEqualTo(tashi.id)
+        assertThat(vm.uiState.value.missing).isFalse()
+        assertThat(errors.recorded).containsExactly(failure)
+    }
+
     // Saving
 
     @Test
@@ -251,6 +318,37 @@ class EntryViewModelTest {
             assertThat(saved.saved.value.single().folderId).isNull()
             assertThat(vm.uiState.value.savedFolderName).isNull()
         }
+    }
+
+    @Test
+    fun `a deleted last-used folder saves without a folder`() = runTest {
+        prefs.prefs.value = UserPrefs(lastUsedFolderId = 99)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.ToggleSave)
+
+            val toast = awaitItem() as EntryEffect.Toast
+            assertThat(toast.message).isEqualTo(UiText(R.string.saved_simple, listOf("བཀྲ་ཤིས་")))
+            assertThat(saved.saved.value.single().folderId).isNull()
+        }
+    }
+
+    @Test
+    fun `a failed save is recorded and shows an error toast`() = runTest {
+        val failure = IOException("disk full")
+        val failing = object : SavedRepository by saved {
+            override suspend fun save(entry: EntrySummary, folderId: Long?) = throw failure
+        }
+        val vm = viewModel(saved = failing)
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.ToggleSave)
+
+            assertThat(awaitItem()).isEqualTo(EntryEffect.Toast(UiText(R.string.entry_action_failed)))
+        }
+        assertThat(errors.recorded).containsExactly(failure)
+        assertThat(vm.uiState.value.isSaved).isFalse()
     }
 
     @Test
@@ -298,6 +396,24 @@ class EntryViewModelTest {
     }
 
     @Test
+    fun `picking a folder while unsaved saves the word there`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(EntryEvent.ChangeFolder)
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.PickFolder(2))
+
+            assertThat(awaitItem()).isEqualTo(
+                EntryEffect.Toast(UiText(R.string.saved_to_folder, listOf("བཀྲ་ཤིས་", "Daily"))),
+            )
+        }
+        assertThat(saved.saved.value.single().folderId).isEqualTo(2L)
+        assertThat(prefs.prefs.value.lastUsedFolderId).isEqualTo(2L)
+        assertThat(vm.uiState.value.isSaved).isTrue()
+        assertThat(vm.uiState.value.folderPicker).isNull()
+    }
+
+    @Test
     fun `a new folder is created and the word filed in it`() = runTest {
         saved.saved.value = listOf(SampleData.savedTashi)
         val vm = viewModel()
@@ -329,12 +445,30 @@ class EntryViewModelTest {
 
         val picker = checkNotNull(vm.uiState.value.folderPicker)
         assertThat(picker.creating).isTrue()
-        assertThat(picker.createError).isNotEmpty()
+        assertThat(picker.createError).isEqualTo(UiText(R.string.folder_exists, listOf("daily")))
         assertThat(saved.folders.value).hasSize(2)
         assertThat(saved.saved.value.single().folderId).isNull()
 
         vm.onEvent(EntryEvent.NewFolderNameChanged("daily words"))
         assertThat(vm.uiState.value.folderPicker?.createError).isNull()
+    }
+
+    @Test
+    fun `a blank folder name creates nothing`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(EntryEvent.ChangeFolder)
+        vm.onEvent(EntryEvent.StartCreateFolder)
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.CreateFolder("   "))
+            expectNoEvents()
+        }
+
+        assertThat(saved.folders.value).hasSize(2)
+        assertThat(saved.saved.value).isEmpty()
+        val picker = checkNotNull(vm.uiState.value.folderPicker)
+        assertThat(picker.creating).isTrue()
+        assertThat(picker.createError).isNull()
     }
 
     @Test
@@ -378,7 +512,7 @@ class EntryViewModelTest {
             assertThat(awaitItem()).isEqualTo(EntryEffect.NavigateBack)
 
             vm.onEvent(EntryEvent.Copy)
-            assertThat(awaitItem()).isEqualTo(EntryEffect.CopyToClipboard("བཀྲ་ཤིས་ (bkra shis)"))
+            assertThat(awaitItem()).isEqualTo(EntryEffect.CopyToClipboard("བཀྲ་ཤིས་", "བཀྲ་ཤིས་ (bkra shis)"))
 
             vm.onEvent(EntryEvent.Share)
             assertThat(awaitItem()).isEqualTo(
@@ -402,13 +536,64 @@ class EntryViewModelTest {
 
         vm.effects.test {
             vm.onEvent(EntryEvent.Copy)
-            assertThat(awaitItem()).isEqualTo(EntryEffect.CopyToClipboard("house"))
+            assertThat(awaitItem()).isEqualTo(EntryEffect.CopyToClipboard("house", "house"))
 
             vm.onEvent(EntryEvent.Share)
             assertThat(awaitItem()).isEqualTo(
                 EntryEffect.ShareText("house — ཁང་པ། · ཁྱིམ་ཚང་། · རིགས་རྒྱུད། · ཁྱིམ། · གནས་ཚང་སྤྲོད་པ།"),
             )
         }
+    }
+
+    @Test
+    fun `an entry with no glosses shares the headword and Wylie alone`() = runTest {
+        val redirect = Entry(
+            summary = SampleData.tashiDelek.copy(id = 1_009_001, glossPreview = "", senseCount = 0),
+            senses = emptyList(),
+            related = listOf(RelatedEntry(tashi.id, tashi.headword, tashi.wylie, Relation.SEE_ALSO)),
+        )
+        add(redirect)
+        val vm = viewModel(redirect.summary.id)
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.Share)
+            assertThat(awaitItem()).isEqualTo(EntryEffect.ShareText("བཀྲ་ཤིས་བདེ་ལེགས་ (bkra shis bde legs)"))
+        }
+    }
+
+    @Test
+    fun `save, copy and share are ignored while loading`() = runTest {
+        val slow = object : DictionaryRepository by dictionary {
+            override suspend fun entry(id: Long): Entry? = awaitCancellation()
+        }
+        val vm = viewModel(dictionary = slow)
+        assertThat(vm.uiState.value.loading).isTrue()
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.ToggleSave)
+            vm.onEvent(EntryEvent.Copy)
+            vm.onEvent(EntryEvent.Share)
+            vm.onEvent(EntryEvent.ChangeFolder)
+            expectNoEvents()
+        }
+        assertThat(saved.saved.value).isEmpty()
+        assertThat(vm.uiState.value.folderPicker).isNull()
+    }
+
+    @Test
+    fun `save, copy and share are ignored when the entry is missing`() = runTest {
+        val vm = viewModel(entryId = 42)
+
+        vm.effects.test {
+            assertThat(awaitItem()).isEqualTo(EntryEffect.Toast(UiText(R.string.entry_missing)))
+            vm.onEvent(EntryEvent.ToggleSave)
+            vm.onEvent(EntryEvent.Copy)
+            vm.onEvent(EntryEvent.Share)
+            vm.onEvent(EntryEvent.ChangeFolder)
+            expectNoEvents()
+        }
+        assertThat(saved.saved.value).isEmpty()
+        assertThat(vm.uiState.value.folderPicker).isNull()
     }
 
     private fun item(gloss: String, example: String? = null) = SenseItem(

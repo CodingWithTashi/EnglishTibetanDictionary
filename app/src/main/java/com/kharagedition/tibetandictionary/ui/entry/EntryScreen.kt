@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.ui.entry
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
@@ -90,8 +92,13 @@ private fun EntryEffects(
                         onAction = effect.onAction?.let { action -> suspend { action() } },
                     )
                 }
-                is EntryEffect.CopyToClipboard ->
-                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(effect.text, effect.text)))
+                is EntryEffect.CopyToClipboard -> {
+                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(effect.label, effect.text)))
+                    // Android 13+ confirms copies itself.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        toastScope.launch { toaster.show(resources.getString(R.string.copied)) }
+                    }
+                }
                 is EntryEffect.ShareText -> context.share(effect.text)
                 is EntryEffect.OpenEmail -> context.email(effect)
             }
