@@ -168,6 +168,9 @@ dependencies {
     testImplementation(libs.androidx.junit)
     testImplementation(composeBom)
     testImplementation(libs.compose.ui.test.junit4)
+    // Robolectric tests that launch MainActivity on a Hilt graph with fake repositories.
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
 
     // Instrumented tests
     androidTestImplementation(libs.androidx.junit)

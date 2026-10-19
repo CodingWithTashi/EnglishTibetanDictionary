@@ -1,7 +1,32 @@
 package com.kharagedition.tibetandictionary
 
 import android.app.Application
+import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.kharagedition.tibetandictionary.core.init.AppInitializer
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
-class DictionaryApplication : Application()
+class DictionaryApplication : Application() {
+
+    @Inject lateinit var appInitializer: AppInitializer
+
+    override fun onCreate() {
+        super.onCreate()
+        configureFirebase()
+        appInitializer.start()
+    }
+
+    /** Crash and analytics collection run in release builds only. */
+    private fun configureFirebase() {
+        // FirebaseInitProvider creates the default app; it is missing where google-services is not set up
+        // (Robolectric tests), and Firebase must never stop the app from starting.
+        if (FirebaseApp.getApps(this).isEmpty()) return
+        runCatching {
+            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+            FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(!BuildConfig.DEBUG)
+        }
+    }
+}
