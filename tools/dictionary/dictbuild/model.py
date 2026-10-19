@@ -2,8 +2,8 @@
 
 `*Row` classes are the rows written to dictionary.db: their field names and order mirror the exported
 Room schema's columns (pinned by tests/test_schema.py), so `row_values(row)` binds straight to
-`Table.insert_sql()`. `Parsed*` classes are table-parser output, before grouping assigns entry ids
-and continuous sense numbers.
+`Table.insert_sql()`. `Parsed*` classes are table-parser output; `EntryDraft` is one entry after
+grouping (continuous sense numbers, merged related links), before ids are assigned to its rows.
 """
 
 from __future__ import annotations
@@ -118,6 +118,50 @@ def row_values(row: Any) -> tuple[Any, ...]:
     return tuple(getattr(row, column.name) for column in dataclasses.fields(row))
 
 
+# The directions built from the Monlam source, in switcher order. Entry ids are `id_base + _id`.
+DIRECTIONS: tuple[DirectionRow, ...] = (
+    DirectionRow(
+        id="bo-en",
+        source_lang="bo",
+        target_lang="en",
+        source_script="tibt",
+        label_en="Tibetan → English",
+        label_bo="བོད་ཡིག → དབྱིན་ཡིག",
+        short_label="བོད→EN",
+        position=0,
+        id_base=1_000_000,
+    ),
+    DirectionRow(
+        id="bo-bo",
+        source_lang="bo",
+        target_lang="bo",
+        source_script="tibt",
+        label_en="Tibetan → Tibetan",
+        label_bo="བོད་ཡིག → བོད་ཡིག",
+        short_label="བོད→བོད",
+        position=1,
+        id_base=2_000_000,
+    ),
+    DirectionRow(
+        id="en-bo",
+        source_lang="en",
+        target_lang="bo",
+        source_script="latn",
+        label_en="English → Tibetan",
+        label_bo="དབྱིན་ཡིག → བོད་ཡིག",
+        short_label="EN→བོད",
+        position=2,
+        id_base=3_000_000,
+    ),
+)
+DIRECTION_BY_ID: dict[str, DirectionRow] = {direction.id: direction for direction in DIRECTIONS}
+
+
+def entry_id_for(direction_id: str, source_id: int) -> int:
+    """The stable entry id: the direction's `id_base` plus the source `_id` of the group's first row."""
+    return DIRECTION_BY_ID[direction_id].id_base + source_id
+
+
 @dataclass(slots=True)
 class ParsedExample:
     text: str
@@ -126,27 +170,41 @@ class ParsedExample:
 
 @dataclass(slots=True)
 class ParsedSense:
-    """One future `senses` row. `sense_no` is block-relative until grouping renumbers it per entry."""
+    """One future `senses` row. `sense_no` is row-relative until grouping renumbers it per entry.
+
+    Sub-senses (`ཀཿ`, `1>`) are separate records that share a `sense_no` and differ in `sub_no`.
+    """
 
     gloss: str
     gloss_lang: str
+    source_id: int
     sense_no: int = 1
     sub_no: int | None = None
     part_of_speech: str | None = None
     labels: list[str] = field(default_factory=list)
-    note: str | None = None
+    notes: list[str] = field(default_factory=list)
     source_tags: list[str] = field(default_factory=list)
     is_truncated: bool = False
     examples: list[ParsedExample] = field(default_factory=list)
 
+    @property
+    def note(self) -> str | None:
+        """`senses.note`: the notes joined with "; ", or None."""
+        return "; ".join(self.notes) or None
+
 
 @dataclass(slots=True)
 class RelatedCandidate:
-    """A see-also or synonym target as written in the source, resolved to an entry id later."""
+    """A see-also or synonym target as written in the source.
+
+    `target_entry_id` is set once the target is found among the built headwords; it stays None for
+    an unresolved link (the app then runs a search for `headword`).
+    """
 
     headword: str
     relation: str
     wylie: str | None = None
+    target_entry_id: int | None = None
 
 
 @dataclass(slots=True)
@@ -157,5 +215,32 @@ class ParsedRow:
     headword: str
     group_key: str
     homonym: str | None = None
+    wylie: str | None = None
     senses: list[ParsedSense] = field(default_factory=list)
     related: list[RelatedCandidate] = field(default_factory=list)
+    # Parentheticals in a label position that are not whitelisted labels (they stay in the gloss).
+    unknown_labels: list[str] = field(default_factory=list)
+    # Rule applications worth reviewing in the build report, e.g. "sense_dropped_empty".
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class EntryDraft:
+    """One dictionary entry: every source row sharing a group key, merged in source order."""
+
+    direction_id: str
+    source_id: int
+    headword: str
+    group_key: str
+    wylie: str | None = None
+    senses: list[ParsedSense] = field(default_factory=list)
+    related: list[RelatedCandidate] = field(default_factory=list)
+    source_ids: list[int] = field(default_factory=list)
+
+    @property
+    def entry_id(self) -> int:
+        return entry_id_for(self.direction_id, self.source_id)
+
+    @property
+    def is_truncated(self) -> bool:
+        return any(sense.is_truncated for sense in self.senses)

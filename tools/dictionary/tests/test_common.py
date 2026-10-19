@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dictbuild.parsers.common import split_numbered, split_subsenses_bo, split_subsenses_gt
+from dictbuild.parsers.common import split_numbered, split_subsenses, split_subsenses_bo, split_subsenses_gt
 
 
 def test_split_numbered_sequence() -> None:
@@ -116,3 +116,23 @@ def test_split_subsenses_gt_with_leading_text_and_stray_dot() -> None:
 def test_split_subsenses_gt_without_markers() -> None:
     assert split_subsenses_gt("ཆེ་བའི་ལྡོག་ཟླ།") == [(None, "ཆེ་བའི་ལྡོག་ཟླ།")]
     assert split_subsenses_gt("") == []
+
+
+def test_split_numbered_number_glued_to_latin_letter_is_text() -> None:
+    # Rule "a number glued to a Latin letter is text": source rows 13406 ("the few1.") and 16849.
+    assert split_numbered("some few ཁ་ཤས། the few1. གྲངས་ཉུང་། 2. འདེམས་སྒྲུག་བྱས་པའི།") is None
+    assert split_numbered("ཆུའི་དོན་སྟོན་ཏེ། hydro-electric1. ཆུ་ཤུགས་གློག་འདོན། 2. ཆུ་སྒྲུལ་གློག་ཤུགས།") is None
+    # A number after a dot, a shad or a space is still a marker.
+    assert split_numbered("n.1. ཀ་བ། 2. ཁ་བ།") == [(None, "n."), (1, "ཀ་བ།"), (2, "ཁ་བ།")]
+
+
+def test_splitters_drop_empty_segments() -> None:
+    assert split_numbered("1. 2. ཁ་བ། 3. ག་བ།") == [(2, "ཁ་བ།"), (3, "ག་བ།")]
+    assert split_subsenses_bo("ཀཿ ཁཿ ཁ་བ།") == [(2, "ཁ་བ།")]
+    assert split_subsenses_gt("1> 2>ཁ་བ།") == [(2, "ཁ་བ།")]
+
+
+def test_split_subsenses_prefers_tibetan_letters_then_gt() -> None:
+    assert split_subsenses("ཀཿ ཀ་བ། ཁཿ ཁ་བ།") == [(1, "ཀ་བ།"), (2, "ཁ་བ།")]
+    assert split_subsenses("1>ཀ་བ། 2>ཁ་བ།") == [(1, "ཀ་བ།"), (2, "ཁ་བ།")]
+    assert split_subsenses("ཀ་བ།") == [(None, "ཀ་བ།")]
