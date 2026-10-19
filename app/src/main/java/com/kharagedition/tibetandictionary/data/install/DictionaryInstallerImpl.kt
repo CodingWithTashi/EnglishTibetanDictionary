@@ -1,13 +1,186 @@
 package com.kharagedition.tibetandictionary.data.install
 
+import android.content.Context
+import com.kharagedition.tibetandictionary.core.di.IoDispatcher
+import com.kharagedition.tibetandictionary.core.error.ErrorReporter
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
-/** Stub so the Hilt graph compiles; L1 (T1.8) replaces the bodies. */
+/**
+ * Puts the bundled `dictionary.db` in place before Room opens it, so the splash can show copy progress.
+ *
+ * The installer owns data upgrades: an on-device file whose header `user_version` differs from
+ * [DictionaryDatabase.VERSION] (bumped on every data release) is deleted with its `-journal`/`-wal`/`-shm` siblings and
+ * the asset is copied again. The copy goes to `dictionary.db.tmp`, is checked (SQLite magic, `user_version`, complete
+ * length) and only then renamed over the target, so a failed or interrupted copy never leaves a half-written database.
+ * Room then finds a file of the expected version and skips its own `createFromAsset` copy, which stays as the fallback
+ * if the installer is ever bypassed. The installer must finish before anything else opens the database (start-up
+ * runs it first): it deletes and replaces the file underneath.
+ *
+ * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. When the asset's
+ * length is unknown ([AssetSource.length] is null, an asset stored compressed) only 0 and then 1 are reported.
+ */
 @Singleton
-class DictionaryInstallerImpl @Inject constructor() : DictionaryInstaller {
-    override val state: StateFlow<InstallState> get() = TODO("L1")
+class DictionaryInstallerImpl @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val assetSource: AssetSource,
+    private val dbProvider: Provider<DictionaryDatabase>,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+    private val errors: ErrorReporter,
+) : DictionaryInstaller {
 
-    override suspend fun ensureInstalled(): Unit = TODO("L1")
+    private val _state = MutableStateFlow<InstallState>(InstallState.Checking)
+    override val state: StateFlow<InstallState> = _state.asStateFlow()
+
+    private val mutex = Mutex()
+
+    /** Concurrent callers queue on [mutex]; a caller that finds [InstallState.Ready] returns at once. */
+    override suspend fun ensureInstalled() {
+        mutex.withLock {
+            if (_state.value is InstallState.Ready) return
+            _state.value = InstallState.Checking
+            _state.value = withContext(io) { install() }
+        }
+    }
+
+    private suspend fun install(): InstallState = try {
+        val target = context.getDatabasePath(DictionaryDatabase.DB_NAME)
+        if (readUserVersion(target) != DictionaryDatabase.VERSION) {
+            deleteDatabaseFiles(target)
+            copyAsset(target)
+        }
+        InstallState.Ready(openAndCount())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (t: Throwable) {
+        // Throwable, not Exception: the splash waits on this state, so nothing may leave it stuck in Copying.
+        errors.record(t)
+        InstallState.Failed(t)
+    }
+
+    /** The file's `user_version`, or null when it is missing, unreadable or not an SQLite database. */
+    private fun readUserVersion(file: File): Int? = readHeader(file)?.userVersion
+
+    private fun deleteDatabaseFiles(target: File) {
+        for (suffix in DATABASE_FILE_SUFFIXES) {
+            val file = File(target.path + suffix)
+            if (file.exists() && !file.delete()) throw IOException("Could not delete ${file.name}")
+        }
+    }
+
+    /** Streams the asset into a temp file next to [target], verifies it and renames it over [target]. */
+    private suspend fun copyAsset(target: File) {
+        val dir = checkNotNull(target.parentFile) { "No directory for $target" }
+        if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create $dir")
+        val temp = File(dir, target.name + TEMP_SUFFIX)
+        try {
+            val length = assetSource.length()?.takeIf { it > 0 }
+            assetSource.open().use { input ->
+                _state.value = InstallState.Copying(0f)
+                FileOutputStream(temp).use { output ->
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    var copied = 0L
+                    var reported = 0L
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        copied += read
+                        if (length != null && copied - reported >= PROGRESS_STEP_BYTES) {
+                            reported = copied
+                            _state.value = InstallState.Copying((copied.toFloat() / length).coerceAtMost(1f))
+                        }
+                    }
+                    output.fd.sync()
+                }
+            }
+            _state.value = InstallState.Copying(1f)
+            verifyHeader(temp, expectedLength = length)
+            if (!temp.renameTo(target)) throw IOException("Could not rename ${temp.name} to ${target.name}")
+        } finally {
+            // No-op after a successful rename; otherwise removes the partial copy so a retry starts clean.
+            temp.delete()
+        }
+    }
+
+    /** Fails unless [file] is an SQLite database of [DictionaryDatabase.VERSION] that was copied in full. */
+    private fun verifyHeader(file: File, expectedLength: Long?) {
+        val header = readHeader(file) ?: throw IOException("Copied dictionary is not an SQLite database")
+        if (header.userVersion != DictionaryDatabase.VERSION) {
+            throw IOException(
+                "Copied dictionary has user_version ${header.userVersion}, expected ${DictionaryDatabase.VERSION}",
+            )
+        }
+        val actual = file.length()
+        if (expectedLength != null && actual != expectedLength) {
+            throw IOException("Copied $actual of $expectedLength bytes")
+        }
+        if (header.databaseSize != null && actual < header.databaseSize) {
+            throw IOException("Copied dictionary is truncated: $actual of ${header.databaseSize} bytes")
+        }
+    }
+
+    /** Opens Room on the installed file and sums the visible directions' entry counts. */
+    private suspend fun openAndCount(): Int =
+        dbProvider.get().directionDao().observeVisible().first().sumOf { it.entryCount }
+
+    /** The fields of the 100-byte SQLite header the installer checks; see https://sqlite.org/fileformat.html. */
+    private class Header(val userVersion: Int, val databaseSize: Long?)
+
+    /** Parses [file]'s header, or null when the file is missing, shorter than a header or lacks the SQLite magic. */
+    private fun readHeader(file: File): Header? {
+        if (!file.isFile) return null
+        val bytes = ByteArray(HEADER_SIZE)
+        try {
+            RandomAccessFile(file, "r").use { it.readFully(bytes) }
+        } catch (_: IOException) {
+            return null
+        }
+        if (!bytes.copyOf(SQLITE_MAGIC.size).contentEquals(SQLITE_MAGIC)) return null
+        val header = ByteBuffer.wrap(bytes) // big-endian
+        val pageSize = (header.getShort(PAGE_SIZE_OFFSET).toInt() and 0xFFFF).let { if (it == 1) MAX_PAGE_SIZE else it }
+        val pageCount = header.getInt(PAGE_COUNT_OFFSET).toLong() and 0xFFFF_FFFFL
+        // The in-header page count is valid only when the change counter matches "version-valid-for".
+        val sizeValid = pageCount > 0 && header.getInt(CHANGE_COUNTER_OFFSET) == header.getInt(VALID_FOR_OFFSET)
+        return Header(
+            userVersion = header.getInt(USER_VERSION_OFFSET),
+            databaseSize = if (sizeValid) pageCount * pageSize else null,
+        )
+    }
+
+    private companion object {
+        const val TEMP_SUFFIX = ".tmp"
+        val DATABASE_FILE_SUFFIXES = listOf("", "-journal", "-wal", "-shm")
+        const val BUFFER_SIZE = 16 * 1024
+        const val PROGRESS_STEP_BYTES = 64 * 1024
+
+        const val HEADER_SIZE = 100
+        val SQLITE_MAGIC = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+        const val PAGE_SIZE_OFFSET = 16
+        const val CHANGE_COUNTER_OFFSET = 24
+        const val PAGE_COUNT_OFFSET = 28
+        const val USER_VERSION_OFFSET = 60
+        const val VALID_FOR_OFFSET = 92
+        const val MAX_PAGE_SIZE = 65_536
+    }
 }
