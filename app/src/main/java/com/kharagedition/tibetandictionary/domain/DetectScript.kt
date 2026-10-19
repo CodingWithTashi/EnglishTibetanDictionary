@@ -3,8 +3,10 @@ package com.kharagedition.tibetandictionary.domain
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 
 /**
- * Root-letter clusters (prefix, superscript, aspirated or digraph root) that open a Tibetan syllable in Wylie but
- * rarely start an English word. A lower-cased token starting with one of them marks the query as Wylie.
+ * Root-letter clusters (prefix, superscript, aspirated or digraph root) that open a Tibetan syllable in Wylie. A
+ * lower-cased token starting with one of them marks the query as Wylie. Several are shared with English (st, sp,
+ * sk, sm, sn, bl, br, dr, gn, gy, ny), so words like "street" or "blue" detect as Wylie too; the hit counts in
+ * [ResolveDirection] then decide the direction.
  */
 internal val TibetanOnsets: Set<String> = setOf(
     "bk", "bg", "bd", "bs", "bz", "br", "bl",
@@ -35,6 +37,12 @@ object DetectScript {
 
     private val Whitespace = Regex("\\s+")
 
+    /**
+     * Apostrophe look-alikes that keyboards with smart punctuation type for the Wylie `'` (a-chung): right and
+     * left single quotation marks (U+2019, U+2018) and the modifier letter apostrophe (U+02BC).
+     */
+    private val TypographicApostrophes = charArrayOf('’', '‘', 'ʼ')
+
     /** Lexicon tokens needed when no onset cluster or apostrophe already marks the query as Wylie. */
     private const val MIN_LEXICON_TOKENS = 2
 
@@ -42,8 +50,8 @@ object DetectScript {
      * The script of [q], by the first rule that applies:
      * 1. **Tibetan**: any character in the Tibetan block (U+0F00–U+0FFF), even mixed with Latin ("བཀྲ shis").
      * 2. **Han**: any Han ideograph (CJK unified or compatibility, any plane).
-     * 3. **Wylie**: every lower-cased whitespace-separated token matches `^[a-z'+.~-]+$`, and either a token
-     *    starts with one of [TibetanOnsets], or a token contains `'`, or at least two tokens are in [WylieLexicon].
+     * 3. **Wylie**: every one of the [tokens] matches `^[a-z'+.~-]+$`, and either a token starts with one of
+     *    [TibetanOnsets], or a token contains `'`, or at least two tokens are in [WylieLexicon].
      * 4. **Latin**: everything else, including a blank query.
      */
     fun detect(q: String): InputScript = when {
@@ -51,6 +59,13 @@ object DetectScript {
         hasHan(q) -> InputScript.HAN
         isWylie(q) -> InputScript.WYLIE
         else -> InputScript.LATIN
+    }
+
+    /** [q] lower-cased, with typographic apostrophes folded to `'`, split on whitespace; no empty tokens. */
+    internal fun tokens(q: String): List<String> {
+        var folded = q.lowercase()
+        for (c in TypographicApostrophes) folded = folded.replace(c, '\'')
+        return folded.split(Whitespace).filter { it.isNotEmpty() }
     }
 
     private fun hasHan(text: String): Boolean {
@@ -64,7 +79,7 @@ object DetectScript {
     }
 
     private fun isWylie(text: String): Boolean {
-        val tokens = text.lowercase().split(Whitespace).filter { it.isNotEmpty() }
+        val tokens = tokens(text)
         if (tokens.isEmpty() || !tokens.all(WylieToken::matches)) return false
         return tokens.any { token -> TibetanOnsets.any(token::startsWith) } ||
             tokens.any { '\'' in it } ||
