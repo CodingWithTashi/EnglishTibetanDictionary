@@ -67,7 +67,7 @@ class PyewtsConverter:
         import pyewts
 
         self._impl = pyewts.pyewts()
-        self._name = f"pyewts {importlib.metadata.version('pyewts')}"
+        self._name = _name_with_version("pyewts")
 
     @property
     def name(self) -> str:
@@ -85,6 +85,18 @@ class PyewtsConverter:
         warnings: list[str] = []
         text = self._impl.toUnicode(wylie, warnings)
         return Conversion(text=text, warnings=tuple(warnings))
+
+
+def _name_with_version(distribution: str) -> str:
+    """`"pyewts 0.2.0"`, or just `"pyewts"` when the module imports without distribution metadata.
+
+    PackageNotFoundError is an ImportError: left uncaught, `load_converter` would treat a working
+    pyewts as missing.
+    """
+    try:
+        return f"{distribution} {importlib.metadata.version(distribution)}"
+    except importlib.metadata.PackageNotFoundError:
+        return distribution
 
 
 def load_converter(require: bool) -> WylieConverter:

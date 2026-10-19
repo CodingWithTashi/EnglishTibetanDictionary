@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import importlib.util
 import sys
+import types
 
 import pytest
 
@@ -57,6 +59,24 @@ def test_null_converter_converts_nothing() -> None:
     assert not converter.available
     assert converter.to_wylie("བཀྲ་ཤིས་") is None
     assert converter.to_unicode("bkra shis") is None
+
+
+def test_load_converter_with_pyewts_lacking_distribution_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeEwts:
+        def toWylie(self, tibetan: str) -> str:
+            return "bkra shis "
+
+    def no_metadata(name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setitem(sys.modules, "pyewts", types.SimpleNamespace(pyewts=FakeEwts))
+    monkeypatch.setattr(importlib.metadata, "version", no_metadata)
+
+    converter = load_converter(require=True)
+
+    assert isinstance(converter, PyewtsConverter)
+    assert converter.name == "pyewts"
+    assert converter.to_wylie("བཀྲ་ཤིས་") == "bkra shis"
 
 
 def test_load_converter_without_pyewts(monkeypatch: pytest.MonkeyPatch) -> None:
