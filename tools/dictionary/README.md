@@ -90,8 +90,12 @@ T1.3 adds `parsers/{entotb,labels_en,tben,tbtb,labels_bo}.py` and `grouping`, `r
 
 **`normalise_english_headword`**
 - Returns `(display, homonym digit, lower-cased group key)`.
-- Only a digit glued to the final letter is a homonym marker: `lead1` → `lead`, `1`.
+- A digit glued to a final letter is a homonym marker, even after a single letter: `lead1` → `lead`, `1`
+  and `I1` → `I`, `1`.
+- Headwords in `ENGLISH_HOMONYM_EXCEPTIONS` keep their digit: `K2` (the mountain) stays `K2`, with
+  group key `k2`.
 - Spaced numbers stay in the headword: `calender 1`.
+- With this rule en-bo has 35,888 entries.
 
 **`is_truncated(raw)`**
 - True when the raw field is at least 250 characters long and its cleaned text does not end in

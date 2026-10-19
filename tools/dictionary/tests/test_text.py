@@ -77,6 +77,8 @@ def test_normalise_tibetan_headword(raw: str, headword: str, marker: str | None)
         ("lead2", "lead", "2", "lead"),
         ("Adam &  Eve", "Adam & Eve", None, "adam & eve"),
         ("bright’s disease1", "bright’s disease", "1", "bright’s disease"),
+        ("I1", "I", "1", "i"),  # the pronoun is homonym 1 of the letter i
+        ("K2", "K2", None, "k2"),  # the mountain, listed in ENGLISH_HOMONYM_EXCEPTIONS
         ("May", "May", None, "may"),
         # Only a digit glued to the final letter is a homonym marker.
         ("calender  1", "calender 1", None, "calender 1"),

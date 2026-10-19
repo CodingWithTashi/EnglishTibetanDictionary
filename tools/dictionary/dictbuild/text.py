@@ -24,10 +24,15 @@ _TIBETAN_HOMONYM_SUFFIX = re.compile(r"^(?P<word>.*[^\s0-9\u0f20-\u0f29])\s*(?P<
 # Rule "Tibetan headwords end with a tsheg": trailing tsheg, shad (། ༎) and spaces are replaced by one tsheg.
 _TIBETAN_HEADWORD_END = re.compile(r"[\s\u0f0b\u0f0d\u0f0e]+$")
 
-# Rule "entotb: headword homonym digit `lead1` → strip": one digit glued to the final letter. Other
-# trailing numbers ("calender 1", "housing 1.", "vide page 20") stay part of the headword; the plan's
-# en-bo entry count (35,887) is computed with exactly this rule.
+# Rule "entotb: headword homonym digit `lead1` → strip": one digit glued to a final letter, even a
+# single one ("I1" is homonym 1 of the letter "i"). Other trailing numbers ("calender 1",
+# "housing 1.", "vide page 20") stay part of the headword. Headwords in ENGLISH_HOMONYM_EXCEPTIONS
+# end in a digit that is part of the name, so they keep it. With this rule en-bo has 35,888 entries.
 _ENGLISH_HOMONYM_SUFFIX = re.compile(r"^(?P<word>.*[^\W\d_])(?P<digit>[0-9])$")
+
+# Controller ruling (T1.2 review): headwords whose final digit is not a homonym marker.
+# "K2" is the mountain, not homonym 2 of the letter "k".
+ENGLISH_HOMONYM_EXCEPTIONS: frozenset[str] = frozenset({"K2"})
 
 # Rule "Tibetan syllables are delimited by tsheg, shad marks or spaces".
 _SYLLABLE_DELIMITERS = re.compile(r"[\s\u0f0b\u0f0c\u0f0d-\u0f12\u0f14]+")
@@ -93,11 +98,12 @@ def normalise_tibetan_headword(raw: str) -> tuple[str, str | None]:
 def normalise_english_headword(raw: str) -> tuple[str, str | None, str]:
     """Return (display headword, homonym digit or None, lower-cased group key).
 
-    `"lead1"` → `("lead", "1", "lead")`, `"Adam &  Eve"` → `("Adam & Eve", None, "adam & eve")`.
+    `"lead1"` → `("lead", "1", "lead")`, `"Adam &  Eve"` → `("Adam & Eve", None, "adam & eve")`,
+    `"K2"` → `("K2", None, "k2")` (an `ENGLISH_HOMONYM_EXCEPTIONS` headword).
     """
     text = preprocess(raw)
     digit: str | None = None
-    if match := _ENGLISH_HOMONYM_SUFFIX.match(text):
+    if text not in ENGLISH_HOMONYM_EXCEPTIONS and (match := _ENGLISH_HOMONYM_SUFFIX.match(text)):
         text, digit = match.group("word"), match.group("digit")
     return text, digit, text.lower()
 
