@@ -127,7 +127,7 @@ class AppNavHostTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("Onboarding").assertExists()
-        compose.onNodeWithText("Entry").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
     }
 
     @Test
@@ -136,7 +136,7 @@ class AppNavHostTest {
 
         openLink("app://entry/42")
 
-        compose.onNodeWithText("Entry").assertExists()
+        compose.onNodeWithTag("entry_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
 
         pressBack()
