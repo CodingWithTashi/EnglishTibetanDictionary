@@ -31,7 +31,13 @@ class MainViewModelTest {
 
     @Test
     fun `the scaffold shows the tabs for the current Learn flag`() {
-        assertThat(MainViewModel(SavedStateHandle()).tabs).isEqualTo(visibleTabs(Features.LEARN))
+        val expected = if (Features.LEARN) {
+            listOf(MainTab.SEARCH, MainTab.SAVED, MainTab.LEARN, MainTab.PROFILE)
+        } else {
+            listOf(MainTab.SEARCH, MainTab.SAVED, MainTab.PROFILE)
+        }
+
+        assertThat(MainViewModel(SavedStateHandle()).tabs).containsExactlyElementsIn(expected).inOrder()
     }
 
     @Test
