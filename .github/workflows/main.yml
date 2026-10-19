@@ -5,7 +5,7 @@ on:
     branches: [master]
   push:
     branches: [master]
-  workflow_call: # release.yml runs these checks before shipping.
+  workflow_call: # lets a release workflow reuse these checks before shipping.
 
 jobs:
   build:
@@ -31,9 +31,6 @@ jobs:
             exit 1
           fi
           echo "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
 
       - name: Build, unit test and lint (debug)
         run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon --stacktrace

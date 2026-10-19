@@ -126,6 +126,8 @@
     <!-- First-launch install -->
     <!-- %1$s: entry count, already formatted for the app language -->
     <string name="installing_entries">Preparing %1$s entries · offline</string>
+    <!-- Shown instead of installing_entries while the entry count is not known yet -->
+    <string name="installing_dictionary">Preparing the dictionary · offline</string>
     <string name="install_failed">Couldn\'t prepare the dictionary.</string>
     <string name="try_again">Try again</string>
 
