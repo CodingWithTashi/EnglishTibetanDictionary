@@ -25,8 +25,9 @@ import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 val LocalAppLanguage = staticCompositionLocalOf { AppLanguage.EN }
 
 /**
- * Material 3 colour scheme bridged from these tokens, so stock M3 components pick up the palette. Roles not
- * listed keep the M3 baseline; components must style themselves from [DictColors] rather than rely on them.
+ * Material 3 colour scheme bridged from these tokens, so stock M3 components pick up the palette. Every role
+ * is set, so no M3 baseline (purple) colour reaches a stock component. [ColorScheme.surfaceTint] is the
+ * background, so tonal elevation never tints a surface.
  */
 internal fun DictColors.materialColorScheme(): ColorScheme =
     (if (isDark) darkColorScheme() else lightColorScheme()).copy(
@@ -34,23 +35,51 @@ internal fun DictColors.materialColorScheme(): ColorScheme =
         onPrimary = onAccent,
         primaryContainer = accentContainer,
         onPrimaryContainer = onAccentContainer,
+        inversePrimary = inverseAccent,
         secondary = muted,
+        onSecondary = background,
+        secondaryContainer = surface2,
+        onSecondaryContainer = ink,
+        tertiary = accent,
+        onTertiary = onAccent,
+        tertiaryContainer = accentContainer,
+        onTertiaryContainer = onAccentContainer,
         background = background,
         onBackground = ink,
         surface = background,
         onSurface = ink,
         surfaceVariant = surface1,
         onSurfaceVariant = muted,
+        surfaceTint = background,
+        inverseSurface = inverseSurface,
+        inverseOnSurface = inverseOnSurface,
+        error = danger,
+        onError = onAccent,
+        errorContainer = accentContainer,
+        onErrorContainer = danger,
+        outline = outline,
+        outlineVariant = divider,
+        scrim = scrim,
+        // Bright is the lightest surface and dim the darkest, so the two swap between palettes.
+        surfaceBright = if (isDark) surface2 else background,
+        surfaceDim = if (isDark) background else surface2,
+        surfaceContainerLowest = background,
         surfaceContainerLow = surface1,
         surfaceContainer = surface1,
         surfaceContainerHigh = surface2,
         surfaceContainerHighest = surface2,
-        outline = outline,
-        outlineVariant = divider,
-        error = danger,
-        inverseSurface = inverseSurface,
-        inverseOnSurface = inverseOnSurface,
-        inversePrimary = inverseAccent,
+        primaryFixed = accentContainer,
+        primaryFixedDim = accentContainer,
+        onPrimaryFixed = onAccentContainer,
+        onPrimaryFixedVariant = onAccentContainer,
+        secondaryFixed = surface1,
+        secondaryFixedDim = surface2,
+        onSecondaryFixed = ink,
+        onSecondaryFixedVariant = muted,
+        tertiaryFixed = accentContainer,
+        tertiaryFixedDim = accentContainer,
+        onTertiaryFixed = onAccentContainer,
+        onTertiaryFixedVariant = onAccentContainer,
     )
 
 private fun TextStyle.inNotoSans(scale: Float): TextStyle = copy(
