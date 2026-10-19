@@ -2,4 +2,152 @@
 <resources>
     <string name="app_name">Tibetan Dictionary</string>
     <string name="app_name_tibetan" translatable="false">བོད་ཡིག་ཚིག་མཛོད།</string>
+
+    <!-- Bottom navigation: English label with a Tibetan gloss; values-bo swaps which is primary. -->
+    <string name="tab_search">Search</string>
+    <string name="tab_saved">Saved</string>
+    <string name="tab_learn">Learn</string>
+    <string name="tab_profile">Profile</string>
+    <string name="tab_search_gloss">འཚོལ།</string>
+    <string name="tab_saved_gloss">ཉར་ཚགས།</string>
+    <string name="tab_learn_gloss">སྦྱོང་།</string>
+    <string name="tab_profile_gloss">སྒེར།</string>
+
+    <!-- Home -->
+    <string name="greeting_morning">Good morning · ཞོགས་པ་བདེ་ལེགས།</string>
+    <string name="greeting_afternoon">Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།</string>
+    <string name="greeting_evening">Good evening · དགོང་དྲོ་བདེ་ལེགས།</string>
+    <!-- %1$s: number of days, already formatted for the app language -->
+    <plurals name="streak_days">
+        <item quantity="one">%1$s-day streak</item>
+        <item quantity="other">%1$s-day streak</item>
+    </plurals>
+    <string name="wotd_overline">Word of the day</string>
+    <string name="wotd_open">Open</string>
+    <string name="recent">Recent</string>
+    <string name="clear">Clear</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Search a word · ཚིག་འཚོལ།</string>
+    <string name="search_placeholder_saved">Search saved words</string>
+    <!-- %1$s: number of results, already formatted for the app language -->
+    <plurals name="results_count">
+        <item quantity="one">%1$s result</item>
+        <item quantity="other">%1$s results</item>
+    </plurals>
+    <!-- %1$s: the query as typed -->
+    <string name="no_match_title">No match for “%1$s”</string>
+    <string name="no_match_hint_wylie">Wylie syllables are separated by spaces. Did you mean:</string>
+    <string name="no_match_hint_english">Check the spelling or try a shorter word. Did you mean:</string>
+    <string name="no_match_hint_tibetan">Possibly a spelling variant. Closest entries:</string>
+    <!-- %1$s: short direction label, e.g. "EN → བོད" -->
+    <string name="try_direction_instead">Try %1$s instead</string>
+    <string name="wylie_tip">Tip: type Wylie with spaces between syllables, e.g. bkra shis, and it matches བཀྲ་ཤིས།</string>
+
+    <!-- Entry -->
+    <string name="see_also">See also</string>
+    <string name="example_abbr">e.g.</string>
+    <string name="report_correction_prefix">Something wrong?</string>
+    <string name="report_correction">Report a correction</string>
+    <string name="entry_truncated">This entry was shortened to fit the app. The full text is in the source dictionary.</string>
+    <string name="entry_missing">This entry is no longer in the dictionary.</string>
+
+    <!-- Saved -->
+    <string name="saved_title">Saved</string>
+    <string name="saved_gloss">ཉར་ཚགས།</string>
+    <!-- %1$s: number of saved words, already formatted for the app language -->
+    <plurals name="saved_count">
+        <item quantity="one">%1$s word</item>
+        <item quantity="other">%1$s words</item>
+    </plurals>
+    <!-- %1$s: headword, %2$s: folder name -->
+    <string name="saved_to_folder">Saved %1$s to %2$s</string>
+    <!-- %1$s: headword -->
+    <string name="saved_simple">Saved %1$s</string>
+    <string name="change">Change</string>
+    <string name="undo">Undo</string>
+    <string name="removed">Removed</string>
+    <string name="all_folder">All</string>
+    <string name="new_folder">New folder</string>
+    <string name="saved_empty_title">Nothing saved yet</string>
+    <string name="saved_empty_body">Tap the heart on any entry to keep it here.</string>
+    <string name="saved_empty_body_learn">Saved words become your flashcards in Learn.</string>
+    <!-- %1$s: today's headword -->
+    <string name="save_todays_word">Save today\'s word %1$s</string>
+    <string name="no_matches">No matches</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_gloss">སྒེར།</string>
+    <string name="reading">Reading</string>
+    <string name="text_size_spacing">Text size &amp; spacing</string>
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+    <string name="default_direction">Default direction</string>
+    <string name="app_language">App language</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_bo" translatable="false">བོད་ཡིག</string>
+    <string name="wotd_notification">Word of the day notification</string>
+    <string name="about">About</string>
+    <string name="rate">Rate</string>
+    <string name="share_app">Share app</string>
+    <string name="more_apps">More apps</string>
+    <string name="support">Support &amp; donate</string>
+    <string name="privacy">Privacy</string>
+    <!-- %1$s: version name, %2$s: entry count, already formatted for the app language -->
+    <string name="version_line">Tibetan Dictionary %1$s · %2$s entries · offline</string>
+    <!-- version_line when the entry count is unknown. %1$s: version name -->
+    <string name="version_line_no_count">Tibetan Dictionary %1$s · offline</string>
+
+    <!-- Onboarding -->
+    <!-- "continue" is a reserved Java keyword, so the key carries a trailing underscore. -->
+    <string name="continue_">Continue</string>
+    <string name="skip">Skip</string>
+    <string name="onboarding_direction_title">Which way do you look up words most?</string>
+    <string name="onboarding_direction_body">Sets the default direction. You can switch any time with one tap.</string>
+    <string name="onboarding_textsize_title">Comfortable to read?</string>
+    <string name="onboarding_textsize_body">Tibetan is shown larger than English so stacked letters stay clear.</string>
+    <string name="onboarding_account_title">Keep your words on every device</string>
+    <string name="onboarding_account_body">Signing in only syncs saved words, history and settings. Everything works offline without it.</string>
+    <string name="continue_without_account">Continue without account</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_in_later_note">You can sign in later from Profile.</string>
+
+    <!-- Text size and spacing -->
+    <string name="text_size">Text size</string>
+    <string name="line_spacing">Line spacing</string>
+    <string name="text_size_small">Small</string>
+    <string name="text_size_default">Default</string>
+    <string name="text_size_large">Large</string>
+    <string name="text_size_largest">Largest</string>
+
+    <!-- First-launch install -->
+    <!-- %1$s: entry count, already formatted for the app language -->
+    <string name="installing_entries">Preparing %1$s entries · offline</string>
+    <string name="install_failed">Couldn\'t prepare the dictionary.</string>
+    <string name="try_again">Try again</string>
+
+    <!-- Actions and content descriptions -->
+    <string name="voice_search">Voice search</string>
+    <string name="play_audio">Play pronunciation</string>
+    <string name="save">Save</string>
+    <string name="saved_cd">Saved</string>
+    <string name="copy">Copy</string>
+    <string name="share">Share</string>
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="more">More</string>
+
+    <!-- Direction descriptions (onboarding cards, direction picker) -->
+    <string name="direction_desc_bo_en">Tibetan to English</string>
+    <string name="direction_desc_bo_bo">Tibetan definitions</string>
+    <string name="direction_desc_en_bo">English to Tibetan</string>
+
+    <!-- About -->
+    <string name="about_data">Dictionary data: Monlam Tibetan Dictionary by Lobsang Monlam (GPL-3)</string>
+    <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
+    <!-- %1$s: Play Store link -->
+    <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
 </resources>
