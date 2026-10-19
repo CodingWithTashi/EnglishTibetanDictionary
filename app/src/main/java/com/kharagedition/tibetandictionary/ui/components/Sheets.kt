@@ -27,15 +27,12 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -287,8 +284,12 @@ private fun TextSizeContent(
 
 /**
  * Picks the folder a saved word goes into: "All" (no folder, [selectedId] null) and each of [folders] with its
- * word count, then "New folder", which opens an inline name field; a non-blank name is passed to [onCreate].
+ * word count. Stateless: the caller owns the new-folder state. "New folder" calls [onStartCreate]; while
+ * [creating], an inline field edits [newFolderName] through [onNewFolderNameChange] (clear a stale
+ * [createError] there), Save passes the trimmed name to [onCreate], and the close button calls [onCancelCreate].
  * [createError] (e.g. a duplicate name) shows under the field.
+ *
+ * Test tag: `folder_name_field`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -296,12 +297,30 @@ fun FolderPickerSheet(
     folders: List<FolderUi>,
     selectedId: Long?,
     onPick: (Long?) -> Unit,
+    creating: Boolean,
+    newFolderName: String,
+    onNewFolderNameChange: (String) -> Unit,
+    onStartCreate: () -> Unit,
+    onCancelCreate: () -> Unit,
     onCreate: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     createError: String? = null,
 ) {
-    DictModalSheet(onDismiss, modifier) { FolderPickerContent(folders, selectedId, onPick, onCreate, createError) }
+    DictModalSheet(onDismiss, modifier) {
+        FolderPickerContent(
+            folders = folders,
+            selectedId = selectedId,
+            onPick = onPick,
+            creating = creating,
+            newFolderName = newFolderName,
+            onNewFolderNameChange = onNewFolderNameChange,
+            onStartCreate = onStartCreate,
+            onCancelCreate = onCancelCreate,
+            onCreate = onCreate,
+            createError = createError,
+        )
+    }
 }
 
 @Composable
@@ -309,14 +328,16 @@ private fun FolderPickerContent(
     folders: List<FolderUi>,
     selectedId: Long?,
     onPick: (Long?) -> Unit,
+    creating: Boolean,
+    newFolderName: String,
+    onNewFolderNameChange: (String) -> Unit,
+    onStartCreate: () -> Unit,
+    onCancelCreate: () -> Unit,
     onCreate: (String) -> Unit,
     createError: String?,
-    startCreating: Boolean = false,
 ) {
-    var creating by rememberSaveable { mutableStateOf(startCreating) }
-    var name by rememberSaveable { mutableStateOf("") }
     val language = DictTheme.language
-    SheetTitle(stringResource(R.string.saved_title))
+    SheetTitle(stringResource(R.string.folder_picker_title))
     OptionList {
         OptionCard(selected = selectedId == null, onClick = { onPick(null) }) {
             MixedText(stringResource(R.string.all_folder), DictTheme.type.buttonLarge, DictTheme.type.tibetanGloss)
@@ -328,19 +349,20 @@ private fun FolderPickerContent(
             }
         }
         if (creating) {
-            FolderNameField(name, { name = it }, onDone = { if (name.isNotBlank()) onCreate(name.trim()) })
+            val name = newFolderName.trim()
+            FolderNameField(newFolderName, onNewFolderNameChange, onSave = { if (name.isNotEmpty()) onCreate(name) }, onCancelCreate)
             if (createError != null) {
                 MixedText(createError, DictTheme.type.caption, DictTheme.type.tibetanInline14, color = DictTheme.colors.danger)
             }
         } else {
-            TextButton(stringResource(R.string.new_folder), { creating = true }, leading = DictIcons.Plus)
+            TextButton(stringResource(R.string.new_folder), onStartCreate, leading = DictIcons.Plus)
         }
     }
 }
 
-/** Compact pill field for a new folder's name, with a Save button. */
+/** Compact pill field for a new folder's name, with Save (enabled once the name is not blank) and cancel. */
 @Composable
-private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onDone: () -> Unit) {
+private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
     val colors = DictTheme.colors
     val type = DictTheme.type
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
@@ -353,24 +375,35 @@ private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onDone
                 .clip(DictShapes.pill)
                 .background(colors.surface1)
                 .border(DictTheme.dimens.focusBorder, colors.accent, DictShapes.pill)
-                .padding(horizontal = DictTheme.dimens.cardPaddingHorizontal),
+                .padding(horizontal = DictTheme.dimens.cardPaddingHorizontal)
+                .testTag(FOLDER_NAME_TAG),
             textStyle = type.body.copy(color = colors.ink),
             singleLine = true,
             cursorBrush = SolidColor(colors.accent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            keyboardActions = KeyboardActions(onDone = { onSave() }),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (name.isEmpty()) {
-                        MixedText(stringResource(R.string.new_folder), type.body, type.tibetanInline16, color = colors.muted)
+                        MixedText(stringResource(R.string.new_folder_hint), type.body, type.tibetanInline16, color = colors.muted)
                     }
                     inner()
                 }
             },
         )
-        FilledButton(stringResource(R.string.save), onDone, size = ButtonSize.Small, enabled = name.isNotBlank())
+        FilledButton(stringResource(R.string.save), onSave, size = ButtonSize.Small, enabled = name.isNotBlank())
+        DictIconButton(
+            DictIcons.Close,
+            stringResource(R.string.close),
+            onCancel,
+            size = DictTheme.dimens.iconButtonMedium,
+            iconSize = DictTheme.dimens.iconSmall,
+            tint = colors.muted,
+        )
     }
 }
+
+private const val FOLDER_NAME_TAG = "folder_name_field"
 
 @Composable
 private fun OptionList(content: @Composable ColumnScope.() -> Unit) {
@@ -424,13 +457,37 @@ private fun TextSizeSheetPreview() {
 @PreviewLightDark
 @Composable
 private fun FolderPickerPreview() {
-    SheetPreviewFrame { FolderPickerContent(PreviewSamples.folders, 2, {}, {}, createError = null) }
+    SheetPreviewFrame {
+        FolderPickerContent(
+            folders = PreviewSamples.folders,
+            selectedId = 2,
+            onPick = {},
+            creating = false,
+            newFolderName = "",
+            onNewFolderNameChange = {},
+            onStartCreate = {},
+            onCancelCreate = {},
+            onCreate = {},
+            createError = null,
+        )
+    }
 }
 
 @PreviewLightDark
 @Composable
 private fun FolderPickerCreatingPreview() {
     SheetPreviewFrame {
-        FolderPickerContent(PreviewSamples.folders, null, {}, {}, createError = "A folder with this name exists.", startCreating = true)
+        FolderPickerContent(
+            folders = PreviewSamples.folders,
+            selectedId = null,
+            onPick = {},
+            creating = true,
+            newFolderName = "Daily",
+            onNewFolderNameChange = {},
+            onStartCreate = {},
+            onCancelCreate = {},
+            onCreate = {},
+            createError = "A folder with this name exists.",
+        )
     }
 }

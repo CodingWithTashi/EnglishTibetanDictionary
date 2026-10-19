@@ -69,6 +69,9 @@
     <string name="removed">Removed</string>
     <string name="all_folder">All</string>
     <string name="new_folder">New folder</string>
+    <string name="folder_picker_title">Save to folder</string>
+    <!-- Placeholder of the new-folder name field -->
+    <string name="new_folder_hint">Folder name</string>
     <string name="saved_empty_title">Nothing saved yet</string>
     <string name="saved_empty_body">Tap the heart on any entry to keep it here.</string>
     <string name="saved_empty_body_learn">Saved words become your flashcards in Learn.</string>
