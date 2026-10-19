@@ -30,10 +30,11 @@ data class DirectionSlots(
          * - **None visible**: empty slots.
          */
         fun compute(all: List<Direction>, defaultId: String, selectedId: String?): DirectionSlots {
+            val default = defaultDirection(all, defaultId)
+                ?: return DirectionSlots(fixed = emptyList(), overflow = emptyList())
             val visible = visible(all)
             if (visible.size <= SEGMENTS) return DirectionSlots(fixed = visible, overflow = emptyList())
 
-            val default = visible.firstOrNull { it.id == defaultId } ?: visible.first()
             val index = visible.indexOf(default)
             val partner = visible.firstOrNull { it.isReverseOf(default) } ?: visible[(index + 1) % visible.size]
             val fixed = listOf(default, partner)
