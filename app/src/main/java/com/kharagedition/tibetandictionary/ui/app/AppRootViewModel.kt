@@ -1,11 +1,9 @@
 package com.kharagedition.tibetandictionary.ui.app
 
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
-import com.kharagedition.tibetandictionary.core.locale.AppLanguage
-import com.kharagedition.tibetandictionary.core.locale.AppLocale
+import com.kharagedition.tibetandictionary.core.init.AppInitializer
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
@@ -22,7 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface AppRootState {
-    /** Before the installer has started copying: the system splash stays up. */
+    /** Start-up is still running and the installer has not started copying: the system splash stays up. */
     data object Loading : AppRootState
 
     /**
@@ -35,27 +33,39 @@ sealed interface AppRootState {
         val failure: Throwable? = null,
     ) : AppRootState
 
+    /** The app, with the user's display settings. The UI language follows the configuration, not prefs. */
     data class Ready(
         val onboarded: Boolean,
         val appearance: Appearance,
         val textSize: AppTextSize,
         val lineSpacing: Float,
-        val language: AppLanguage,
     ) : AppRootState
 }
 
-/** What the activity shows at the root: the splash, the installing screen, or the app with the user's settings. */
+/**
+ * What the activity shows at the root: the splash, the installing screen, or the app with the user's settings.
+ * Start-up that finishes ([AppInitializer.ready]) while the installer still reports [InstallState.Checking] means
+ * the installer threw before reporting anything; that shows the retry screen instead of keeping the splash up.
+ */
 @HiltViewModel
 class AppRootViewModel @Inject constructor(
     private val installer: DictionaryInstaller,
+    initializer: AppInitializer,
     prefsRepository: UserPreferencesRepository,
     private val errors: ErrorReporter,
 ) : ViewModel() {
 
+    private val installerDidNotStart = IllegalStateException("installer did not start")
+
     val uiState: StateFlow<AppRootState> =
-        combine(installer.state, prefsRepository.prefs) { install, prefs ->
+        combine(installer.state, initializer.ready, prefsRepository.prefs) { install, startupDone, prefs ->
             when (install) {
-                InstallState.Checking -> AppRootState.Loading
+                InstallState.Checking ->
+                    if (startupDone) {
+                        AppRootState.Installing(progress = null, totalEntries = null, failure = installerDidNotStart)
+                    } else {
+                        AppRootState.Loading
+                    }
                 is InstallState.Copying -> AppRootState.Installing(progress = install.progress, totalEntries = null)
                 is InstallState.Failed -> AppRootState.Installing(progress = null, totalEntries = null, failure = install.cause)
                 is InstallState.Ready -> prefs.toReady()
@@ -81,7 +91,5 @@ class AppRootViewModel @Inject constructor(
         appearance = appearance,
         textSize = textSize,
         lineSpacing = lineSpacing,
-        // A per-app locale chosen in system settings wins until AppInitializer copies it into prefs.
-        language = if (AppCompatDelegate.getApplicationLocales().isEmpty) appLanguage else AppLocale.current(),
     )
 }

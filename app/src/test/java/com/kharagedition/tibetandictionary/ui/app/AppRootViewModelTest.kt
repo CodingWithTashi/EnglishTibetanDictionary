@@ -1,9 +1,13 @@
 package com.kharagedition.tibetandictionary.ui.app
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainDispatcherRule
-import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.init.AppInitializer
+import com.kharagedition.tibetandictionary.core.init.LegacyCleanup
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
@@ -14,31 +18,50 @@ import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
 
+/** Runs on Robolectric so the real [AppInitializer] (legacy cleanup, then install, then ready) drives start-up. */
+@RunWith(AndroidJUnit4::class)
 class AppRootViewModelTest {
 
     @get:Rule
     val main = MainDispatcherRule()
 
+    private val context = ApplicationProvider.getApplicationContext<Context>()
     private val installer = FakeInstaller()
     private val prefs = FakeUserPreferencesRepository(
-        UserPrefs(
-            onboarded = true,
-            appLanguage = AppLanguage.BO,
-            appearance = Appearance.DARK,
-            textSize = AppTextSize.LARGE,
-            lineSpacing = 2.1f,
-        ),
+        UserPrefs(onboarded = true, appearance = Appearance.DARK, textSize = AppTextSize.LARGE, lineSpacing = 2.1f),
     )
     private val errors = RecordingErrorReporter()
+    private val startup = StandardTestDispatcher()
 
-    private fun viewModel(installer: DictionaryInstaller = this.installer) = AppRootViewModel(installer, prefs, errors)
+    /** An installer whose [ensureInstalled] throws [error] without ever leaving [initial]. */
+    private class ThrowingInstaller(initial: InstallState, private val error: Throwable) : DictionaryInstaller {
+        override val state = MutableStateFlow(initial)
+        override suspend fun ensureInstalled() = throw error
+    }
+
+    private fun initializer(installer: DictionaryInstaller) =
+        AppInitializer(LegacyCleanup(context, prefs), installer, prefs, errors, TestScope(startup), startup)
+
+    private fun viewModel(
+        installer: DictionaryInstaller = this.installer,
+        initializer: AppInitializer = initializer(installer),
+    ) = AppRootViewModel(installer, initializer, prefs, errors)
+
+    /** Runs start-up (cleanup, install, ready) to the end. */
+    private fun AppInitializer.runStartup() {
+        start()
+        startup.scheduler.advanceUntilIdle()
+    }
 
     @Test
-    fun `Loading while the installer is checking`() = runTest {
+    fun `Loading while start-up runs and the installer is checking`() = runTest {
         viewModel().uiState.test {
             assertThat(awaitItem()).isEqualTo(AppRootState.Loading)
         }
@@ -54,21 +77,21 @@ class AppRootViewModelTest {
     }
 
     @Test
-    fun `Ready carries the prefs once the installer is ready`() = runTest {
-        viewModel().uiState.test {
+    fun `Ready carries the prefs once start-up has installed the dictionary`() = runTest {
+        installer.outcome = InstallState.Ready(totalEntries = 180_412)
+        val init = initializer(installer)
+
+        viewModel(installer, init).uiState.test {
             assertThat(awaitItem()).isEqualTo(AppRootState.Loading)
 
-            installer.state.value = InstallState.Copying(0.9f)
-            assertThat(awaitItem()).isInstanceOf(AppRootState.Installing::class.java)
+            init.runStartup()
 
-            installer.state.value = InstallState.Ready(totalEntries = 180_412)
             assertThat(awaitItem()).isEqualTo(
                 AppRootState.Ready(
                     onboarded = true,
                     appearance = Appearance.DARK,
                     textSize = AppTextSize.LARGE,
                     lineSpacing = 2.1f,
-                    language = AppLanguage.BO,
                 ),
             )
         }
@@ -97,6 +120,22 @@ class AppRootViewModelTest {
     }
 
     @Test
+    fun `an installer that throws while checking shows the retry screen instead of the splash`() = runTest {
+        val throwing = ThrowingInstaller(InstallState.Checking, IllegalStateException("installer bug"))
+        val init = initializer(throwing)
+
+        viewModel(throwing, init).uiState.test {
+            assertThat(awaitItem()).isEqualTo(AppRootState.Loading)
+
+            init.runStartup()
+
+            val state = awaitItem() as AppRootState.Installing
+            assertThat(state.progress).isNull()
+            assertThat(state.failure).isInstanceOf(IllegalStateException::class.java)
+        }
+    }
+
+    @Test
     fun `retryInstall runs the installer again`() = runTest {
         installer.state.value = InstallState.Failed(IOException("disk full"))
         installer.outcome = InstallState.Ready(totalEntries = 10)
@@ -115,10 +154,7 @@ class AppRootViewModelTest {
     @Test
     fun `retryInstall reports an installer that throws instead of crashing`() = runTest {
         val bug = IllegalStateException("installer bug")
-        val throwing = object : DictionaryInstaller {
-            override val state = MutableStateFlow<InstallState>(InstallState.Failed(IOException("disk full")))
-            override suspend fun ensureInstalled() = throw bug
-        }
+        val throwing = ThrowingInstaller(InstallState.Failed(IOException("disk full")), bug)
 
         viewModel(throwing).retryInstall()
 

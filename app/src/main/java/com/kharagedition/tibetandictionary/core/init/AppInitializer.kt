@@ -20,8 +20,9 @@ import kotlinx.coroutines.launch
 
 /**
  * Start-up work, run once per process off the main thread: legacy cleanup, then the dictionary install, then
- * [ready]. A failing step is reported and skipped so the app always gets past the splash; install failures show
- * on the installing screen through the installer's own state.
+ * [ready]. A failing step is reported and skipped so the app always gets past the splash. Install failures show on
+ * the installing screen through the installer's state; an installer that throws before reporting anything is
+ * still at `Checking` once [ready] is set, which the root view model shows as a failure with retry.
  */
 @Singleton
 class AppInitializer @Inject constructor(

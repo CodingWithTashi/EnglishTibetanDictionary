@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.navigation.compose.rememberNavController
@@ -30,6 +31,9 @@ import com.kharagedition.tibetandictionary.ui.components.Toaster
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import com.kharagedition.tibetandictionary.ui.theme.SystemBarIcons
 
+/** Test tag of the running app's root. */
+const val APP_ROOT_TAG = "app_root"
+
 /** Whether [this] appearance draws the dark palette, following the system for [Appearance.SYSTEM]. */
 @Composable
 private fun Appearance.isDark(): Boolean = when (this) {
@@ -42,12 +46,9 @@ private fun Appearance.isDark(): Boolean = when (this) {
 @Composable
 fun AppRoot(state: AppRootState.Ready) {
     val isDark = state.appearance.isDark()
-    DictTheme(
-        darkTheme = isDark,
-        textScale = state.textSize.scale,
-        lineSpacing = state.lineSpacing,
-        language = state.language,
-    ) {
+    // The language comes from the composition's configuration (DictTheme's default), so typography always
+    // matches the resources on screen, including right after a per-app or system locale change.
+    DictTheme(darkTheme = isDark, textScale = state.textSize.scale, lineSpacing = state.lineSpacing) {
         val hostState = remember { SnackbarHostState() }
         val accessibility = LocalAccessibilityManager.current
         val toaster = remember(hostState, accessibility) { Toaster(hostState, accessibility) }
@@ -65,6 +66,7 @@ fun AppRoot(state: AppRootState.Ready) {
                     .fillMaxSize()
                     .onSizeChanged { rootHeight = it.height }
                     .background(DictTheme.colors.background)
+                    .testTag(APP_ROOT_TAG)
                     // Exposes testTag values as resource ids so UI-automation flows can select by id.
                     .semantics { testTagsAsResourceId = true },
             ) {
