@@ -1,13 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.home
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.app.RouteStub
 
 /**
  * Home page of the Search tab (1a/2a). Stub until L2 (T2.3) replaces the body: [onOpenSearch] opens the Search
@@ -15,7 +9,10 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
  */
 @Composable
 fun HomeScreen(onOpenSearch: (query: String?, voice: Boolean) -> Unit, onOpenEntry: (Long) -> Unit) {
-    Box(Modifier.fillMaxSize().background(DictTheme.colors.background), contentAlignment = Alignment.Center) {
-        Text("Home", style = DictTheme.type.screenTitle, color = DictTheme.colors.ink)
-    }
+    RouteStub(
+        "Home",
+        "Open search" to { onOpenSearch(null, false) },
+        "Voice search" to { onOpenSearch(null, true) },
+        "Open entry" to { onOpenEntry(1) },
+    )
 }

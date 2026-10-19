@@ -1,13 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.learn
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.app.RouteStub
 
 /**
  * The Learn tab (flashcards). Placeholder: the tab is only shown when
@@ -15,7 +9,5 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
  */
 @Composable
 fun LearnScreen() {
-    Box(Modifier.fillMaxSize().background(DictTheme.colors.background), contentAlignment = Alignment.Center) {
-        Text("Learn", style = DictTheme.type.screenTitle, color = DictTheme.colors.ink)
-    }
+    RouteStub("Learn")
 }

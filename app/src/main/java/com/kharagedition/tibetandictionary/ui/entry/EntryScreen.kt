@@ -1,13 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.entry
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.app.RouteStub
 
 /**
  * One entry (1h/1l). Stub until L3 (T3.1) replaces the body: [onOpenEntry] pushes a see-also entry,
@@ -15,7 +9,10 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
  */
 @Composable
 fun EntryScreen(entryId: Long, onBack: () -> Unit, onOpenEntry: (Long) -> Unit, onOpenSearch: (String) -> Unit) {
-    Box(Modifier.fillMaxSize().background(DictTheme.colors.background), contentAlignment = Alignment.Center) {
-        Text("Entry", style = DictTheme.type.screenTitle, color = DictTheme.colors.ink)
-    }
+    RouteStub(
+        "Entry $entryId",
+        "Back" to onBack,
+        "See also" to { onOpenEntry(entryId + 1) },
+        "Search headword" to { onOpenSearch("bkra") },
+    )
 }
