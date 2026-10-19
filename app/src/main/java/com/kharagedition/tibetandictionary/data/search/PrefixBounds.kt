@@ -1,8 +1,9 @@
 package com.kharagedition.tibetandictionary.data.search
 
 /**
- * Bounds for prefix search as a B-tree range scan: `col >= :prefix AND col < :upper` uses the column's index (a
- * `LIKE 'prefix%'` would not under NOCASE with non-ASCII text), see `EntryDao.prefixByHeadword`/`prefixByWylie`.
+ * Bounds for prefix search as a B-tree range scan, `col >= :prefix AND col < :upper` (`EntryDao.prefixByHeadword`/
+ * `prefixByWylie`), which SQLite answers from the column's NOCASE index; `LIKE 'prefix%'` would need `%`/`_`
+ * escaping and uses an index only under narrow conditions.
  *
  * SQLite orders text by its UTF-8 bytes, i.e. by code point (NOCASE additionally folds ASCII letters). U+10FFFF is the
  * last code point, so `prefix + U+10FFFF` sorts above every string that starts with `prefix` and below every string

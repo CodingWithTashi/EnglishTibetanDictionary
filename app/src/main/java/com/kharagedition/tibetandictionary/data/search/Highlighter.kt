@@ -3,7 +3,7 @@ package com.kharagedition.tibetandictionary.data.search
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 
 /**
- * Char ranges (into the displayed string) to highlight in a search hit. [query] is a [QueryNormalizer] output; every
+ * Char ranges (into the displayed string) to highlight in a search hit. Queries are [QueryNormalizer] outputs; every
  * function returns null when nothing should be highlighted, never an empty range.
  *
  * "Find" below means: the first occurrence, ignoring case, that starts a token (at index 0 or after a character that
