@@ -78,6 +78,18 @@ class HighlighterTest {
     }
 
     @Test
+    fun rangesNeverEndInsideATibetanStack() {
+        // The subjoined RA (U+0FB2) belongs to KA, the vowel signs I (U+0F72) and E (U+0F7A) to the letter before them.
+        assertThat(Highlighter.headwordRange(tashi, "བཀ")).isEqualTo(0 until 3)
+        assertThat(Highlighter.headwordRange(tashi, "བཀྲ་ཤ")).isEqualTo(0 until 6)
+        assertThat(Highlighter.headwordRange(tashiDelek, "ལ")).isEqualTo(12 until 14)
+        // The subjoined KA (U+0F90) belongs to SA.
+        assertThat(Highlighter.glossRange("སྐལ་བ་", "ས")).isEqualTo(0 until 2)
+        // A decomposed Latin accent stays with its letter too.
+        assertThat(Highlighter.glossRange("cafe\u0301 au lait", "cafe")).isEqualTo(0 until 5)
+    }
+
+    @Test
     fun headwordWithoutMatchIsNull() {
         assertThat(Highlighter.headwordRange(tashi, "ལེགས")).isNull()
         assertThat(Highlighter.headwordRange("lead", "")).isNull()

@@ -4,7 +4,9 @@ import com.kharagedition.tibetandictionary.core.text.TibetanScript
 
 /**
  * Char ranges (into the displayed string) to highlight in a search hit. Queries are [QueryNormalizer] outputs; every
- * function returns null when nothing should be highlighted, never an empty range.
+ * function returns null when nothing should be highlighted, never an empty range, and a range never ends inside a
+ * stack: when the next character is a combining mark (a Tibetan vowel sign, subjoined letter or other mark, or a
+ * Latin combining accent) the range is extended over it, so "བཀ" against "བཀྲ་ཤིས་" gives `0 until 3`.
  *
  * "Find" below means: the first occurrence, ignoring case, that starts a token (at index 0 or after a character that
  * is not a letter, digit or mark: a tsheg, shad, space or punctuation), else the first occurrence anywhere. A token
@@ -13,6 +15,8 @@ import com.kharagedition.tibetandictionary.core.text.TibetanScript
  */
 object Highlighter {
     private val WORD = Regex("\\S+")
+    private val MARKS =
+        setOf(CharCategory.NON_SPACING_MARK, CharCategory.COMBINING_SPACING_MARK, CharCategory.ENCLOSING_MARK)
 
     /**
      * Headword match ([com.kharagedition.tibetandictionary.data.model.MatchField.HEADWORD]): with the query's trailing
@@ -22,8 +26,8 @@ object Highlighter {
     fun headwordRange(headword: String, query: String): IntRange? {
         val q = TibetanScript.stripTrailingTsheg(query.trim())
         if (q.isEmpty()) return null
-        if (headword.startsWith(q, ignoreCase = true)) return 0 until q.length
-        return find(headword, q) ?: firstToken(q)?.let { find(headword, it) }
+        if (headword.startsWith(q, ignoreCase = true)) return (0 until q.length).overMarks(headword)
+        return (find(headword, q) ?: firstToken(q)?.let { find(headword, it) })?.overMarks(headword)
     }
 
     /** Wylie match: `0 until query.length` when [wylie] starts with [query] (ignoring case), else null. */
@@ -61,9 +65,16 @@ object Highlighter {
 
     /** Gloss match: the query's first FTS token found in [glossPreview], else null. */
     fun glossRange(glossPreview: String, query: String): IntRange? =
-        firstToken(query)?.let { find(glossPreview, it) }
+        firstToken(query)?.let { find(glossPreview, it) }?.overMarks(glossPreview)
 
     private fun firstToken(query: String): String? = FtsQueryBuilder.tokens(query).firstOrNull()
+
+    /** This range extended over the combining marks that directly follow it in [text]. */
+    private fun IntRange.overMarks(text: String): IntRange {
+        var end = last + 1
+        while (end < text.length && text[end].category in MARKS) end++
+        return first until end
+    }
 
     private fun find(text: String, needle: String): IntRange? {
         var first = -1
