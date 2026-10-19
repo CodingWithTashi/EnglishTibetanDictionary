@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from dictbuild.model import ParsedExample, ParsedRow, ParsedSense, RelatedCandidate
 from dictbuild.parsers.entotb import parse_entotb_row
 from dictbuild.source import SourceRow
@@ -217,6 +219,27 @@ def test_unknown_abbreviation_in_a_label_position_is_reported() -> None:
     assert parse(1735, "angularity", "n. 1. ཟུར་ཁུག 2. pl. ཟུར་ཁུག་གི་གྲུ་ཟུར།").unknown_labels == []
 
 
+def test_english_word_bound_to_a_particle_is_not_an_unknown_label() -> None:
+    aery = parse(847, "aery2", "aerie. ལ་ལྟོས་")
+    broke = parse(5000, "broke", "v. 1. break. གི་འདས་ཚིག 2. འཛད་པ། ལག་སྣེ་རྫོགས་པ།")
+    acuminate = parse(517, "acuminate", "acuminated. ཡང་ཟེར།")
+
+    assert aery.unknown_labels == broke.unknown_labels == acuminate.unknown_labels == []
+    assert aery.senses[0].gloss == "aerie. ལ་ལྟོས་"
+    assert broke.senses[0].gloss == "break. གི་འདས་ཚིག"
+
+
+def test_misspelt_domain_labels_are_whitelisted() -> None:
+    row = parse(
+        30010,
+        "secondary",
+        "n. 1. hort. གཅད་སྡུམ། 2. alchem. གསེར། 3. orithol. འདབས་སྐྱེ། 4. psycol. བློ་ཁ་སྤོ་སྒྱུར།",
+    )
+
+    assert [s.labels for s in row.senses] == [["hort"], ["alchem"], ["ornithol"], ["psych"]]
+    assert row.unknown_labels == []
+
+
 def test_plural_after_a_sense_number_adds_to_the_block_pos() -> None:
     row = parse(1735, "angularity", "n. 1. ཟུར་ཁུག་ཅན་གྱི་རང་བཞིན། 2. pl. ཟུར་ཁུག་གི་གྲུ་ཟུར།")
 
@@ -263,18 +286,34 @@ def test_synonym_marker() -> None:
     assert row.senses[2].examples == [ParsedExample("black lead", "བཤའ་ཚེ་ནག་པོ།")]
 
 
-def test_synonym_marker_with_a_tibetan_term() -> None:
-    row = parse(5, "aardvark", "n. ཨཕྲི་ཀའི་(ཨ་ཧྥི་རི་ཀ)ཡུལ་གྱི་སྲོག་ཆགས་གྲོག་འབུ་ཟ་མཁན་ཞིག=ས་ཕག")
+def test_tibetan_equals_term_is_an_equivalent_that_stays_in_the_gloss() -> None:
+    aardvark = parse(5, "aardvark", "n. ཨཕྲི་ཀའི་(ཨ་ཧྥི་རི་ཀ)ཡུལ་གྱི་སྲོག་ཆགས་གྲོག་འབུ་ཟ་མཁན་ཞིག=ས་ཕག")
+    abbot = parse(37, "abbot", "n. མཁན་པོ། = ཆོས་སྡེའམ་དགོན་པའི་གོ་གནས་ཤིག")
 
-    assert row.related == [RelatedCandidate("ས་ཕག་", "synonym")]
-    assert row.senses[0].gloss == "ཨཕྲི་ཀའི་(ཨ་ཧྥི་རི་ཀ)ཡུལ་གྱི་སྲོག་ཆགས་གྲོག་འབུ་ཟ་མཁན་ཞིག"
+    assert aardvark.related == abbot.related == []
+    assert aardvark.senses[0].gloss == "ཨཕྲི་ཀའི་(ཨ་ཧྥི་རི་ཀ)ཡུལ་གྱི་སྲོག་ཆགས་གྲོག་འབུ་ཟ་མཁན་ཞིག=ས་ཕག"
+    assert abbot.senses[0].gloss == "མཁན་པོ། = ཆོས་སྡེའམ་དགོན་པའི་གོ་གནས་ཤིག"
 
 
-def test_synonym_marker_with_a_single_tibetan_clause() -> None:
-    row = parse(37, "abbot", "n. མཁན་པོ། = ཆོས་སྡེའམ་དགོན་པའི་གོ་གནས་ཤིག")
+def test_latin_equals_term_longer_than_five_words_is_not_a_synonym() -> None:
+    row = parse(9, "abc", "n. ཀ་ཁ། = the first letters of the alphabet ཀ་ཁ་ག")
 
-    assert row.related == [RelatedCandidate("ཆོས་སྡེའམ་དགོན་པའི་གོ་གནས་ཤིག་", "synonym")]
-    assert row.senses[0].gloss == "མཁན་པོ།"
+    assert row.related == []
+
+
+@pytest.mark.parametrize(
+    ("source_id", "word", "definition"),
+    [
+        (10531, "dissimilation", "n. སྒྲ་མི་མཐུན་པ། དཔེར་ན། libere=library, turtur=turtle ལྟ་བུ།"),
+        (2074, "apostrophe1", "n. 1. ཕྲད་རྟགས། can not = can’t 2. འབྲེལ་སྒྲའི་མཚོན་རྟགས།"),
+        (18667, "its", "pron. དེའི། ལྟ་བུ། it’s = it is, it has."),
+        (12159, "equation", "n. སྙོམ་རྩིས། Na2 CO3 + H2 SO4 = Na2 SO4 +CO2 +H2O ལྟ་བུ།"),
+        (15333, "goalkeeper", "n. སྒོ་སྲུང་བ། སྒོ་རགས་པ་= goal kie colloq; goalkeeper line སྒོ་ཐིག"),
+        (10353, "diseuse", "n. གཏམ་རྒྱུད་བཤད་མཁན་བུད་མེད། སྐྱེས་པ། =deseur (dezer)"),
+    ],
+)
+def test_equation_in_english_text_is_not_a_synonym(source_id: int, word: str, definition: str) -> None:
+    assert parse(source_id, word, definition).related == []
 
 
 def test_synonym_marker_inside_brackets_or_before_a_particle_is_text() -> None:
@@ -295,6 +334,9 @@ def test_equals_term_that_is_the_whole_sense_is_its_gloss() -> None:
     assert (allspice.senses[0].note, allspice.related) == ("*", [])
     assert plague.senses[0].gloss == "ཙི་ཙི་ནས་འགོ་ཞིང་སྨན་བཅོས་མེད་པའི་འགོས་ནད་ཅིག ཡུ་རོབ་ནང་མི་ས་ཡ་བྱས་ནས་ཤི་བར་བཤད།"
     assert plague.related == []
+    cotton = parse(8000, "cotton wool", "n. 1. རས་བལ། 2. = absorbent cotton")
+    assert shape(cotton.senses) == [(1, None, "n", [], "རས་བལ།"), (2, None, "n", [], "absorbent cotton")]
+    assert (cotton.related, cotton.senses[1].examples) == ([], [])
 
 
 def test_equals_sign_before_an_explanation_stays_in_the_gloss() -> None:

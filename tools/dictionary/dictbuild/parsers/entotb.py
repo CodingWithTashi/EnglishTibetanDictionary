@@ -3,7 +3,7 @@
 A definition is a run of part-of-speech blocks (`v.t. … n. …`). Each block may open with labels
 (`adm,law`, `chem.`), Latin parentheticals (`(to)`) and, for verbs, inflections (`ran, run`); its
 body is split into numbered senses once per block, and each sense into `ཀཿ ཁཿ` sub-senses. Inside a
-sense, `*` becomes a note, `= term` a synonym link and an English phrase of two or more words an
+sense, `*` becomes a note, `= English term` a synonym link and an English phrase of two or more words an
 example (with the Tibetan that follows as its translation). Glosses are Tibetan (`gloss_lang='bo'`).
 """
 
@@ -16,7 +16,7 @@ from dictbuild.model import GLOSS_LANG_BO, RELATION_SYNONYM, ParsedExample, Pars
 from dictbuild.parsers.common import has_tibetan, split_numbered, split_subsenses, starts_with_particle, tidy
 from dictbuild.parsers.labels_en import MID_HEADER, SENSE_HEADER, START_HEADER, VERB_CODES, pos_codes, take_labels
 from dictbuild.source import SourceRow
-from dictbuild.text import clean_definition, is_tibetan, normalise_english_headword, normalise_tibetan_headword
+from dictbuild.text import clean_definition, is_tibetan, normalise_english_headword
 
 # Rule "`(A)`/`(to)` prefix → note": a parenthetical without Tibetan at the start of the definition
 # or of a block ("(fem. authoress)", "(a.m.)").
@@ -31,19 +31,23 @@ _MAX_INFLECTION_WORDS = 6
 _SENSE_NUMBER_BEFORE = re.compile(r"[0-9]{1,2}\.\s*$")
 
 # A dotted lower-case abbreviation in a label position that is not whitelisted ("nat. …") stays in
-# the gloss and is listed in the build report, so the whitelist can grow.
+# the gloss and is listed in the build report, so the whitelist can grow. An English word bound to a
+# following particle ("aerie. ལ་ལྟོས།", "break. གི་འདས་ཚིག") is text, not a label, and is not listed.
 _UNKNOWN_ABBREVIATION = re.compile(r"^(?P<abbreviation>[a-z]{2,12}\.)(?=\s*[\u0f00-\u0fff])")
 
 # Rule "`*` → note": the asterisk marks a coined term.
 ASTERISK_NOTE = "*"
 
 # Rule "`= lead pencil` → related(synonym)": an equals sign outside brackets followed by an English
-# term of at most five words, or by one Tibetan clause (up to a shad) that ends the sense. A `= …`
-# running over several clauses is a definition and stays in the gloss.
+# term of at most five words, which is meant to resolve to an English headword. A Tibetan `= …` is an
+# equivalent or an explanation, not a synonym, and stays in the gloss. So does an equation inside
+# English text ("libere=library", "it’s = it is, it has", "H2 SO4 = …"): an equals sign right after a
+# Latin letter, digit or "+" is not a marker, and a term with digits or other punctuation is no headword.
 _EQUALS = re.compile(r"=\s*")
 _LATIN_TERM = re.compile(r"^(?P<term>[A-Za-z][^=\u0f00-\u0fff]*?)(?=\.\s|[.,;:]?\s*[\u0f00-\u0fff=]|[.,;:]?\s*$)")
+_HEADWORD_LIKE = re.compile(r"[A-Za-z][A-Za-z .’'\-]*")
+_EQUATION_LEFT = re.compile(r"[A-Za-z0-9+’']\s*$")
 _MAX_LATIN_SYNONYM_WORDS = 5
-_TIBETAN_TERM = re.compile(r"^(?P<term>[\u0f00-\u0f0c\u0f0e-\u0fff][\u0f00-\u0f0c\u0f0e-\u0fff ()]*\u0f0d?)")
 
 # Rule "English example phrases (≥2 Latin words) with following Tibetan → examples(text, translation)":
 # a Latin run outside brackets; its translation runs to the next example or the end of the sense.
@@ -151,12 +155,13 @@ class _SenseBuilder:
             text = text.replace("*", " ")
         rest, synonyms = _extract_synonyms(text)
         if synonyms and not tidy(rest):
-            synonyms = []  # "n. = *ཀུན་འདུས་གཡེར་མ།": the term after "=" is the sense's only gloss
+            # "n. = cotton wool": the term after "=" is the sense's only gloss, not a link or an example.
+            gloss, examples = tidy(text).lstrip("= "), []
         else:
+            self.row.related.extend(synonyms)
+            gloss, examples = _extract_examples(rest)
+            gloss = tidy(gloss).lstrip("= ")  # "= ཀུན་འདུས་གཡེར་མ།": a leading "=" is dropped
             text = rest
-        self.row.related.extend(synonyms)
-        gloss, examples = _extract_examples(text)
-        gloss = tidy(gloss).lstrip("= ")
         if not gloss:
             if not tidy(text):
                 return
@@ -185,7 +190,7 @@ class _SenseBuilder:
 
 def _record_unknown_abbreviation(text: str, row: ParsedRow) -> None:
     """Record a non-whitelisted abbreviation left at a label position (the start of `text`)."""
-    if match := _UNKNOWN_ABBREVIATION.match(text):
+    if (match := _UNKNOWN_ABBREVIATION.match(text)) and not starts_with_particle(text[match.end() :]):
         row.unknown_labels.append(match.group("abbreviation"))
 
 
@@ -209,7 +214,7 @@ def _extract_synonyms(text: str) -> tuple[str, list[RelatedCandidate]]:
     pieces: list[str] = []
     position = 0
     for match in _EQUALS.finditer(text):
-        if match.start() < position or _depth(text, match.start()):
+        if match.start() < position or _depth(text, match.start()) or _EQUATION_LEFT.search(text[: match.start()]):
             continue
         after = text[match.end() :]
         term, consumed = _synonym_term(after)
@@ -227,15 +232,13 @@ def _synonym_term(after: str) -> tuple[str | None, int]:
     if match := _LATIN_TERM.match(after):
         term = match.group("term").strip(" .,;:")
         words = _LATIN_WORD.findall(term)
-        if 1 <= len(words) <= _MAX_LATIN_SYNONYM_WORDS and not starts_with_particle(after[match.end() :]):
+        if (
+            1 <= len(words) <= _MAX_LATIN_SYNONYM_WORDS
+            and _HEADWORD_LIKE.fullmatch(term)
+            and not starts_with_particle(after[match.end() :])
+        ):
             consumed = match.end() + (1 if after[match.end() : match.end() + 1] in ".,;:" else 0)
             return term, consumed
-        return None, 0
-    if match := _TIBETAN_TERM.match(after):
-        rest = after[match.end() :].strip()
-        term = normalise_tibetan_headword(match.group("term"))[0]
-        if not rest and term:
-            return term, match.end()
     return None, 0
 
 

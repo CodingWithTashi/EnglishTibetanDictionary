@@ -22,7 +22,10 @@ EXPECTED_SENSES = {"bo-en": (88_000, 88_938), "bo-bo": (65_000, 80_000), "en-bo"
 EXPECTED_EXAMPLES = {"bo-bo": (18_000, 19_000), "en-bo": (2_000, 5_000)}
 EXPECTED_SEE_ALSO = (4_000, 5_000)
 EXPECTED_SEE_ALSO_RESOLVED_PERCENT = (70.0, 100.0)
-EXPECTED_SYNONYMS = (1_000, 3_500)
+# Synonyms are `= English term` links only (T1.3 follow-up ruling). The source has 38 `= Latin`
+# occurrences; 17 are headword-like terms (the rest are equations and expansions in example text),
+# so the range brackets 17 rather than the ruled 200–3,500.
+EXPECTED_SYNONYMS = (10, 40)
 EXPECTED_WYLIE = 131_952
 EXPECTED_TRUNCATED = (480, 600)
 EXPECTED_WOTD = (25_000, 60_000)

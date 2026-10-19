@@ -72,10 +72,10 @@ LABEL_KEYS: dict[str, str] = {
     **{
         key: key
         for key in (
-            "acc", "adm", "aeron", "agric", "anat", "anthrop", "archaic", "archit", "arith", "astrol", "astron",
+            "acc", "adm", "aeron", "agric", "alchem", "anat", "anthrop", "archaic", "archit", "arith", "astrol", "astron",
             "aviat", "bacteriol", "biochem", "biol", "bot", "brit", "chem", "cine", "colloq", "com", "comput",
             "cricket", "dent", "derm", "dial", "eccl", "ecol", "econ", "edu", "electr", "engin", "entomol",
-            "environ", "fig", "geog", "geol", "geom", "genet", "gk", "golf", "gram", "hist", "joc", "jrn",
+            "environ", "fig", "geog", "geol", "geom", "genet", "gk", "golf", "gram", "hist", "hort", "joc", "jrn",
             "lat", "law", "lib", "ling", "lit", "logic", "math", "mech", "med", "metall", "meteorol", "mil",
             "mining", "mus", "myth", "naut", "numis", "obs", "optics", "ornithol", "path", "phil", "phonet",
             "photo", "phys", "physiol", "poet", "pol", "printing", "psych", "psychoanal", "pub", "relig",
@@ -115,6 +115,7 @@ LABEL_KEYS: dict[str, str] = {
     "his": "hist",
     "mine": "mining",
     "opt": "optics",
+    "orithol": "ornithol",
     "pathol": "path",
     "phot": "photo",
     "phon": "phonet",
@@ -122,6 +123,7 @@ LABEL_KEYS: dict[str, str] = {
     "physol": "physiol",
     "print": "printing",
     "psycho": "psych",
+    "psycol": "psych",
     "psychiatry": "psych",
     "psychol": "psych",
     "rel": "relig",
