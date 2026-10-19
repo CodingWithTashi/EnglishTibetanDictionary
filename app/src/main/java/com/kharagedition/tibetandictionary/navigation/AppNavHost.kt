@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -38,6 +39,14 @@ private const val SLIDE_DIVISOR = 4
 
 private val slide = tween<IntOffset>(PUSH_MS)
 private val fade = tween<Float>(PUSH_MS)
+
+/**
+ * Runs [action] only while this destination is resumed, i.e. on screen with no transition running. Lifecycle's
+ * `dropUnlessResumed` does the same for no-argument callbacks only; this also covers callbacks with arguments.
+ */
+private inline fun NavBackStackEntry.ifResumed(action: () -> Unit) {
+    if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) action()
+}
 
 /** Search opens and closes with a fade only; every other push slides. */
 private fun NavBackStackEntry.fadesOnly(): Boolean = destination.hasRoute<Search>()
@@ -94,16 +103,20 @@ fun AppNavHost(
         popEnterTransition = { popEnter() },
         popExitTransition = { popExit() },
     ) {
-        composable<Onboarding> {
+        // Every callback below goes through ifResumed, so a double tap during a transition cannot push twice or
+        // pop past the screen it was tapped on.
+        composable<Onboarding> { entry ->
             OnboardingScreen(onFinished = {
-                navController.navigate(Main) { popUpTo<Onboarding> { inclusive = true } }
+                entry.ifResumed { navController.navigate(Main) { popUpTo<Onboarding> { inclusive = true } } }
             })
         }
-        composable<Main> {
+        composable<Main> { entry ->
             MainScaffold(
-                onOpenSearch = { query, voice -> navController.navigate(Search(query = query.orEmpty(), voice = voice)) },
-                onOpenEntry = { navController.navigate(Entry(it)) },
-                onOpenAbout = { navController.navigate(About) },
+                onOpenSearch = { query, voice ->
+                    entry.ifResumed { navController.navigate(Search(query = query.orEmpty(), voice = voice)) }
+                },
+                onOpenEntry = { id -> entry.ifResumed { navController.navigate(Entry(id)) } },
+                onOpenAbout = { entry.ifResumed { navController.navigate(About) } },
                 viewModel = mainViewModel,
             )
         }
@@ -112,21 +125,21 @@ fun AppNavHost(
             SearchScreen(
                 initialQuery = route.query,
                 voice = route.voice,
-                onBack = { navController.popBackStack() },
-                onOpenEntry = { navController.navigate(Entry(it)) },
+                onBack = { entry.ifResumed { navController.popBackStack() } },
+                onOpenEntry = { id -> entry.ifResumed { navController.navigate(Entry(id)) } },
             )
         }
         composable<Entry>(deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.ENTRY_PATTERN })) { entry ->
             EntryScreen(
                 entryId = entry.toRoute<Entry>().entryId,
-                onBack = { navController.popBackStack() },
+                onBack = { entry.ifResumed { navController.popBackStack() } },
                 // See-also pushes another entry, so back returns to this one.
-                onOpenEntry = { navController.navigate(Entry(it)) },
-                onOpenSearch = { navController.navigate(Search(query = it)) },
+                onOpenEntry = { id -> entry.ifResumed { navController.navigate(Entry(id)) } },
+                onOpenSearch = { query -> entry.ifResumed { navController.navigate(Search(query = query)) } },
             )
         }
-        composable<About> {
-            AboutScreen(onBack = { navController.popBackStack() })
+        composable<About> { entry ->
+            AboutScreen(onBack = { entry.ifResumed { navController.popBackStack() } })
         }
     }
 }
