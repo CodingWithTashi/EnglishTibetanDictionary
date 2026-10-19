@@ -134,6 +134,7 @@
     <!-- Shown instead of installing_entries while the entry count is not known yet -->
     <string name="installing_dictionary">Preparing the dictionary · offline</string>
     <string name="install_failed">Couldn\'t prepare the dictionary.</string>
+    <string name="install_failed_body">Make sure there is free storage space, then try again.</string>
     <string name="try_again">Try again</string>
 
     <!-- Actions and content descriptions -->
