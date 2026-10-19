@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Facts about the bundled dictionary asset. The data build (tools/dictionary, T1.4) overwrites this file with the
+    asset's real numbers; 0 means unknown, and the installing screen then shows its generic status.
+-->
+<resources>
+    <integer name="dictionary_entry_count">0</integer>
+</resources>

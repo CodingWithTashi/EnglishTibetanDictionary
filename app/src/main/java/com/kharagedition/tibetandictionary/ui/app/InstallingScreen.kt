@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,9 @@ import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.io.IOException
 
+/** Test tag of the installing screen's root. */
+const val INSTALLING_SCREEN_TAG = "installing_screen"
+
 // Splash 3a measurements.
 private val IconShape = RoundedCornerShape(percent = 25)
 private val TibetanNameTop = 22.dp
@@ -45,8 +50,9 @@ private val LatinNameTracking = 0.02.em
 
 /**
  * First-launch install (3a): the prayer-flag strand at the top, the app icon with the Tibetan and English names
- * in the middle, and a 120dp progress bar over "Preparing … · offline" at the bottom. When [state] carries a
- * failure, a full empty state with "Try again" ([onRetry]) replaces it.
+ * in the middle, and a 120dp progress bar over "Preparing … · offline" at the bottom (the entry count comes from
+ * [state], else from the data build's `dictionary_entry_count`). When [state] carries a failure, a full empty state
+ * with "Try again" ([onRetry]) replaces it.
  */
 @Composable
 fun InstallingScreen(state: AppRootState.Installing, onRetry: () -> Unit, modifier: Modifier = Modifier) {
@@ -54,6 +60,7 @@ fun InstallingScreen(state: AppRootState.Installing, onRetry: () -> Unit, modifi
         modifier
             .fillMaxSize()
             .background(DictTheme.colors.background)
+            .testTag(INSTALLING_SCREEN_TAG)
             .systemBarsPadding(),
     ) {
         if (state.failure != null) {
@@ -95,7 +102,9 @@ private fun AppNames(modifier: Modifier) {
 
 @Composable
 private fun InstallProgress(state: AppRootState.Installing, modifier: Modifier) {
-    val status = when (val total = state.totalEntries) {
+    // Before the installer knows the count, use the one the data build recorded for the bundled asset (0 = unknown).
+    val total = state.totalEntries ?: integerResource(R.integer.dictionary_entry_count).takeIf { it > 0 }
+    val status = when (total) {
         null -> stringResource(R.string.installing_dictionary)
         else -> stringResource(R.string.installing_entries, TibetanNumerals.formatCount(total, DictTheme.language))
     }
