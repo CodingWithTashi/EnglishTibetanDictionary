@@ -30,6 +30,8 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "bo")
+        // The prebuilt dictionary asset is read in place by the installer; keep it stored uncompressed.
+        noCompress += "db"
     }
 
     signingConfigs {
