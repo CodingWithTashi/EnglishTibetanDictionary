@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -108,7 +109,8 @@ private class TibetanRunsTransformation(private val tibetan: SpanStyle) : Visual
  * (may mix scripts). While [focused], or while it actually has focus, it shows a 2dp accent inner border and the
  * caret is accent. A clear button (`search_clear`) shows whenever there is text and calls [onClear]; the mic
  * (`search_mic`) shows only when [showMic] and the field is empty. With [onClick] the field is a button that
- * shows [value] read-only (the Home field, which opens Search); otherwise it edits [value] (`search_field`).
+ * shows [value] read-only (the Home field, which opens Search); otherwise it edits [value] (`search_field`) and
+ * the keyboard's Search key calls [onSearch].
  */
 @Composable
 fun SearchField(
@@ -124,6 +126,7 @@ fun SearchField(
     leadingSearchIcon: Boolean = variant != SearchFieldVariant.Focused,
     focusRequester: FocusRequester? = null,
     onClick: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
 ) {
     val colors = DictTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -158,7 +161,7 @@ fun SearchField(
             if (onClick != null) {
                 DisplayText(value.text, placeholder, variant)
             } else {
-                EditableText(value, onValueChange, placeholder, variant, interaction, focusRequester)
+                EditableText(value, onValueChange, placeholder, variant, interaction, focusRequester, onSearch)
             }
         }
         TrailingButton(isEmpty, editable = onClick == null, showMic, onMic, onClear)
@@ -180,6 +183,7 @@ fun SearchField(
     leadingSearchIcon: Boolean = variant != SearchFieldVariant.Focused,
     focusRequester: FocusRequester? = null,
     onClick: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
 ) {
     var local by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     val current = if (local.text == value) local else TextFieldValue(value, TextRange(value.length))
@@ -199,6 +203,7 @@ fun SearchField(
         leadingSearchIcon = leadingSearchIcon,
         focusRequester = focusRequester,
         onClick = onClick,
+        onSearch = onSearch,
     )
 }
 
@@ -232,6 +237,7 @@ private fun EditableText(
     variant: SearchFieldVariant,
     interaction: MutableInteractionSource,
     focusRequester: FocusRequester?,
+    onSearch: (() -> Unit)?,
 ) {
     val colors = DictTheme.colors
     val (latin, tibetan) = variant.textStyles()
@@ -246,6 +252,7 @@ private fun EditableText(
         textStyle = latin.copy(color = colors.ink),
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSearch?.invoke() }),
         visualTransformation = transformation,
         interactionSource = interaction,
         cursorBrush = SolidColor(colors.accent),

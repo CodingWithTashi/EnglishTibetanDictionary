@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -27,6 +28,7 @@ class SearchFieldTest {
     private var showMic by mutableStateOf(true)
     private var cleared = 0
     private var micTaps = 0
+    private var searches = 0
 
     private fun setField(variant: SearchFieldVariant = SearchFieldVariant.Focused) {
         compose.setContent {
@@ -42,6 +44,7 @@ class SearchFieldTest {
                         cleared++
                         value = TextFieldValue("")
                     },
+                    onSearch = { searches++ },
                 )
             }
         }
@@ -84,6 +87,16 @@ class SearchFieldTest {
         showMic = false
         compose.onNodeWithTag(MIC).assertDoesNotExist()
         compose.onNodeWithTag(CLEAR).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the keyboard Search key calls onSearch`() {
+        setField()
+
+        compose.onNodeWithTag(FIELD).performTextInput("bkra shis")
+        compose.onNodeWithTag(FIELD).performImeAction()
+
+        assertThat(searches).isEqualTo(1)
     }
 
     @Test
