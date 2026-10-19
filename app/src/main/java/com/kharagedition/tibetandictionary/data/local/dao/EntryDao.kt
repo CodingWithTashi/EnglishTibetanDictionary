@@ -27,8 +27,8 @@ interface EntryDao {
     suspend fun getByIds(ids: List<Long>): List<EntryEntity>
 
     /**
-     * Headwords in `[prefix, upper)` (NOCASE B-tree range scan); [upper] is `prefix + U+10FFFF`. The headword equal to
-     * [exact] or [exactTsheg] (the query with a trailing tsheg) comes first, then Monlam order.
+     * Headwords in `[prefix, upper)` (NOCASE B-tree range scan); [upper] is `PrefixBounds.upper(prefix)`. The headword
+     * equal to [exact] or [exactTsheg] (the query with a trailing tsheg) comes first, then Monlam order.
      */
     @Query(
         """
@@ -66,7 +66,10 @@ interface EntryDao {
         offset: Int,
     ): List<EntryEntity>
 
-    /** Full-text match on headword and Wylie syllables; [match] is an FTS4 MATCH expression. Monlam order. */
+    /**
+     * Full-text match on headword and Wylie syllables, in Monlam order. [match] must come from `FtsQueryBuilder`; raw
+     * user text can throw `malformed MATCH expression`.
+     */
     @Query(
         """
         SELECT entries.* FROM entries
@@ -78,7 +81,10 @@ interface EntryDao {
     )
     suspend fun ftsHeadword(dir: String, match: String, limit: Int): List<EntryEntity>
 
-    /** Reverse lookup: entries with a sense gloss matching [match] (FTS4), shortest gloss preview first. */
+    /**
+     * Reverse lookup: entries with a sense gloss matching [match], shortest gloss preview first. [match] must come from
+     * `FtsQueryBuilder`; raw user text can throw `malformed MATCH expression`.
+     */
     @Query(
         """
         SELECT DISTINCT entries.* FROM entries

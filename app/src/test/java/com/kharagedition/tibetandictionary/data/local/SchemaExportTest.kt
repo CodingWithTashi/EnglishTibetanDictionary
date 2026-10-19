@@ -35,14 +35,23 @@ class SchemaExportTest {
 
     @Test
     fun userSchemaIsExported() {
-        val database = schema(UserDatabase::class.java.name, 1)
+        val database = schema(UserDatabase::class.java.name, UserDatabase.VERSION)
 
+        assertThat(database["version"]!!.jsonPrimitive.int).isEqualTo(UserDatabase.VERSION)
         assertThat(database.tables().keys).containsExactly("folders", "saved_entries", "recent_searches", "activity_days")
     }
 
+    /**
+     * `app/schemas/<databaseClass>/<version>.json`, looked up from the working directory and its parents: Gradle runs
+     * unit tests in the module directory, an IDE run configuration may use the project root.
+     */
     private fun schema(databaseClass: String, version: Int): JsonObject {
-        val file = File("schemas/$databaseClass/$version.json")
-        assertThat(file.exists()).isTrue()
+        val workingDir = File("").absoluteFile
+        val file = generateSequence(workingDir) { it.parentFile }
+            .flatMap { dir -> sequenceOf(File(dir, "schemas"), File(dir, "app/schemas")) }
+            .map { schemas -> File(schemas, "$databaseClass/$version.json") }
+            .firstOrNull { it.isFile }
+        checkNotNull(file) { "No schemas/$databaseClass/$version.json in $workingDir or its parents" }
         return Json.parseToJsonElement(file.readText()).jsonObject["database"]!!.jsonObject
     }
 

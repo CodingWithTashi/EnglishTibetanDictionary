@@ -10,9 +10,11 @@ import com.kharagedition.tibetandictionary.data.local.entity.RelatedEntryEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
 
 /**
- * Inserts fixture rows into dictionary.db. Used by tests and the build pipeline verification only: the app never
- * writes dictionary.db (it ships prebuilt). Room needs the DAO on the real database class, so it lives in main.
- * Inserting entries and senses also fills the FTS tables through Room's content-sync triggers.
+ * Inserts fixture rows into dictionary.db, for tests only: the app never writes dictionary.db (the Python pipeline
+ * builds it and it ships prebuilt). Room needs the DAO on the real database class, so it lives in main, reachable only
+ * through the `@VisibleForTesting` [com.kharagedition.tibetandictionary.data.local.DictionaryDatabase.testWriteDao]
+ * and never provided by DI. Inserting entries and senses also fills the FTS tables through Room's content-sync
+ * triggers.
  */
 @Dao
 interface TestWriteDao {

@@ -11,9 +11,9 @@ import com.kharagedition.tibetandictionary.data.local.EN_BO
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.example
 import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
-import com.kharagedition.tibetandictionary.data.local.prefixUpper
 import com.kharagedition.tibetandictionary.data.local.related
 import com.kharagedition.tibetandictionary.data.local.sense
+import com.kharagedition.tibetandictionary.data.search.PrefixBounds
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -55,10 +55,12 @@ class EntryDaoTest {
         )
 
         val all = dao.prefixByHeadword(
-            dir = "bo-en", prefix = "བཀྲ", upper = prefixUpper("བཀྲ"), exact = "བཀྲ", exactTsheg = "བཀྲ་", limit = 10, offset = 0,
+            dir = "bo-en", prefix = "བཀྲ", upper = PrefixBounds.upper("བཀྲ"), exact = "བཀྲ", exactTsheg = "བཀྲ་",
+            limit = 10, offset = 0,
         )
         val page = dao.prefixByHeadword(
-            dir = "bo-en", prefix = "བཀྲ", upper = prefixUpper("བཀྲ"), exact = "བཀྲ", exactTsheg = "བཀྲ་", limit = 2, offset = 1,
+            dir = "bo-en", prefix = "བཀྲ", upper = PrefixBounds.upper("བཀྲ"), exact = "བཀྲ", exactTsheg = "བཀྲ་",
+            limit = 2, offset = 1,
         )
 
         // The exact headword (with its tsheg) leads; the rest follow Monlam order (sort_order), not code-point order.
@@ -81,8 +83,10 @@ class EntryDaoTest {
             ),
         )
 
-        val hou = dao.prefixByHeadword("en-bo", "HOU", prefixUpper("HOU"), "HOU", "HOU", limit = 10, offset = 0)
-        val house = dao.prefixByHeadword("en-bo", "hOuSe", prefixUpper("hOuSe"), "hOuSe", "hOuSe", limit = 10, offset = 0)
+        val hou = dao.prefixByHeadword("en-bo", "HOU", PrefixBounds.upper("HOU"), "HOU", "HOU", limit = 10, offset = 0)
+        val house = dao.prefixByHeadword(
+            "en-bo", "hOuSe", PrefixBounds.upper("hOuSe"), "hOuSe", "hOuSe", limit = 10, offset = 0,
+        )
 
         assertThat(hou.map { it.headword }).containsExactly("household", "house", "Houston", "housework").inOrder()
         assertThat(house.map { it.headword }).containsExactly("house", "household", "housework").inOrder()
@@ -115,8 +119,9 @@ class EntryDaoTest {
             ),
         )
 
-        val hits = dao.prefixByWylie("bo-en", "BKRA", prefixUpper("BKRA"), exact = "BKRA", limit = 10, offset = 0)
-        val none = dao.prefixByWylie("bo-en", "zz", prefixUpper("zz"), exact = "zz", limit = 10, offset = 0)
+        val hits =
+            dao.prefixByWylie("bo-en", "BKRA", PrefixBounds.upper("BKRA"), exact = "BKRA", limit = 10, offset = 0)
+        val none = dao.prefixByWylie("bo-en", "zz", PrefixBounds.upper("zz"), exact = "zz", limit = 10, offset = 0)
 
         assertThat(hits.map { it.wylie }).containsExactly("bkra", "bkrag", "bkra shis").inOrder()
         assertThat(hits.map { it.id }).doesNotContain(1_000_012L)

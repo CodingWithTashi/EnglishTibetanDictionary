@@ -20,9 +20,6 @@ fun inMemoryUserDb(): UserDatabase =
         .allowMainThreadQueries()
         .build()
 
-/** Exclusive upper bound of a prefix range, as callers compute it: the prefix followed by U+10FFFF. */
-fun prefixUpper(prefix: String): String = prefix + "􏿿"
-
 fun direction(id: String, position: Int, sourceScript: String = "tibt", entryCount: Int = 1): DirectionEntity =
     DirectionEntity(
         id = id,
