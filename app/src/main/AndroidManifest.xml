@@ -4,6 +4,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets SpeechRecognizer.isRecognitionAvailable() see the device's recognition service (API 30+). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".DictionaryApplication"
         android:allowBackup="true"
