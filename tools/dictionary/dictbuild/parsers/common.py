@@ -50,11 +50,14 @@ _DANGLING_SEPARATORS = " ,;:"
 # Rule "a Latin word followed by a binding particle is part of the Tibetan sentence": "X ཡང་ཟེར།"
 # (also called X), "X ལ་ལྟོས།" (see X), "X ཞེས་པ" (the word X), "X གི་འདས་ཚིག" (past tense of X).
 # Only syllables that never start a word count on their own; particles that also open common words
-# (ཡི as in ཡི་གེ, ལ as in ལ་ཉག, ལས as in ལས་ཀ, དང as in དང་པོ) count only inside a listed phrase.
+# (ཡི as in ཡི་གེ, ལ as in ལ་ཉག, ལས as in ལས་ཀ, དང as in དང་པོ, ཟེར as in ཟེར་ཐིག) count only inside a
+# listed phrase.
 _BOUND_PARTICLES = frozenset(
-    {"གི", "ཀྱི", "གྱི", "འི", "གིས", "ཀྱིས", "གྱིས", "ཡིས", "ཞེས", "ཅེས", "ཟེར", "སོགས", "བཅས", "ལའང", "ལྟར"}
+    {"གི", "ཀྱི", "གྱི", "འི", "གིས", "ཀྱིས", "གྱིས", "ཡིས", "ཞེས", "ཅེས", "སོགས", "བཅས", "ལའང", "ལྟར"}
 )
-_PARTICLE_PHRASES = ("ལ་ལྟོས", "ཡང་ཟེར", "ཁོངས་སུ་ལྟོས", "ཡི་འདས་ཚིག", "ཡི་བསྡུས", "ཡི་མང་ཚིག", "ལ་ཟེར")
+_PARTICLE_PHRASES = (
+    "ལ་ལྟོས", "ཡང་ཟེར", "ཟེར་བ", "ཟེར།", "ཁོངས་སུ་ལྟོས", "ཡི་འདས་ཚིག", "ཡི་བསྡུས", "ཡི་མང་ཚིག", "ལ་ཟེར"
+)  # fmt: skip
 
 
 def split_numbered(text: str) -> list[Segment] | None:

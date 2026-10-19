@@ -149,10 +149,14 @@ class _SenseBuilder:
         if "*" in text:
             notes.append(ASTERISK_NOTE)
             text = text.replace("*", " ")
-        text, synonyms = _extract_synonyms(text)
+        rest, synonyms = _extract_synonyms(text)
+        if synonyms and not tidy(rest):
+            synonyms = []  # "n. = *ཀུན་འདུས་གཡེར་མ།": the term after "=" is the sense's only gloss
+        else:
+            text = rest
         self.row.related.extend(synonyms)
         gloss, examples = _extract_examples(text)
-        gloss = tidy(gloss)
+        gloss = tidy(gloss).lstrip("= ")
         if not gloss:
             if not tidy(text):
                 return
@@ -160,7 +164,7 @@ class _SenseBuilder:
                 self.previous.examples.extend(examples)
                 self.row.warnings.append("sense_dropped_empty")
                 return
-            gloss, examples = tidy(text), []  # nothing to attach to: keep the phrase as the gloss
+            gloss, examples = tidy(text).lstrip("= "), []  # nothing to attach to: keep the phrase
         if not self._numbered:
             self._number += 1
             self._numbered = True

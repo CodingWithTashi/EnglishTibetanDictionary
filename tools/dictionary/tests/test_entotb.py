@@ -196,6 +196,8 @@ def test_label_before_a_word_that_starts_like_a_particle() -> None:
     assert shape(alb.senses) == [(1, None, "n", ["eccl"], "ཡི་ཤུའི་བླ་གོས་དཀར་པོ།")]
     assert [s.labels for s in col.senses] == [["geog"], ["meteorol"]]
     assert alb.unknown_labels == col.unknown_labels == []
+    ray = parse(27647, "ray1", "n. 1. འོད་ཟེར། 2. geom. ཟེར་ཐིག 3. vulg. ཟེར་མདའ།")
+    assert [s.labels for s in ray.senses] == [[], ["geom"], ["vulg"]]
 
 
 def test_example_translation_may_start_like_a_particle() -> None:
@@ -283,6 +285,16 @@ def test_synonym_marker_inside_brackets_or_before_a_particle_is_text() -> None:
     assert sum_row.senses[0].gloss == "ངོ་བོའི་སྡོམ་གྲངས་/ཆ(a + a = a), (a = a + a)"
     assert see_row.related == []
     assert see_row.senses[0].gloss == "ཕ། = pope ལ་ལྟོས།"
+
+
+def test_equals_term_that_is_the_whole_sense_is_its_gloss() -> None:
+    allspice = parse(1303, "allspice", "n. = *ཀུན་འདུས་གཡེར་མ།")
+    plague = parse(5079, "bubonic plague", "= ཙི་ཙི་ནས་འགོ་ཞིང་སྨན་བཅོས་མེད་པའི་འགོས་ནད་ཅིག ཡུ་རོབ་ནང་མི་ས་ཡ་བྱས་ནས་ཤི་བར་བཤད།")
+
+    assert shape(allspice.senses) == [(1, None, "n", [], "ཀུན་འདུས་གཡེར་མ།")]
+    assert (allspice.senses[0].note, allspice.related) == ("*", [])
+    assert plague.senses[0].gloss == "ཙི་ཙི་ནས་འགོ་ཞིང་སྨན་བཅོས་མེད་པའི་འགོས་ནད་ཅིག ཡུ་རོབ་ནང་མི་ས་ཡ་བྱས་ནས་ཤི་བར་བཤད།"
+    assert plague.related == []
 
 
 def test_equals_sign_before_an_explanation_stays_in_the_gloss() -> None:
