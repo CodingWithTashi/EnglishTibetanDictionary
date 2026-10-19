@@ -42,6 +42,8 @@ class DirectionSwitcherTest {
     private val three = DirectionSlots(fixed = listOf(boEn, boBo, enBo), overflow = emptyList())
     private val four = DirectionSlots(fixed = listOf(boEn, enBo), overflow = listOf(boBo, zhBo))
 
+    private fun stateIs(label: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, label)
+
     private val segments = SemanticsMatcher("is a direction segment") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(SEGMENT_PREFIX) == true
     }
@@ -103,6 +105,7 @@ class DirectionSwitcherTest {
         compose.onNodeWithText("More").assertDoesNotExist()
         compose.onNodeWithTag(SEGMENT_PREFIX + "more").assertIsSelected()
         compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").assertIsNotSelected()
+        compose.onNodeWithTag(SWITCHER).assert(stateIs("中→བོད"))
     }
 
     @Test
@@ -112,6 +115,7 @@ class DirectionSwitcherTest {
         compose.setContent {
             DictTheme(darkTheme = false) { DirectionSwitcher(three, selected, onSelect = {}, autoSelected = auto) }
         }
+        compose.onNodeWithTag(SWITCHER).assert(stateIs("བོད→ EN"))
         val thumbStart = compose.onNodeWithTag(THUMB).getBoundsInRoot().left
         assertThat(thumbStart).isEqualTo(compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").getBoundsInRoot().left)
 
@@ -122,6 +126,8 @@ class DirectionSwitcherTest {
 
         compose.onNodeWithTag(SEGMENT_PREFIX + "en-bo").assertIsSelected()
         compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").assertIsNotSelected()
+        // The live region announces this description when it changes.
+        compose.onNodeWithTag(SWITCHER).assert(stateIs("EN →བོད"))
         val thumbEnd = compose.onNodeWithTag(THUMB).getBoundsInRoot().left
         val target = compose.onNodeWithTag(SEGMENT_PREFIX + "en-bo").getBoundsInRoot().left
         assertThat(thumbEnd.value).isWithin(0.5f).of(target.value)

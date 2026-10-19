@@ -108,6 +108,8 @@
     <!-- "continue" is a reserved Java keyword, so the key carries a trailing underscore. -->
     <string name="continue_">Continue</string>
     <string name="skip">Skip</string>
+    <!-- Onboarding step position read by accessibility services. %1$s: current step, %2$s: number of steps, both already formatted for the app language -->
+    <string name="step_position">Step %1$s of %2$s</string>
     <string name="onboarding_direction_title">Which way do you look up words most?</string>
     <string name="onboarding_direction_body">Sets the default direction. You can switch any time with one tap.</string>
     <string name="onboarding_textsize_title">Comfortable to read?</string>

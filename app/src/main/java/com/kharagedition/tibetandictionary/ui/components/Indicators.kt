@@ -29,10 +29,12 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
@@ -56,12 +58,24 @@ private const val INDETERMINATE_SEGMENT = 0.4f
 private const val INDETERMINATE_MS = 1_200
 private const val PAGE_MS = 180
 
-/** Onboarding steps: the [current] page is a 20×4 accent dash, the others 8×4 surface2 dots. */
+/**
+ * Onboarding steps: the [current] page is a 20×4 accent dash, the others 8×4 surface2 dots. Accessibility
+ * services read the position ("Step 1 of 3", Tibetan digits in the bo UI) instead of the marks.
+ */
 @Composable
 fun PageIndicator(count: Int, current: Int, modifier: Modifier = Modifier) {
     val colors = DictTheme.colors
     val dimens = DictTheme.dimens
-    Row(modifier.clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(PageGap)) {
+    val language = DictTheme.language
+    val position = stringResource(
+        R.string.step_position,
+        TibetanNumerals.formatCount(current + 1, language),
+        TibetanNumerals.formatCount(count, language),
+    )
+    Row(
+        modifier.clearAndSetSemantics { stateDescription = position },
+        horizontalArrangement = Arrangement.spacedBy(PageGap),
+    ) {
         repeat(count) { index ->
             val active = index == current
             val width by animateDpAsState(if (active) dimens.pageDashWidth else dimens.pageDotWidth, tween(PAGE_MS), label = "page")

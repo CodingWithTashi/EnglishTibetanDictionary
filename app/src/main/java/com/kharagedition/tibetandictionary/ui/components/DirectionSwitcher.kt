@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -173,7 +174,8 @@ fun DirectionBadge(direction: Direction, modifier: Modifier = Modifier, tonal: B
  * Three equal segments on a surface1 track (40, or 36 [compact]) with an accent thumb that slides to [selected]
  * in 180 ms; the slide is the only sign that the direction was auto-detected. When [DirectionSlots.overflow] is
  * not empty the last segment reads "More ▾" (or [DirectionSlots.moreLabel]) and opens a menu of the overflow
- * directions. [autoSelected] makes the change announced politely to accessibility services.
+ * directions. The track's state description is the selected direction's label; [autoSelected] makes it a polite
+ * live region, so an auto-detected change is announced.
  *
  * Test tags: `direction_switcher`, `direction_segment_{id}`, `direction_segment_more`, `direction_thumb`,
  * `direction_menu_{id}`.
@@ -199,6 +201,7 @@ fun DirectionSwitcher(
     val trackHeight = if (compact) dimens.switcherCompact else dimens.switcher
     // Radius of the nominal track (20 / 18), not of a track grown by large text, so the thumb keeps its corners.
     val trackShape = RoundedCornerShape(trackHeight / 2)
+    val selectedLabel = directionLabelText(selected)
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
@@ -206,7 +209,11 @@ fun DirectionSwitcher(
             .clip(trackShape)
             .background(colors.surface1)
             .padding(dimens.switcherPadding)
-            .semantics { if (autoSelected) liveRegion = LiveRegionMode.Polite }
+            .semantics {
+                // The live region announces this description when an auto-selection changes it.
+                stateDescription = selectedLabel
+                if (autoSelected) liveRegion = LiveRegionMode.Polite
+            }
             .testTag("direction_switcher"),
     ) {
         val segmentWidth = (maxWidth - gap * (count - 1)) / count
