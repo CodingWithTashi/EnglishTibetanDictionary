@@ -75,6 +75,9 @@ class FtsQueryBuilderDbTest {
         val inputs = listOf(
             "\"", "lead\"", "\"lead", "(lead", "lead)", "OR", "AND", "NOT lead", "lead OR", "NEAR", "NEAR/2 x",
             "-lead", "col:lead", "^lead", "*", "lead*astray", "'", "\u0F0D", "\u0F0B", "བཀྲ་ཤིས།", "བཀྲ OR ཤིས",
+            // 5000 terms: FTS4 rejects AND/OR expressions of 4096+ terms, so the builder caps the token count.
+            "a ".repeat(5000),
+            "ཀ་".repeat(5000),
         )
 
         for (raw in inputs) {

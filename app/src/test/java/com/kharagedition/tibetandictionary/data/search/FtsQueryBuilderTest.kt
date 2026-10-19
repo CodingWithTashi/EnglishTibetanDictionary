@@ -25,6 +25,13 @@ class FtsQueryBuilderTest {
     }
 
     @Test
+    fun tibetanDigitsAreTokens() {
+        assertThat(tokens("༡")).containsExactly("༡")
+        assertThat(FtsQueryBuilder.phrase(tokens("༡"))).isEqualTo("\"༡*\"")
+        assertThat(tokens("༡༢་༣")).containsExactly("༡༢", "༣").inOrder()
+    }
+
+    @Test
     fun latinSplitsOnWhitespace() {
         assertThat(tokens("lead  astray")).containsExactly("lead", "astray").inOrder()
         assertThat(tokens(" lead\tastray ")).containsExactly("lead", "astray").inOrder()
@@ -75,6 +82,18 @@ class FtsQueryBuilderTest {
         // Head marks U+0F04 U+0F05 and an emoji (a surrogate pair) separate like punctuation.
         assertThat(tokens("\u0F04\u0F05ཀ")).containsExactly("ཀ")
         assertThat(tokens("lead \uD83D\uDE00")).containsExactly("lead")
+    }
+
+    @Test
+    fun onlyTheFirstTokensAreKept() {
+        val words = (1..40).map { "w$it" }
+        val kept = words.take(FtsQueryBuilder.MAX_TOKENS)
+        val pasted = tokens("a ".repeat(5000))
+
+        assertThat(tokens(words.joinToString(" "))).containsExactlyElementsIn(kept).inOrder()
+        assertThat(tokens(kept.joinToString(" "))).containsExactlyElementsIn(kept).inOrder()
+        assertThat(pasted).hasSize(FtsQueryBuilder.MAX_TOKENS)
+        assertThat(FtsQueryBuilder.allTerms(pasted)).endsWith(" \"a*\"")
     }
 
     @Test

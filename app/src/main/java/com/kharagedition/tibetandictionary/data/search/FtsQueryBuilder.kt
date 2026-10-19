@@ -5,31 +5,41 @@ package com.kharagedition.tibetandictionary.data.search
  * never raw user text, to `EntryDao.ftsHeadword`/`ftsGloss`: an unbalanced quote, a bracket or a bare `OR`/`AND`/
  * `NOT`/`NEAR` in raw text makes SQLite throw "malformed MATCH expression".
  *
- * [tokens] mirrors how the `unicode61` tokenizer (with `TibetanTokenChars`) splits the indexed text, so one token is
- * one Tibetan syllable or one word:
- * - token characters are letters, digits and combining marks (Tibetan vowel signs, subjoined letters, anusvara,
- *   visarga, Latin diacritics);
+ * [tokens] approximates how the `unicode61` tokenizer (with `TibetanTokenChars`) splits the indexed text, so one token
+ * is one Tibetan syllable or one word:
+ * - token characters are letters, decimal digits (Tibetan digits too) and combining marks (Tibetan vowel signs,
+ *   subjoined letters, anusvara, visarga, Latin diacritics);
  * - everything else separates tokens: whitespace, tsheg U+0F0B, non-breaking tsheg U+0F0C, shad U+0F0D/U+0F0E, and all
  *   punctuation and symbols, which strips the FTS operators `" * ( ) : ^ -` ("lead-in" gives "lead", "in", as in the
  *   index);
- * - empty tokens are dropped, so no expression contains an empty phrase (which would make an AND match nothing).
+ * - empty tokens are dropped, so no expression contains an empty phrase (which would make an AND match nothing);
+ * - only the first [MAX_TOKENS] tokens are kept: FTS4 rejects an AND/OR expression of 4096 or more terms ("FTS
+ *   expression tree is too large"), and a long paste would only make the query slow.
+ *
+ * Known differences from `unicode61`, neither of which can produce bad syntax (such a query may miss, never throw):
+ * SQLite keeps other numbers and private-use characters (No/Nl/Co, e.g. the Tibetan half digits U+0F2A..U+0F33 or `²`)
+ * inside a token where the builder splits, and splits at combining marks that are neither Tibetan token chars nor Latin
+ * diacritics (e.g. Devanagari vowel signs) where the builder keeps them.
  *
  * Every token is double-quoted, which turns the keywords `OR`, `AND`, `NOT` and `NEAR` into plain terms, and the last
  * token gets `*` (prefix match: the user may still be typing). The builders return null when there are no tokens.
  */
 object FtsQueryBuilder {
+    /** Tokens kept from a query; later ones are ignored. */
+    const val MAX_TOKENS = 32
+
     private val MARK_TYPES = setOf(
         Character.NON_SPACING_MARK,
         Character.COMBINING_SPACING_MARK,
         Character.ENCLOSING_MARK,
     )
 
-    /** The query's FTS tokens in order; see the class rules. */
+    /** The query's first [MAX_TOKENS] FTS tokens in order; see the class rules. */
     fun tokens(q: String): List<String> {
         val tokens = mutableListOf<String>()
         var start = -1
         var i = 0
-        while (i < q.length) {
+        while (i < q.length && tokens.size < MAX_TOKENS) {
             val codePoint = q.codePointAt(i)
             if (isTokenChar(codePoint)) {
                 if (start < 0) start = i
@@ -39,7 +49,7 @@ object FtsQueryBuilder {
             }
             i += Character.charCount(codePoint)
         }
-        if (start >= 0) tokens += q.substring(start)
+        if (start >= 0 && tokens.size < MAX_TOKENS) tokens += q.substring(start)
         return tokens
     }
 
