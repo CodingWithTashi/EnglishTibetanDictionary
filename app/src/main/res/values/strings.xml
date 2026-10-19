@@ -1,44 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tibetan Dictionary</string>
-    <string name="app_short_name">En-Tibetan Dictionary</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="search_hint">Search Word</string>
-    <!-- Preference Titles -->
-    <string name="messages_header">Messages</string>
-    <string name="sync_header">Sync</string>
-
-    <!-- Messages Preferences -->
-    <string name="signature_title">Your signature</string>
-    <string name="reply_title">Default reply action</string>
-
-    <!-- Sync Preferences -->
-    <string name="sync_title">Sync email periodically</string>
-    <string name="attachment_title">Download incoming attachments</string>
-    <string name="attachment_summary_on">Automatically download attachments for incoming emails
-    </string>
-    <string name="attachment_summary_off">Only download attachments when manually requested</string>
-    <string name="settings">Settings</string>
-    <string name="about_us">About Us</string>
-    <string name="about_app">About App:</string>
-    <string name="share">Share</string>
-    <string name="rate">Rate</string>
-    <string name="download">Download</string>
-    <string name="support_contribution">Support/contribution:</string>
-    <string name="about_me">About me:</string>
-    <string name="uh_snap_msg">UH-SNAP!</string>
-    <string name="leaving_app_message">You are leaving already!</string>
-    <string name="leaving_msg">Yes, I\'m sorry</string>
-    <string name="dictionary">Dictionary</string>
-    <string name="favourite">Favourite</string>
-    <string name="about">About</string>
-    <string name="setting">Setting</string>
-    <string name="generate_new">Generate New</string>
-    <string name="prayer">Prayer</string>
-    <string name="test">test</string>
-    <string name="search">Search</string>
-    <string name="home_desc">home desc</string>
-    <string name="support_developer">Support Developer/Remove ads</string>
-    <string name="send_message_feedback">Send message/feedback</string>
-    <string name="send_feature_request">Send Feature Request</string>
+    <string name="app_name_tibetan" translatable="false">བོད་ཡིག་ཚིག་མཛོད།</string>
 </resources>
