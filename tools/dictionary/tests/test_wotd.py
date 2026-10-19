@@ -26,11 +26,11 @@ def entry(
 
 
 def test_eligible_entry() -> None:
-    assert is_eligible(entry())
-    assert is_eligible(entry("ཀ་"))  # one syllable
+    assert is_eligible(entry())  # two syllables
     assert is_eligible(entry("རྒྱ་མཚོ་ཆེན་པོ་"))  # four syllables
     assert is_eligible(entry(gloss="sea"))  # three characters
     assert is_eligible(entry(gloss="x" * 100))
+    assert is_eligible(entry(gloss="pillar, column; post"))  # punctuation other than / [ ( is fine
 
 
 @pytest.mark.parametrize(
@@ -38,6 +38,8 @@ def test_eligible_entry() -> None:
     [
         entry(direction_id="bo-bo"),
         entry(direction_id="en-bo", headword="fortune"),
+        entry("ཀ་"),  # one syllable
+        entry("ཀ"),  # one syllable without a tsheg
         entry("རྒྱ་མཚོ་ཆེན་པོ་ཞིག་"),  # five syllables
         entry("བསྒྲུབས་བསྒྲུབས་བསྒྲུབས་བསྒྲུབས་"),  # over 24 code points
         entry("ཀ་༡་"),  # Tibetan digit
@@ -47,6 +49,10 @@ def test_eligible_entry() -> None:
         entry(gloss="ཀ་བ།", gloss_lang="bo"),
         entry(gloss="ab"),
         entry(gloss="x" * 101),
+        entry(gloss="the 2nd month"),  # digit
+        entry(gloss="to see/look"),  # slash
+        entry(gloss="pillar [of a house]"),  # square bracket
+        entry(gloss="pillar (of a house)"),  # parenthesis
         entry(truncated=True),
     ],
 )
