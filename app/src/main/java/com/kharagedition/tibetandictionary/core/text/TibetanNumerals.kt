@@ -5,7 +5,7 @@ import java.util.Locale
 
 /** Converts Western digits to Tibetan digits (༠-༩) and formats counts for the app language. */
 object TibetanNumerals {
-    private const val ZERO = '༠'
+    private const val ZERO = '\u0F20'
 
     fun toTibetan(n: Int): String = toTibetan(n.toString())
 

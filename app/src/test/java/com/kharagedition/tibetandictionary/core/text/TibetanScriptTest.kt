@@ -34,7 +34,7 @@ class TibetanScriptTest {
     @Test
     fun ensureTshegLeavesTextThatNeedsNoTshegUnchanged() {
         assertThat(TibetanScript.ensureTsheg("ཀ་བ་")).isEqualTo("ཀ་བ་")
-        assertThat(TibetanScript.ensureTsheg("ཀ་བ༌")).isEqualTo("ཀ་བ༌")
+        assertThat(TibetanScript.ensureTsheg("ཀ་བ\u0F0C")).isEqualTo("ཀ་བ\u0F0C")
         assertThat(TibetanScript.ensureTsheg("ཀ་བ།")).isEqualTo("ཀ་བ།")
         assertThat(TibetanScript.ensureTsheg("༤༢")).isEqualTo("༤༢")
         assertThat(TibetanScript.ensureTsheg("house")).isEqualTo("house")
@@ -42,10 +42,18 @@ class TibetanScriptTest {
     }
 
     @Test
+    fun ensureTshegLeavesVisargaAndPalutaEndingsUnchanged() {
+        assertThat(TibetanScript.ensureTsheg("ཀཿ")).isEqualTo("ཀཿ")
+        assertThat(TibetanScript.ensureTsheg("ཀ\u0F7F")).isEqualTo("ཀ\u0F7F")
+        assertThat(TibetanScript.ensureTsheg("ཨ\u0F85")).isEqualTo("ཨ\u0F85")
+        assertThat(TibetanScript.ensureTsheg("ཨོཾ")).isEqualTo("ཨོཾ་")
+    }
+
+    @Test
     fun stripTrailingTshegRemovesEveryTrailingTsheg() {
         assertThat(TibetanScript.stripTrailingTsheg("ཀ་བ་")).isEqualTo("ཀ་བ")
         assertThat(TibetanScript.stripTrailingTsheg("ཀ་བ་་")).isEqualTo("ཀ་བ")
-        assertThat(TibetanScript.stripTrailingTsheg("ཀ་བ༌")).isEqualTo("ཀ་བ")
+        assertThat(TibetanScript.stripTrailingTsheg("ཀ་བ\u0F0C")).isEqualTo("ཀ་བ")
         assertThat(TibetanScript.stripTrailingTsheg("་")).isEqualTo("")
     }
 

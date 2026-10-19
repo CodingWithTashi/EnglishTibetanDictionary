@@ -3,25 +3,30 @@ package com.kharagedition.tibetandictionary.core.text
 /** Character-level helpers for text in the Tibetan Unicode block (U+0F00..U+0FFF). */
 object TibetanScript {
     /** The syllable separator (U+0F0B). */
-    const val TSHEG = '་'
+    const val TSHEG = '\u0F0B'
 
     /** The non-breaking tsheg (U+0F0C); search normalises it to [TSHEG]. */
-    const val NON_BREAKING_TSHEG = '༌'
+    const val NON_BREAKING_TSHEG = '\u0F0C'
+
+    private const val VISARGA = '\u0F7F'
+    private const val PALUTA = '\u0F85'
 
     /** True for any character in the Tibetan block: letters, vowel signs, digits, tsheg, shad and marks. */
-    fun isTibetan(c: Char): Boolean = c in 'ༀ'..'࿿'
+    fun isTibetan(c: Char): Boolean = c in '\u0F00'..'\u0FFF'
 
     /** True when [text] contains at least one Tibetan-block character. */
     fun hasTibetan(text: CharSequence): Boolean = text.any(::isTibetan)
 
     /**
      * [text] ending in a tsheg, as dictionary headwords do: one is appended only when the last character is a
-     * Tibetan letter or vowel sign (U+0F40..U+0FBC). Text already ending in a tsheg, a shad, a digit, whitespace
-     * or a Latin character is returned unchanged.
+     * Tibetan letter, vowel sign or subjoined letter (U+0F40..U+0FBC), except visarga (U+0F7F, "ཀཿ") and paluta
+     * (U+0F85), which end a syllable themselves. Text already ending in a tsheg, a shad, a digit, whitespace or a
+     * Latin character is returned unchanged.
      */
     fun ensureTsheg(text: String): String {
         val last = text.lastOrNull() ?: return text
-        return if (last in 'ཀ'..'ྼ') text + TSHEG else text
+        val needsTsheg = last in '\u0F40'..'\u0FBC' && last != VISARGA && last != PALUTA
+        return if (needsTsheg) text + TSHEG else text
     }
 
     /** [text] without its trailing tshegs (breaking or non-breaking); inner tshegs are kept. */

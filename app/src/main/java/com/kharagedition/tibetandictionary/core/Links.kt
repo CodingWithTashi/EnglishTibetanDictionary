@@ -10,4 +10,7 @@ object Links {
 
     /** No privacy policy URL exists yet, so the Privacy link stays hidden. */
     const val PRIVACY_URL = ""
+
+    /** "Support & donate" footer link; hidden until a URL is set. */
+    const val SUPPORT_URL = ""
 }
