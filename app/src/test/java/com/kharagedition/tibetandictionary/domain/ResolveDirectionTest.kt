@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.domain
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.MatchField
 import com.kharagedition.tibetandictionary.data.model.Script
 import org.junit.Test
 
@@ -20,6 +21,9 @@ class ResolveDirectionTest {
         entryCount = 1_200,
     )
     private val directions = SampleData.directions
+
+    /** With zh-bo, which is never a Latin/Wylie candidate, so selecting it leaves the choice to the script. */
+    private val withHan = directions + zhBo
 
     private fun resolve(
         script: InputScript,
@@ -39,9 +43,9 @@ class ResolveDirectionTest {
     }
 
     @Test
-    fun latinPaWithHitsInBothPicksEnBoWithBoEnAsAlternate() {
-        assertThat(resolve(InputScript.LATIN, selected = "bo-bo", hits = mapOf("en-bo" to 3, "bo-en" to 12)))
-            .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = "bo-en"))
+    fun latinPaWithHitsInBothStaysInEnBoWithBoEnAsAlternate() {
+        assertThat(resolve(InputScript.LATIN, selected = "en-bo", hits = mapOf("en-bo" to 3, "bo-en" to 12)))
+            .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
     }
 
     @Test
@@ -64,11 +68,26 @@ class ResolveDirectionTest {
     fun pinnedStillOffersTheOtherCandidateAsAlternate() {
         assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("bo-en" to 38), pinned = true))
             .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
-        // Pinned to a non-candidate: the best candidate with hits, else the one the script prefers.
+        // Pinned bo-bo is itself the Wylie candidate, so bo-en is not considered.
         assertThat(resolve(InputScript.LATIN, selected = "bo-bo", hits = mapOf("bo-en" to 2), pinned = true))
-            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "bo-en"))
-        assertThat(resolve(InputScript.LATIN, selected = "bo-bo", pinned = true))
             .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "en-bo"))
+    }
+
+    @Test
+    fun pinnedToANonCandidateOffersTheBetterCandidate() {
+        // The candidate with hits, else the one the script prefers.
+        val hits = mapOf("bo-en" to 2)
+
+        assertThat(resolve(InputScript.LATIN, selected = "zh-bo", hits = hits, pinned = true, directions = withHan))
+            .isEqualTo(Resolution("zh-bo", autoSelected = false, alternateId = "bo-en"))
+        assertThat(resolve(InputScript.LATIN, selected = "zh-bo", pinned = true, directions = withHan))
+            .isEqualTo(Resolution("zh-bo", autoSelected = false, alternateId = "en-bo"))
+    }
+
+    @Test
+    fun pinnedHanKeepsTheSelection() {
+        assertThat(resolve(InputScript.HAN, selected = "bo-en", pinned = true, directions = withHan))
+            .isEqualTo(Resolution("bo-en", autoSelected = false, alternateId = null))
     }
 
     // Tibetan and Han
@@ -89,7 +108,7 @@ class ResolveDirectionTest {
 
     @Test
     fun hanMovesToTheFirstHanSourceDirection() {
-        assertThat(resolve(InputScript.HAN, selected = "bo-en", directions = directions + zhBo))
+        assertThat(resolve(InputScript.HAN, selected = "bo-en", directions = withHan))
             .isEqualTo(Resolution("zh-bo", autoSelected = true, alternateId = null))
     }
 
@@ -113,14 +132,18 @@ class ResolveDirectionTest {
     fun hitsInBothKeepTheSelectedCandidateRegardlessOfCounts() {
         assertThat(resolve(InputScript.LATIN, selected = "bo-en", hits = mapOf("en-bo" to 30, "bo-en" to 1)))
             .isEqualTo(Resolution("bo-en", autoSelected = false, alternateId = "en-bo"))
-        assertThat(resolve(InputScript.LATIN, selected = "en-bo", hits = mapOf("en-bo" to 3, "bo-en" to 12)))
+        assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("en-bo" to 3, "bo-en" to 12)))
             .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
     }
 
     @Test
     fun hitsInBothWithANonCandidateSelectedFollowTheScript() {
-        assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", hits = mapOf("en-bo" to 3, "bo-en" to 12)))
+        val hits = mapOf("en-bo" to 3, "bo-en" to 12)
+
+        assertThat(resolve(InputScript.WYLIE, selected = "zh-bo", hits = hits, directions = withHan))
             .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = "en-bo"))
+        assertThat(resolve(InputScript.LATIN, selected = "zh-bo", hits = hits, directions = withHan))
+            .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = "bo-en"))
     }
 
     @Test
@@ -143,22 +166,31 @@ class ResolveDirectionTest {
             .isEqualTo(Resolution("bo-en", autoSelected = false, alternateId = "en-bo"))
         assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("en-bo" to 0, "bo-en" to 0)))
             .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
+        assertThat(resolve(InputScript.LATIN, selected = "bo-bo"))
+            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "en-bo"))
     }
 
     @Test
     fun noHitsAnywhereWithANonCandidateSelectedFollowTheScript() {
-        assertThat(resolve(InputScript.LATIN, selected = "bo-bo"))
+        assertThat(resolve(InputScript.LATIN, selected = "zh-bo", directions = withHan))
             .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = "bo-en"))
-        assertThat(resolve(InputScript.WYLIE, selected = "bo-bo"))
+        assertThat(resolve(InputScript.WYLIE, selected = "zh-bo", directions = withHan))
             .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = "en-bo"))
     }
 
     // Candidates
 
     @Test
-    fun hitsOutsideTheCandidatesAreIgnored() {
-        // bo-bo has Wylie too, but bo-en is the first Tibetan-source direction with Wylie.
+    fun aSelectedWylieDirectionWithHitsStaysSelected() {
+        // bo-bo is not the first Tibetan-source direction with Wylie, but it is the selected one.
         assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", hits = mapOf("bo-bo" to 50, "en-bo" to 2)))
+            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "en-bo"))
+    }
+
+    @Test
+    fun hitsOutsideTheCandidatesAreIgnored() {
+        // With bo-bo selected, bo-en is not a candidate.
+        assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", hits = mapOf("bo-en" to 12, "en-bo" to 2)))
             .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = null))
     }
 
@@ -168,6 +200,9 @@ class ResolveDirectionTest {
         val dirs = listOf(boEn.copy(features = noWylie), boBo, enBo)
 
         assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("bo-bo" to 4), directions = dirs))
+            .isEqualTo(Resolution("bo-bo", autoSelected = true, alternateId = null))
+        // A selected Tibetan-source direction without Wylie is not the Wylie candidate.
+        assertThat(resolve(InputScript.WYLIE, selected = "bo-en", hits = mapOf("bo-bo" to 4), directions = dirs))
             .isEqualTo(Resolution("bo-bo", autoSelected = true, alternateId = null))
     }
 
@@ -182,20 +217,34 @@ class ResolveDirectionTest {
     @Test
     fun directionsWithoutEntriesAreNeverCandidates() {
         val dirs = listOf(boEn.copy(entryCount = 0), boBo, enBo)
-
         val hits = mapOf("bo-en" to 9, "bo-bo" to 2)
 
         assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = hits, directions = dirs))
+            .isEqualTo(Resolution("bo-bo", autoSelected = true, alternateId = null))
+        // Not even when selected.
+        assertThat(resolve(InputScript.WYLIE, selected = "bo-en", hits = hits, directions = dirs))
             .isEqualTo(Resolution("bo-bo", autoSelected = true, alternateId = null))
         assertThat(resolve(InputScript.TIBETAN, selected = "en-bo", directions = dirs).directionId).isEqualTo("bo-bo")
     }
 
     @Test
-    fun withoutAWylieDirectionLatinAndWylieUseTheHeadwordDirection() {
+    fun withOnlyTheHeadwordCandidateLatinAndWylieUseIt() {
         val dirs = listOf(boEn.copy(features = boEn.features.copy(hasWylie = false)), enBo)
 
         assertThat(resolve(InputScript.WYLIE, selected = "bo-en", directions = dirs))
             .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = null))
+    }
+
+    @Test
+    fun withOnlyTheWylieCandidateLatinAndWylieUseIt() {
+        val dirs = listOf(boEn, boBo)
+
+        assertThat(resolve(InputScript.LATIN, selected = "en-bo", directions = dirs))
+            .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = null))
+        assertThat(resolve(InputScript.LATIN, selected = "bo-en", hits = mapOf("bo-en" to 4), directions = dirs))
+            .isEqualTo(Resolution("bo-en", autoSelected = false, alternateId = null))
+        assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", directions = dirs))
+            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = null))
     }
 
     @Test
@@ -206,5 +255,26 @@ class ResolveDirectionTest {
             .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = null))
         assertThat(resolve(InputScript.TIBETAN, selected = "en-bo", directions = emptyList()))
             .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = null))
+    }
+
+    // candidates()
+
+    @Test
+    fun candidatesPairEachDirectionWithTheFieldItsHitsAreCountedOn() {
+        assertThat(ResolveDirection.candidates(InputScript.LATIN, "bo-en", directions))
+            .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boEn, MatchField.WYLIE))
+            .inOrder()
+        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "bo-bo", directions))
+            .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boBo, MatchField.WYLIE))
+            .inOrder()
+        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "zh-bo", withHan))
+            .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boEn, MatchField.WYLIE))
+            .inOrder()
+    }
+
+    @Test
+    fun tibetanAndHanQueriesHaveNoCandidates() {
+        assertThat(ResolveDirection.candidates(InputScript.TIBETAN, "bo-en", directions)).isEmpty()
+        assertThat(ResolveDirection.candidates(InputScript.HAN, "zh-bo", withHan)).isEmpty()
     }
 }
