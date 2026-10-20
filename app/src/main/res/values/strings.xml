@@ -158,4 +158,8 @@
     <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
     <!-- %1$s: Play Store link -->
     <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
+
+    <!-- Installing (T5.2) -->
+    <!-- Replaces install_failed_body when preparing the dictionary was cancelled rather than failing -->
+    <string name="install_interrupted">Preparation was interrupted.</string>
 </resources>
