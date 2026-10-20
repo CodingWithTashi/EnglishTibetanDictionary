@@ -158,4 +158,13 @@
     <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
     <!-- %1$s: Play Store link -->
     <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
+
+    <!-- Profile (T4.1) -->
+    <!-- Signed-out account card on Profile (shown once accounts ship) -->
+    <string name="profile_signed_out_title">Not signed in</string>
+    <string name="profile_signed_out_body">Sync saved words across devices</string>
+    <string name="sign_in">Sign in</string>
+    <!-- The developer's other apps, listed under "More apps" -->
+    <string name="other_app_prayer">Tibetan Prayer</string>
+    <string name="other_app_calendar">Tibetan Calendar</string>
 </resources>
