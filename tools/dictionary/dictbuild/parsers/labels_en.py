@@ -44,6 +44,12 @@ POS_CODES: dict[str, str] = {
     "pred.": "pred",
     "aux.": "aux",
     "num.": "num",
+    # Misspellings that occur only at the start of a definition ("adv. & phep.", "v. t.", "n.t.").
+    "phep.": "prep",
+    "v. t.": "vt",
+    "v. i.": "vi",
+    "n.t.": "vt",
+    "b.t.": "vt",
 }
 VERB_CODES = frozenset({"v", "vt", "vi"})
 
@@ -51,19 +57,28 @@ VERB_CODES = frozenset({"v", "vt", "vi"})
 _STRONG_POS = (
     r"(?:v\.t\.|v\.i\.|vt\.|vi\.|v\.|n\.|adj\.|adv\.|interj\.|int\.|prep\.|pron\.|conj\.|pl\.|abbr\.|pred\.|aux\.|num\.)"
 )
-# Undotted spellings ("n 1.", "v.t 1.", "prefix") are headers only at the start of a definition.
-_WEAK_POS = r"(?:v\.t|v\.i|vt|vi|adj|adv|prep|n|prefix\.?|suffix\.?|combining\s+form)"
-# Rule "`adj. & n.` → `adj,n`": tokens chain with optional spaces and "&" ("n. pl.", "n.pl.", "adj. n.").
+# Undotted spellings ("n 1.", "v.t 1.", "prefix") and misspellings ("v. t.", "n.t.", "phep.") are
+# headers only at the start of a definition.
+_WEAK_POS = (
+    r"(?:v\.\s+t\.|v\.\s+i\.|n\.t\.|b\.t\.|phep\.|v\.t|v\.i|vt|vi|adj|adv|prep|n|prefix\.?|suffix\.?"
+    r"|combining\s+form)"
+)
+# Rule "`adj. & n.` → `adj,n`": tokens chain with spaces, "&", "and" or a comma, and the source's stray
+# dots ("n. pl.", "n.pl.", "adj. and adv.", "n. &. v.i.", "n. & . v.", "adv, prep. & . conj.").
+_JOIN = r"(?:\s*[&,]\s*\.?\s*|\s+and\s+|\s*)"
 _HEADER_END = r"(?=\s|$|[\u0f00-\u0fff(*\[0-9])"
 START_HEADER = re.compile(
-    rf"^(?P<header>(?:{_STRONG_POS}|{_WEAK_POS})(?:\s*&?\s*(?:{_STRONG_POS}|{_WEAK_POS}))*){_HEADER_END}"
+    rf"^(?P<header>(?:{_WEAK_POS}|{_STRONG_POS})(?:{_JOIN}(?:{_WEAK_POS}|{_STRONG_POS}))*){_HEADER_END}"
 )
-MID_HEADER = re.compile(rf"(?<=\s)(?P<header>{_STRONG_POS}(?:\s*&?\s*{_STRONG_POS})*){_HEADER_END}")
+MID_HEADER = re.compile(rf"(?<=\s)(?P<header>{_STRONG_POS}(?:{_JOIN}{_STRONG_POS})*){_HEADER_END}")
 # Right after a sense number a header names that sense's part of speech only ("2. pl. …", "3. v.i. …").
 SENSE_HEADER = re.compile(rf"^(?P<header>{_STRONG_POS})(?=\s|[\u0f00-\u0fff])\s*")
-# One header token, longest spelling first, so "v.t" is never read as "v." followed by "t".
+# One header token, longest spelling first, so "v.t" is never read as "v." followed by "t"; a token is
+# never part of a longer word (the "n" of "and").
 _HEADER_TOKEN = re.compile(
-    "|".join(re.escape(token).replace(r"\ ", r"\s+") for token in sorted(POS_CODES, key=len, reverse=True))
+    "(?<![A-Za-z])(?:"
+    + "|".join(re.escape(token).replace(r"\ ", r"\s+") for token in sorted(POS_CODES, key=len, reverse=True))
+    + ")(?![A-Za-z])"
 )
 
 # Rule "domain/register labels from a whitelist (adm med bot phys astrol pol law com chem edu econ …
@@ -129,14 +144,28 @@ LABEL_KEYS: dict[str, str] = {
     "rel": "relig",
     "scotish": "scot",
     "theater": "theatr",
+    "rhet": "rhet",
+    "sc": "sci",
+    "int'l": "intl",
+    "int’l": "intl",
+    # Multi-part labels written with spaces are looked up without them ("compt. sc." → "compt.sc").
+    "compt.sc": "comput",
+    "comp.sc": "comput",
 }
-# Single capital letters are labels only in these spellings ("L." = Latin, "Gk." = Greek, "Fr." = French).
-_CASED_LABEL_KEYS: dict[str, str] = {"L": "lat", "Gk": "gk", "Fr": "fr"}
+# Capitalised spellings that are labels ("L." = Latin, "Gk." = Greek, "F."/"Fr." = French).
+_CASED_LABEL_KEYS: dict[str, str] = {"L": "lat", "Gk": "gk", "Fr": "fr", "F": "fr"}
+# "tennis etc.", "surg. etc.": a trailing "etc." widens the label and is not a key of its own.
+_ETC = "etc"
 
 # A label as written: letters with inner dots or commas ("adm,law", "comptr.sc"), an optional final
 # dot or comma, then a space, Tibetan text, a bracket, an asterisk or a digit.
-_LABEL_TOKEN = re.compile(r"(?P<token>[A-Za-z]+(?:[.,][A-Za-z]+)*[.,]?)(?=\s|$|[\u0f00-\u0fff(*0-9])")
-_LABEL_PART_SEPARATOR = re.compile(r"[.,]")
+_LABEL_TOKEN = re.compile(r"(?P<token>[A-Za-z’']+(?:[.,][A-Za-z’']+)*[.,]?)(?=\s|$|[\u0f00-\u0fff(*0-9])")
+# A multi-part label whose parts are separated by spaces ("compt. sc.", "poet., rhet.", "tennis etc.",
+# "Int’l law"). It is tried first; when it is not a label as a whole, the single token is tried.
+_MULTI_LABEL_TOKEN = re.compile(
+    r"(?P<token>[A-Za-z’']+\.?(?:,?\s+[A-Za-z’']+\.?)+,?)(?=\s|$|[\u0f00-\u0fff(*0-9])"
+)
+_LABEL_PART_SEPARATOR = re.compile(r"[.,\s]+")
 
 
 def pos_codes(header: str) -> tuple[str, ...]:
@@ -151,15 +180,18 @@ def pos_codes(header: str) -> tuple[str, ...]:
 
 def label_keys(token: str) -> list[str] | None:
     """Canonical keys of a label token (`"adm,law"` → `["adm", "law"]`), or None if any part is unknown."""
-    stripped = token.rstrip(".,")
+    stripped = re.sub(r"\s+", "", token.rstrip(".,"))
     if stripped in _CASED_LABEL_KEYS:
         return [_CASED_LABEL_KEYS[stripped]]
     whole = LABEL_KEYS.get(stripped.lower())
     if whole is not None:
         return [whole]
+    parts = [part for part in _LABEL_PART_SEPARATOR.split(token.rstrip(".,")) if part]
+    if len(parts) > 1 and parts[-1].lower() == _ETC:
+        parts.pop()
     keys: list[str] = []
-    for part in _LABEL_PART_SEPARATOR.split(stripped):
-        key = LABEL_KEYS.get(part.lower())
+    for part in parts:
+        key = LABEL_KEYS.get(part.lower()) or _CASED_LABEL_KEYS.get(part)
         if key is None:
             return None
         if key not in keys:
@@ -170,18 +202,28 @@ def label_keys(token: str) -> list[str] | None:
 def take_labels(text: str) -> tuple[list[str], str]:
     """Labels at the start of `text` and the text after them.
 
-    A whitelisted token followed by a non-label Latin word is text, not a label ("law and order"),
-    and so is one bound to the Tibetan that follows ("auction ལ་ལྟོས།" = "see auction").
+    An undotted whitelisted token followed by a non-label Latin word is text, not a label ("law and
+    order"); a dotted one is a label before a phrase ("sl. chuck out …", "anat. head ཀཿ …"). A token
+    bound to the Tibetan that follows is text ("auction ལ་ལྟོས།" = "see auction").
     """
     labels: list[str] = []
-    while (match := _LABEL_TOKEN.match(text)) and (keys := label_keys(match.group("token"))) is not None:
+    while (found := _take_label(text)) is not None:
+        keys, text = found
+        labels.extend(key for key in keys if key not in labels)
+    return labels, text
+
+
+def _take_label(text: str) -> tuple[list[str], str] | None:
+    for pattern in (_MULTI_LABEL_TOKEN, _LABEL_TOKEN):
+        match = pattern.match(text)
+        if match is None or (keys := label_keys(match.group("token"))) is None:
+            continue
         rest = text[match.end() :].lstrip()
         if starts_with_particle(rest):
-            break
-        if rest[:1].isascii() and rest[:1].isalpha():
+            return None
+        if rest[:1].isascii() and rest[:1].isalpha() and not match.group("token").endswith("."):
             following = _LABEL_TOKEN.match(rest)
             if following is None or label_keys(following.group("token")) is None:
-                break
-        labels.extend(key for key in keys if key not in labels)
-        text = rest
-    return labels, text
+                return None
+        return keys, rest
+    return None

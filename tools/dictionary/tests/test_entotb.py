@@ -126,8 +126,7 @@ def test_run_inflection_note() -> None:
     )
 
     assert pos_per_sense(row.senses) == ["vi"] * 10 + ["vt"] * 4
-    assert {s.note for s in row.senses if s.part_of_speech == "vi"} == {"ran, run"}
-    assert {s.note for s in row.senses if s.part_of_speech == "vt"} == {None}
+    assert [s.note for s in row.senses] == ["ran, run"] + [None] * 13  # a block note annotates its first sense
     by_number = {s.sense_no: s for s in row.senses}
     assert by_number[3].gloss == "འགྲུལ་འཐུད་བྱེད་པ།"
     assert by_number[3].examples == [ParsedExample("This bus runs between Lhasa & Sera.", None)]
@@ -256,7 +255,7 @@ def test_parenthetical_prefix() -> None:
         (1, 1, None, [], "དབྱིན་ཇི་དང་རོ་མན་གྱི་གསལ་བྱེད་ཡི་གེ་དང་པོ།"),
         (1, 2, None, [], "རོལ་དབྱངས་ཀྱི་སྒྲ་རྟགས་དྲུག་པ།"),
     ]
-    assert [s.note for s in letter_a.senses] == ["A", "A"]
+    assert [s.note for s in letter_a.senses] == ["A", None]
 
 
 def test_asterisk_note() -> None:
@@ -334,9 +333,10 @@ def test_equals_term_that_is_the_whole_sense_is_its_gloss() -> None:
     assert (allspice.senses[0].note, allspice.related) == ("*", [])
     assert plague.senses[0].gloss == "ཙི་ཙི་ནས་འགོ་ཞིང་སྨན་བཅོས་མེད་པའི་འགོས་ནད་ཅིག ཡུ་རོབ་ནང་མི་ས་ཡ་བྱས་ནས་ཤི་བར་བཤད།"
     assert plague.related == []
+    # An English "= X" sense has no Tibetan, so it is a synonym link rather than a sense of its own.
     cotton = parse(8000, "cotton wool", "n. 1. རས་བལ། 2. = absorbent cotton")
-    assert shape(cotton.senses) == [(1, None, "n", [], "རས་བལ།"), (2, None, "n", [], "absorbent cotton")]
-    assert (cotton.related, cotton.senses[1].examples) == ([], [])
+    assert shape(cotton.senses) == [(1, None, "n", [], "རས་བལ།")]
+    assert cotton.related == [RelatedCandidate("absorbent cotton", "synonym")]
 
 
 def test_equals_sign_before_an_explanation_stays_in_the_gloss() -> None:
@@ -399,19 +399,194 @@ def test_number_glued_to_a_latin_word_is_not_a_sense_marker() -> None:
     assert row.senses[0].examples == [ParsedExample("the few1.", "གྲངས་ཉུང་། 2. འདེམས་སྒྲུག་བྱས་པའི།")]
 
 
-def test_example_at_the_start_without_a_previous_sense_stays_gloss() -> None:
-    row = parse(9999, "black lead", "black lead བཤའ་ཚེ་ནག་པོ།")
+def test_sense_opening_with_an_english_phrase_keeps_its_tibetan_as_gloss() -> None:
+    first = parse(9999, "black lead", "black lead བཤའ་ཚེ་ནག་པོ།")
+    numbered = parse(9998, "x", "n. 1. ཀ་བ། 2. some phrase ཁ་བ། other phrase ག་བ།")
 
-    assert shape(row.senses) == [(1, None, None, [], "black lead བཤའ་ཚེ་ནག་པོ།")]
-    assert row.senses[0].examples == []
+    assert shape(first.senses) == [(1, None, None, [], "བཤའ་ཚེ་ནག་པོ།")]
+    assert (first.senses[0].note, first.senses[0].examples) == ("black lead", [])
+    assert shape(numbered.senses) == [(1, None, "n", [], "ཀ་བ།"), (2, None, "n", [], "ཁ་བ།")]
+    assert numbered.senses[1].note == "some phrase"
+    assert numbered.senses[1].examples == [ParsedExample("other phrase", "ག་བ།")]
+    assert numbered.warnings == []
 
 
-def test_example_only_sense_moves_its_example_to_the_previous_sense() -> None:
-    row = parse(9998, "x", "n. 1. ཀ་བ། 2. some phrase ཁ་བ།")
+def test_numbered_senses_opening_with_a_phrase_or_a_label_are_kept() -> None:
+    mouse = parse(
+        22253,
+        "mouse",
+        "n. pl. mice 1. བྱི་བ། ( ཆུང་ངུའི་རིགས།) 2. comptr. sc. ཙི་གུ v.i. 1. བྱི་བ་འཇུ་བ། 2. འཇབ་འཛིན་བྱེད་པ།",
+    )
+    bond = parse(
+        4530,
+        "bond1",
+        "n. 1. འཆིང་ཐག མཐུད་བྱེད། དཀྲིས། 2. གན་རྒྱ། འབའ་གན། 3. གན་རྒྱའི་ཡིག་ཆ། གན་འཛིན། 4. pl. ལག་ལྕགས། ལྕགས་སྒྲོག "
+        "5. in bond ཀཿ ཁྲལ་སའི་དོས་ཁང་ནང་ཡོད་པ། ཁཿ སྣོལ་སྒྲིག v.t. 1. བཅིངས་པ། མཐུད་པ། བསྡམ་པ། 2. སྣོལ་སྒྲིག་བྱེད་པ།",
+    )
+    prison = parse(26401, "prison", '"n. བཙོན་ཁང་། བཙོན་ར། v.t. poet., rhet. བཙོན་དུ་འཇུག་པ། བཙོན་འཇུག་བྱེད་པ།"')
+    fig = parse(13469, "fig", "n. 1. གནས་སྟངས། v.t. ཀཿ fig out མཆོར་གཟབ་པ། གོས་གྱོན་པ། ཁཿ རྟ་གྲུང་པོ་བཟོ་བ།")
 
-    assert shape(row.senses) == [(1, None, "n", [], "ཀ་བ།")]
-    assert row.senses[0].examples == [ParsedExample("some phrase", "ཁ་བ།")]
-    assert "sense_dropped_empty" in row.warnings
+    assert shape(mouse.senses) == [
+        (1, None, "n", [], "བྱི་བ། ( ཆུང་ངུའི་རིགས།)"),
+        (2, None, "n", ["comput"], "ཙི་གུ"),
+        (3, None, "vi", [], "བྱི་བ་འཇུ་བ།"),
+        (4, None, "vi", [], "འཇབ་འཛིན་བྱེད་པ།"),
+    ]
+    assert all(not s.examples for s in mouse.senses)
+    assert [(s.sense_no, s.sub_no, s.part_of_speech, s.gloss) for s in bond.senses[4:]] == [
+        (5, 1, "n", "ཁྲལ་སའི་དོས་ཁང་ནང་ཡོད་པ།"),
+        (5, 2, "n", "སྣོལ་སྒྲིག"),
+        (6, None, "vt", "བཅིངས་པ། མཐུད་པ། བསྡམ་པ།"),
+        (7, None, "vt", "སྣོལ་སྒྲིག་བྱེད་པ།"),
+    ]
+    assert [s.note for s in bond.senses[4:6]] == ["in bond", None]
+    assert shape(prison.senses) == [
+        (1, None, "n", [], "བཙོན་ཁང་། བཙོན་ར།"),
+        (2, None, "vt", ["poet", "rhet"], "བཙོན་དུ་འཇུག་པ། བཙོན་འཇུག་བྱེད་པ།"),
+    ]
+    assert [(s.sense_no, s.sub_no, s.part_of_speech, s.note, s.gloss) for s in fig.senses[1:]] == [
+        (2, 1, "vt", "fig out", "མཆོར་གཟབ་པ། གོས་གྱོན་པ།"),
+        (2, 2, "vt", None, "རྟ་གྲུང་པོ་བཟོ་བ།"),
+    ]
+    assert all("sense_dropped_empty" not in row.warnings for row in (mouse, bond, prison, fig))
+
+
+@pytest.mark.parametrize(
+    ("label", "keys"),
+    [
+        ("compt. sc.", ["comput"]),
+        ("Compt. Sc.", ["comput"]),
+        ("comptr. sc.", ["comput"]),
+        ("poet., rhet.", ["poet", "rhet"]),
+        ("tennis etc.", ["tennis"]),
+        ("surg. etc.", ["surg"]),
+        ("Int’l law", ["intl", "law"]),
+        ("anat.", ["anat"]),
+        ("F.", ["fr"]),
+    ],
+)
+def test_multi_part_and_widened_labels(label: str, keys: list[str]) -> None:
+    row = parse(9996, "x", f"n. 1. ཀ་བ། 2. {label} ཁ་བ།")
+
+    assert row.senses[1].labels == keys
+    assert row.senses[1].gloss == "ཁ་བ།"
+
+
+def test_dotted_label_before_an_english_phrase() -> None:
+    sinus = parse(31002, "sinus", "n. 1. སྣ་རུས་ཀྱི་སྦུག་སྟོང་། 2. anat. head ཀཿ སྣ་སྦུབས། ཁཿ ཁྲག་སྦུབས།")
+    chuck = parse(6646, "chuck2", "v.t. 1. འཕང་པ། 2. sl. chuck out ཕྱིར་འབུད་པ།")
+
+    assert [(s.sense_no, s.sub_no, s.labels, s.note, s.gloss) for s in sinus.senses[1:]] == [
+        (2, 1, ["anat"], "head", "སྣ་སྦུབས།"),
+        (2, 2, ["anat"], None, "ཁྲག་སྦུབས།"),
+    ]
+    assert [(s.labels, s.note, s.gloss) for s in chuck.senses[1:]] == [(["sl"], "chuck out", "ཕྱིར་འབུད་པ།")]
+
+
+def test_plural_and_verb_forms_before_the_first_sense_are_a_note() -> None:
+    mouse = parse(22253, "mouse", "n. pl. mice 1. བྱི་བ། 2. ཙི་གུ")
+    give = parse(15186, "give", '"v. gave, given . 1. ཀཿ སྤྲོད་པ། སྟེར་བ། ཁཿ སྦྱིན་པ་གཏོང་བ། 2. སྐུར་བ།"')
+    forsake = parse(14259, "forsake", '"v.t. -sook, -saken ཀཿ སྐྱུར་བ། སྤོང་བ། ཁཿ (གྲོགས་ལྟ་བུས།)འདོར་བ།"')
+    forswear = parse(14261, "forswear", '"v. -swore,-sworn མནའ་ཚིག་ཟ་བ། དམ་ཚིག་དང་འགལ་བ།"')
+    got = parse(15442, "got", "v. get ཡི་འདས་ཚིག get ལ་ལྟོས།")
+
+    assert shape(mouse.senses) == [(1, None, "n", [], "བྱི་བ།"), (2, None, "n", [], "ཙི་གུ")]
+    assert [s.note for s in mouse.senses] == ["pl. mice", None]
+    assert shape(give.senses) == [
+        (1, 1, "v", [], "སྤྲོད་པ། སྟེར་བ།"),
+        (1, 2, "v", [], "སྦྱིན་པ་གཏོང་བ།"),
+        (2, None, "v", [], "སྐུར་བ།"),
+    ]
+    assert [s.note for s in give.senses] == ["gave, given", None, None]
+    assert [(s.sense_no, s.sub_no, s.note, s.gloss) for s in forsake.senses] == [
+        (1, 1, "-sook, -saken", "སྐྱུར་བ། སྤོང་བ།"),
+        (1, 2, None, "(གྲོགས་ལྟ་བུས།)འདོར་བ།"),
+    ]
+    assert [(s.note, s.gloss) for s in forswear.senses] == [("-swore,-sworn", "མནའ་ཚིག་ཟ་བ། དམ་ཚིག་དང་འགལ་བ།")]
+    assert [(s.note, s.gloss) for s in got.senses] == [(None, "get ཡི་འདས་ཚིག get ལ་ལྟོས།")]
+
+
+def test_header_parts_joined_by_and_or_stray_dots() -> None:
+    pizzicato = parse(25350, "pizzicato", "adj. and adv. སྒྲ་སྙན་གྱི་རྒྱུད་སྐུད་སོར་མོས་འཐེན་ནས་གཏོང་བའི།")
+    behind = parse(3704, "behind", "adv. & phep. 1. རྒྱབ་ཏུ། རྒྱབ་ཕྱོགས། 2. ཕ་རོལ་ན།")
+    tourney = parse(34961, "tourney", "n. &. v.i. དུས་རབས་བར་མའི་རྩེད་འགྲན་གྱི་རིགས།")
+    awash = parse(2993, "awash", "pred. & .adj. 1. ཆུ་ཁར། ཆུ་སྟེང་དུ།")
+    incurve = parse(17572, "incurve", "v. t. 1. ནང་དུ་བཀུག་པ། 2. གུག་གུག་བཟོ་བ།")
+    underlie = parse(35887, "underlie", "n.t. 1. འོག་ཏུ་འཛུད་པ། n. geol. འོག་གཞི།")
+
+    assert shape(pizzicato.senses) == [(1, None, "adj,adv", [], "སྒྲ་སྙན་གྱི་རྒྱུད་སྐུད་སོར་མོས་འཐེན་ནས་གཏོང་བའི།")]
+    assert shape(behind.senses) == [
+        (1, None, "adv,prep", [], "རྒྱབ་ཏུ། རྒྱབ་ཕྱོགས།"),
+        (2, None, "adv,prep", [], "ཕ་རོལ་ན།"),
+    ]
+    assert pos_per_sense(tourney.senses) == ["n,vi"]
+    assert pos_per_sense(awash.senses) == ["pred,adj"]
+    assert pos_per_sense(incurve.senses) == ["vt", "vt"]
+    assert shape(underlie.senses) == [(1, None, "vt", [], "འོག་ཏུ་འཛུད་པ།"), (2, None, "n", ["geol"], "འོག་གཞི།")]
+    assert all(s.note is None for row in (pizzicato, behind, tourney, awash, incurve) for s in row.senses)
+
+
+def test_header_leftovers_are_dropped() -> None:
+    full = parse(14632, "full1", '"adj. 1 ཀཿ ཆ་ཚང་གང་བ། ཁེངས་པ། ཁཿ ཡོངས་སུ་ཁྱབ་པ། 2. འབེལ་བོ། མང་པོ།"')
+    frankincense = parse(14404, "frankincense", "n. I 1. སྤོས་དཀར། 2. བདུག་སྤོས།")
+    unbridled = parse(35791, "unbridled horse", "2. ཀཿ མཚམས་ཚོད་མེད་པའི། ཁཿ དབང་དུ་མ་འདུས་པའི།")
+
+    assert shape(full.senses) == [
+        (1, 1, "adj", [], "ཆ་ཚང་གང་བ། ཁེངས་པ།"),
+        (1, 2, "adj", [], "ཡོངས་སུ་ཁྱབ་པ།"),
+        (2, None, "adj", [], "འབེལ་བོ། མང་པོ།"),
+    ]
+    assert shape(frankincense.senses) == [(1, None, "n", [], "སྤོས་དཀར།"), (2, None, "n", [], "བདུག་སྤོས།")]
+    assert shape(unbridled.senses) == [
+        (1, 1, None, [], "མཚམས་ཚོད་མེད་པའི།"),
+        (1, 2, None, [], "དབང་དུ་མ་འདུས་པའི།"),
+    ]
+    assert all(s.note is None for row in (full, frankincense, unbridled) for s in row.senses)
+    assert "header_leftover_dropped" in frankincense.warnings + unbridled.warnings
+
+
+def test_english_lead_before_a_sense_annotates_the_next_sense() -> None:
+    revisal = parse(28610, "revisal", "n. revision n. 1. བསྐྱར་བཅོས། 2. ལེགས་བཅོས།")
+    congress = parse(7689, "congress", "n. 1. ཚོགས་འདུ། 2. Congress ཀཿ ཀོང་རེ་སི། ཁཿ རྒྱ་གར་ཀོང་རེ་སི་ཚོགས་པ།")
+    biography = parse(4082, "biography", "n. 1. རྣམ་ཐར། 2. biographer n. རྣམ་ཐར་འབྲི་མཁན།")
+
+    assert shape(revisal.senses) == [(1, None, "n", [], "བསྐྱར་བཅོས།"), (2, None, "n", [], "ལེགས་བཅོས།")]
+    assert [s.note for s in revisal.senses] == ["revision", None]
+    assert [(s.sense_no, s.sub_no, s.note) for s in congress.senses] == [(1, None, None), (2, 1, "Congress"), (2, 2, None)]
+    assert [(s.sense_no, s.note, s.gloss) for s in biography.senses] == [
+        (1, None, "རྣམ་ཐར།"),
+        (2, "biographer", "རྣམ་ཐར་འབྲི་མཁན།"),
+    ]
+    assert "lead_kept_as_note" in revisal.warnings
+
+
+def test_cross_reference_keeps_the_referenced_word_in_the_gloss() -> None:
+    arbitrator = parse(2246, "arbitrator", "n. arbiter 1. ལ་ལྟོས།")
+    coxswain = parse(8468, "coxswain", "n. cox n. ལ་ལྟོས།")
+    escapement = parse(12262, "escapement", "n. 1. escape n. 3. ལ་ལྟོས། 2. མེ་ཉེན་གཟུར་ཐབས་ཀྱི་ཡོ་ཆས།")
+    matt = parse(21128, "matt", '"adj. 1. mat 2. ལ་ལྟོས། Matt, Matthew ཞེས་པའི་མིང་ཟུར།"')
+
+    assert shape(arbitrator.senses) == [(1, None, "n", [], "arbiter ལ་ལྟོས།")]
+    assert shape(coxswain.senses) == [(1, None, "n", [], "cox n. ལ་ལྟོས།")]
+    assert shape(escapement.senses) == [
+        (1, None, "n", [], "escape n. 3. ལ་ལྟོས།"),
+        (2, None, "n", [], "མེ་ཉེན་གཟུར་ཐབས་ཀྱི་ཡོ་ཆས།"),
+    ]
+    assert shape(matt.senses) == [(1, None, "adj", [], "mat ལ་ལྟོས། Matt, Matthew ཞེས་པའི་མིང་ཟུར།")]
+
+
+def test_bracket_before_a_translation_opens_the_translation() -> None:
+    row = parse(14835, "game", "n. 1. རྩེ་འཁོར། We played three games. (རྩེད་མོ།)རྩེ་སྟངས།")
+
+    assert row.senses[0].examples == [ParsedExample("We played three games.", "(རྩེད་མོ།)རྩེ་སྟངས།")]
+
+
+def test_sense_number_after_a_phrase_opens_its_translation() -> None:
+    game = parse(14835, "game", "n. 1. རྩེ་འཁོར། We played three games. 5. (རྩེད་མོ།)རྩེ་སྟངས།")
+    black = parse(4157, "black", "v.t. 1. ནག་པོ་བཟོ་བ། 2. སྐྱོན་བརྗོད་པ། to black out 1. མུན་ནག་བཟོ་བ། 2. ནག་འཐོམ་ལང་བ།")
+
+    assert game.senses[0].examples == [ParsedExample("We played three games.", "5. (རྩེད་མོ།)རྩེ་སྟངས།")]
+    assert black.senses[1].examples == [ParsedExample("to black out", "1. མུན་ནག་བཟོ་བ། 2. ནག་འཐོམ་ལང་བ།")]
 
 
 def test_glosses_are_never_empty() -> None:
