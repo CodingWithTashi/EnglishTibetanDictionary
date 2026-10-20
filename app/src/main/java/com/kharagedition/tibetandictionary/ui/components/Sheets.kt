@@ -59,9 +59,13 @@ private val OptionGap = 10.dp
 private val ControlGap = 14.dp
 private val SheetBottom = 24.dp
 
-/** Option card: at least 64 high, 18 side padding, 14 gap, 84 label column, 22 check, 2dp selected border. */
+/**
+ * Option card: at least 64 high, 18 side padding, 14 gap, 84 label column, 22 check, 2dp selected border. The 8dp
+ * top and bottom padding never shows at the default size, but keeps wrapped text off the border at large ones.
+ */
 private val OptionHeight = 64.dp
 private val OptionSide = 18.dp
+private val OptionVertical = 8.dp
 private val OptionGapInside = 14.dp
 private val OptionLabel = 84.dp
 private val OptionCheck = 22.dp
@@ -152,7 +156,7 @@ fun OptionCard(
                 shape,
             )
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = OptionSide),
+            .padding(horizontal = OptionSide, vertical = OptionVertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OptionGapInside),
     ) {
