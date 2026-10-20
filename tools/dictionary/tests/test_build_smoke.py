@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import xml.etree.ElementTree as ElementTree
 from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -167,39 +171,156 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(
     assert {check["name"] for check in checks if not check["ok"]} >= {"entries bo-en", "senses bo-bo"}
 
 
-def stats_entry_count(path: Path) -> int:
-    """The `dictionary_entry_count` integer resource of a generated `dictionary_stats.xml`."""
+def stats_values(path: Path) -> dict[str, int]:
+    """The integer resources of a generated `dictionary_stats.xml`, by name."""
     resources = ElementTree.parse(path).getroot()
     assert resources.tag == "resources"
-    [integer] = resources
-    assert (integer.tag, integer.attrib) == ("integer", {"name": "dictionary_entry_count"})
-    return int(integer.text or "")
+    assert all(item.tag == "integer" for item in resources)
+    return {item.attrib["name"]: int(item.text or "") for item in resources}
 
 
-def test_stats_xml_holds_the_total_entry_count(tmp_path: Path, schema_dir: Path) -> None:
-    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
+def tiny_build_args(tmp_path: Path, schema_dir: Path, out: Path, *extra: str) -> list[str]:
+    """`build_db` arguments for a `--limit 10` build of `TINY_ROWS` into `out`."""
+    source = tmp_path / "MLDic.ml"
+    if not source.exists():
+        fake_source(source, TINY_ROWS)
+    return [
+        "--source", str(source),
+        "--schema-dir", str(schema_dir),
+        "--out", str(out),
+        "--data-version", "t",
+        "--limit", "10",
+        *extra,
+    ]  # fmt: skip
+
+
+def test_stats_xml_holds_the_total_entry_count_and_the_asset_size(tmp_path: Path, schema_dir: Path) -> None:
     out = tmp_path / "dictionary.db"
     stats = tmp_path / "res" / "values" / "dictionary_stats.xml"
     stats.parent.mkdir(parents=True)
     stats.write_text("<resources><integer name=\"dictionary_entry_count\">0</integer></resources>")
 
-    code = build_db.main(
-        [
-            "--source", str(source),
-            "--schema-dir", str(schema_dir),
-            "--out", str(out),
-            "--data-version", "t",
-            "--stats-xml", str(stats),
-            "--limit", "10",
-        ]
-    )  # fmt: skip
+    code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, "--stats-xml", str(stats)))
 
     assert code == 0
     with closing(sqlite3.connect(out)) as db:
         total = db.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
         assert db.execute("SELECT SUM(entry_count) FROM directions").fetchone()[0] == total == 4
-    assert stats_entry_count(stats) == total
+    assert stats_values(stats) == {"dictionary_entry_count": total, "dictionary_asset_bytes": out.stat().st_size}
     assert sorted(path.name for path in stats.parent.iterdir()) == ["dictionary_stats.xml"]  # no temp file left
+
+
+def test_a_stats_xml_that_cannot_be_written_leaves_out_untouched(tmp_path: Path, schema_dir: Path, capsys) -> None:
+    out = tmp_path / "assets" / "dictionary.db"
+    out.parent.mkdir()
+    out.write_bytes(b"shipped asset")
+    stats = tmp_path / "dictionary_stats.xml"
+    stats.mkdir()  # a directory cannot be replaced by the stats file
+
+    code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, "--stats-xml", str(stats)))
+
+    assert code == build_db.EXIT_INPUT_ERROR
+    assert f"cannot write {stats}" in capsys.readouterr().err
+    assert out.read_bytes() == b"shipped asset"
+    assert sorted(path.name for path in out.parent.iterdir()) == ["dictionary.db"]  # no temp file left
+
+
+def test_a_failed_rename_puts_the_previous_stats_xml_back(tmp_path: Path, schema_dir: Path, monkeypatch) -> None:
+    out = tmp_path / "assets" / "dictionary.db"
+    out.parent.mkdir()
+    out.write_bytes(b"shipped asset")
+    stats = tmp_path / "dictionary_stats.xml"
+    stats.write_text("shipped stats")
+    replace = os.replace
+
+    def failing_replace(source: str | Path, destination: str | Path) -> None:
+        if Path(destination) == out:
+            raise PermissionError("read-only assets")
+        replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", failing_replace)
+
+    code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, "--stats-xml", str(stats)))
+
+    assert code == build_db.EXIT_INPUT_ERROR
+    assert out.read_bytes() == b"shipped asset"
+    assert stats.read_text() == "shipped stats"
+    assert sorted(path.name for path in out.parent.iterdir()) == ["dictionary.db"]
+
+
+def built_at(path: Path) -> str:
+    with closing(sqlite3.connect(path)) as db:
+        return db.execute("SELECT value FROM meta WHERE key = 'built_at'").fetchone()[0]
+
+
+def test_built_at_comes_from_the_option_then_source_date_epoch(
+    tmp_path: Path, schema_dir: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1760832000")  # 2025-10-19T00:00:00Z
+    from_option = tmp_path / "option.db"
+    from_environment = tmp_path / "environment.db"
+
+    option = ["--built-at", "2026-10-19T05:30:00+05:30"]
+    assert build_db.main(tiny_build_args(tmp_path, schema_dir, from_option, *option)) == 0
+    assert build_db.main(tiny_build_args(tmp_path, schema_dir, from_environment)) == 0
+
+    assert built_at(from_option) == "2026-10-19T00:00:00Z"
+    assert built_at(from_environment) == "2025-10-19T00:00:00Z"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2026-10-19T00:00:00Z", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T00:00:00.750Z", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T00:00:00.750+00:00", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T08:00:00+08:00", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T00:00:00", "2026-10-19T00:00:00Z"),  # no offset: UTC
+        ("2026-10-19", "2026-10-19T00:00:00Z"),
+    ],
+)
+def test_resolve_built_at_normalises_to_utc_seconds(value: str, expected: str) -> None:
+    assert build_db.resolve_built_at(value, {"SOURCE_DATE_EPOCH": "0"}) == expected
+
+
+def test_resolve_built_at_defaults_to_source_date_epoch_then_now() -> None:
+    assert build_db.resolve_built_at(None, {"SOURCE_DATE_EPOCH": "1792368000"}) == "2026-10-19T00:00:00Z"
+    for environ in ({}, {"SOURCE_DATE_EPOCH": ""}, {"SOURCE_DATE_EPOCH": "  "}):  # empty counts as unset
+        before = datetime.now(timezone.utc).replace(microsecond=0)
+        now = build_db.resolve_built_at(None, environ)
+        after = datetime.now(timezone.utc)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", now)
+        assert before <= datetime.strptime(now, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) <= after
+
+
+@pytest.mark.parametrize(
+    ("value", "environ"), [("19 Oct 2026", {}), (None, {"SOURCE_DATE_EPOCH": "yesterday"})]
+)
+def test_an_invalid_built_at_fails_before_building(
+    tmp_path: Path, schema_dir: Path, capsys, monkeypatch, value: str | None, environ: dict[str, str]
+) -> None:
+    for name, setting in environ.items():
+        monkeypatch.setenv(name, setting)
+    out = tmp_path / "dictionary.db"
+    extra = ["--built-at", value] if value is not None else []
+
+    code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, *extra))
+
+    assert code == build_db.EXIT_INPUT_ERROR
+    assert (value or environ["SOURCE_DATE_EPOCH"]) in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_rebuilds_with_the_same_built_at_are_byte_identical(tmp_path: Path, schema_dir: Path) -> None:
+    # Separate interpreters, so string hashing (and any set order that depends on it) differs between the builds.
+    outputs = [tmp_path / "first.db", tmp_path / "second.db"]
+    for out in outputs:
+        args = tiny_build_args(tmp_path, schema_dir, out, "--built-at", "2026-10-19T00:00:00Z")
+        script = Path(build_db.__file__)
+        subprocess.run([sys.executable, "-I", str(script), *args], check=True, capture_output=True)
+
+    first, second = (out.read_bytes() for out in outputs)
+    assert first == second
 
 
 def test_out_of_range_build_leaves_the_stats_xml_untouched(

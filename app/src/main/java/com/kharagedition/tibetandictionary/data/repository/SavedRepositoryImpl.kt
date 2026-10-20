@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 class SavedRepositoryImpl @Inject constructor(
     private val db: UserDatabase,
     private val clock: AppClock,
-    @IoDispatcher private val io: CoroutineDispatcher,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : SavedRepository {
     private val savedDao = db.savedEntryDao()
     private val folderDao = db.folderDao()
@@ -67,6 +67,20 @@ class SavedRepositoryImpl @Inject constructor(
 
     override suspend fun unsave(entryId: Long) {
         withContext(io) { savedDao.delete(entryId) }
+    }
+
+    /**
+     * Puts [entry] back as it was before [unsave] (Undo): the same snapshot, note, folder, savedAt and updatedAt, so it
+     * returns to its place in every newest-first list. A row saved again in the meantime is replaced. A folder deleted
+     * in the meantime leaves the entry with no folder, as in [save].
+     */
+    override suspend fun restore(entry: SavedEntry) {
+        withContext(io) {
+            db.withTransaction {
+                savedDao.delete(entry.entryId)
+                savedDao.insert(entry.toEntity(folderId = existingFolderOrNull(entry.folderId)))
+            }
+        }
     }
 
     /** Moves the entry to [folderId]; a folder that no longer exists leaves the entry with no folder. */

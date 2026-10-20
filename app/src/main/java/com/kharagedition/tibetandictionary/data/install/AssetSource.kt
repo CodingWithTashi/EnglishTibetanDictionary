@@ -15,9 +15,18 @@ interface AssetSource {
 
     /**
      * The asset's size in bytes, or null when it cannot be known without reading it all (an asset stored compressed
-     * in the APK). Without a length the installer reports no intermediate copy progress.
+     * in the APK, as `dictionary.db` is). The installer then falls back to [AssetSizeProvider].
      */
     fun length(): Long?
+}
+
+/**
+ * The asset's size in bytes as the data build recorded it (`R.integer.dictionary_asset_bytes` in
+ * `res/values/dictionary_stats.xml`), or null when unknown. The installer uses it when [AssetSource.length] is null,
+ * for copy progress and the final length check.
+ */
+fun interface AssetSizeProvider {
+    fun expectedBytes(): Long?
 }
 
 /** Reads [DictionaryDatabase.ASSET_PATH] from the APK. */

@@ -11,4 +11,6 @@ data class SavedEntry(
     val note: String?,
     /** Epoch milliseconds. */
     val savedAt: Long,
+    /** When the row last changed (saved, re-saved or moved to a folder), epoch milliseconds. */
+    val updatedAt: Long = savedAt,
 )

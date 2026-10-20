@@ -86,6 +86,17 @@ def test_schema_roundtrip(db: sqlite3.Connection, raw_database: dict) -> None:
     assert "room_master_table" not in tables
 
 
+def test_fts_tables_keep_no_docsize_table(db: sqlite3.Connection, schema: Schema) -> None:
+    # `matchinfo=fts3` (Room's `MatchInfo.FTS3`): nothing ranks by matchinfo(), so FTS4 keeps no `%_docsize` table.
+    fts_tables = [table for table in schema.tables if table.is_fts]
+    assert [table.name for table in fts_tables] == ["entries_fts", "senses_fts"]
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    for table in fts_tables:
+        assert table.create_sql.endswith(", matchinfo=fts3)"), table.name
+        assert f"{table.name}_segments" in tables  # shadow tables exist, so the check below is meaningful
+        assert f"{table.name}_docsize" not in tables
+
+
 def test_insert_sql_lists_schema_columns_in_order(schema: Schema) -> None:
     assert schema.table("meta").insert_sql() == "INSERT INTO `meta` (`key`, `value`) VALUES (?, ?)"
     entries = schema.table("entries")

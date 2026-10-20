@@ -78,6 +78,42 @@ class SavedRepositoryImplTest {
     }
 
     @Test
+    fun restoreAfterUnsavePutsBackTheExactRow() = runTest {
+        val verbs = repo.createFolder("Verbs")
+        repo.save(tashi, folderId = null)
+        tick()
+        repo.setFolder(tashi.id, verbs) // updatedAt moves on, savedAt stays
+        db.savedEntryDao().setNote(tashi.id, "greeting", now = clock.now().toEpochMilli())
+        tick()
+        repo.save(nyingje, folderId = null)
+        val original = checkNotNull(db.savedEntryDao().get(tashi.id))
+        assertThat(original.updatedAt).isNotEqualTo(original.savedAt)
+        val snapshot = repo.observeAll().first().single { it.entryId == tashi.id }
+
+        repo.unsave(tashi.id)
+        tick()
+        repo.restore(snapshot)
+
+        assertThat(db.savedEntryDao().get(tashi.id)).isEqualTo(original)
+        assertThat(repo.observeAll().first().map { it.entryId }).containsExactly(nyingje.id, tashi.id).inOrder()
+    }
+
+    @Test
+    fun restoreReplacesARowSavedAgainAndUnfilesWhenTheFolderIsGone() = runTest {
+        val verbs = repo.createFolder("Verbs")
+        repo.save(tashi, folderId = verbs)
+        val snapshot = repo.observeAll().first().single()
+        repo.unsave(tashi.id)
+        repo.deleteFolder(verbs)
+        tick()
+        repo.save(tashi, folderId = null)
+
+        repo.restore(snapshot)
+
+        assertThat(repo.observeAll().first()).containsExactly(snapshot.copy(folderId = null))
+    }
+
+    @Test
     fun observeAllIsNewestFirst() = runTest {
         repo.save(tashi, folderId = null)
         tick()

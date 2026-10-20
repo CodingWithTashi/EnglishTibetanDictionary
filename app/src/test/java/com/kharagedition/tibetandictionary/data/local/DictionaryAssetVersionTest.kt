@@ -18,8 +18,9 @@ import org.junit.runner.RunWith
 /**
  * Guards the shipped asset `src/main/assets/dictionary/dictionary.db` and the files that must agree with it: its
  * `PRAGMA user_version` (header bytes 60–63, big-endian) is [DictionaryDatabase.VERSION], the highest exported
- * schema has that version, and `res/values/dictionary_stats.xml` holds the asset's total entry count. When one fails,
- * rebuild the asset and the stats file together (tools/dictionary/README.md, "Shipping a data release").
+ * schema has that version, and `res/values/dictionary_stats.xml` holds the asset's total entry count and its size in
+ * bytes (the installer's expected length, since the asset ships compressed). When one fails, rebuild the asset and
+ * the stats file together (tools/dictionary/README.md, "Shipping a data release").
  *
  * The files are read as they are in the repository, without Room. The entry total needs SQL and the platform SQLite
  * is the only one on the unit-test classpath, so the class runs under Robolectric.
@@ -60,6 +61,14 @@ class DictionaryAssetVersionTest {
 
         assertThat(total).isGreaterThan(0)
         assertThat(context.resources.getInteger(R.integer.dictionary_entry_count)).isEqualTo(total)
+    }
+
+    @Test
+    fun statsResourceHoldsTheAssetsSize() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        assertThat(context.resources.getInteger(R.integer.dictionary_asset_bytes).toLong())
+            .isEqualTo(assetFile().length())
     }
 
     private fun assetFile(): File = projectFile("src/main/assets/${DictionaryDatabase.ASSET_PATH}")

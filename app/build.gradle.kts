@@ -30,8 +30,8 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "bo")
-        // The prebuilt dictionary asset is read in place by the installer; keep it stored uncompressed.
-        noCompress += "db"
+        // assets/dictionary/dictionary.db ships compressed (about a third of its size). The installer streams it and
+        // takes its length from R.integer.dictionary_asset_bytes, which the data build writes with it.
     }
 
     signingConfigs {

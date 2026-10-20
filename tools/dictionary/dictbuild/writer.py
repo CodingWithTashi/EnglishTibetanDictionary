@@ -1,9 +1,10 @@
 """Turn entry drafts into dictionary.db rows and write the database (plan §5.1, §5.3).
 
 `assemble_rows` assigns the build ids (entries keep `id_base + source _id`; senses, examples and
-related links are numbered sequentially) and derives the entry summary columns. `write_database`
+related links are numbered sequentially) and derives the entry summary columns. `staged_database`
 builds the file next to its destination and moves it into place atomically, so a failed build never
-leaves a half-written asset behind.
+leaves a half-written asset behind; files that must agree with the database are written while it is
+staged.
 """
 
 from __future__ import annotations
@@ -13,8 +14,8 @@ import os
 import re
 import sqlite3
 import tempfile
-from collections.abc import Iterable, Mapping, Sequence
-from contextlib import closing
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -148,13 +149,23 @@ def meta_rows(values: Mapping[str, Any], row_counts: Mapping[str, int]) -> list[
 
 
 def write_database(path: Path, schema: Schema, tables: Mapping[str, Sequence[Any]]) -> None:
-    """Create `path` from the schema's DDL and `tables` (table name → rows, in insert order).
+    """Create `path` from the schema's DDL and `tables` (table name → rows, in insert order); see
+    `staged_database`."""
+    with staged_database(path, schema, tables):
+        pass
+
+
+@contextmanager
+def staged_database(path: Path, schema: Schema, tables: Mapping[str, Sequence[Any]]) -> Iterator[Path]:
+    """Build the database for `path` in a temporary file beside it, yield that finished file, and
+    rename it over `path` when the `with` block ends without an exception.
 
     The database is built in memory: tables and indices first, then the rows (foreign keys
     enforced), Room's FTS content-sync triggers verbatim, an FTS `rebuild` and `PRAGMA
-    user_version`. `VACUUM INTO` then writes it compacted to a temporary file beside `path`, which
-    is set to `journal_mode=DELETE` and renamed over `path`; disk use peaks at the final file size
-    and a failed build leaves nothing behind.
+    user_version`. `VACUUM INTO` then writes it compacted to the temporary file, which is set to
+    `journal_mode=DELETE`; the yielded file has its final bytes, so the block can record its size.
+    Disk use peaks at the final file size. When the build or the block fails, the temporary file is
+    removed and `path` is left as it was.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
@@ -167,6 +178,7 @@ def write_database(path: Path, schema: Schema, tables: Mapping[str, Sequence[Any
             conn.execute("VACUUM INTO ?", (str(temporary),))
         with closing(sqlite3.connect(temporary, isolation_level=None)) as conn:
             conn.execute("PRAGMA journal_mode = DELETE")
+        yield temporary
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
