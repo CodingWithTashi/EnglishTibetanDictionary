@@ -42,6 +42,7 @@ class DirectionAndMetaDaoTest {
         val visible = db.directionDao().observeVisible().first()
 
         assertThat(visible.map { it.id }).containsExactly("bo-en", "en-bo", "zh-bo").inOrder()
+        assertThat(db.directionDao().visible()).isEqualTo(visible)
         assertThat(db.directionDao().get("bo-bo")?.entryCount).isEqualTo(0)
         assertThat(db.directionDao().get("xx-yy")).isNull()
     }

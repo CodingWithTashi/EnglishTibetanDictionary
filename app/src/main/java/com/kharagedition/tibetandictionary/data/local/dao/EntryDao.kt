@@ -82,6 +82,30 @@ interface EntryDao {
     suspend fun ftsHeadword(dir: String, match: String, limit: Int): List<EntryEntity>
 
     /**
+     * [ftsHeadword] without the rows the prefix step lists for the same query: an entry whose headword or Wylie is in
+     * `[prefix, upper)` (NOCASE, as in [prefixByHeadword] and [prefixByWylie]) is skipped, so search page 0's
+     * "contains" hits never repeat a prefix row of that page or a later one. A NULL Wylie is never a prefix match.
+     */
+    @Query(
+        """
+        SELECT entries.* FROM entries
+        JOIN entries_fts ON entries_fts.rowid = entries.id
+        WHERE entries_fts MATCH :match AND entries.direction_id = :dir
+            AND NOT (entries.headword >= :prefix AND entries.headword < :upper)
+            AND NOT (entries.wylie IS NOT NULL AND entries.wylie >= :prefix AND entries.wylie < :upper)
+        ORDER BY entries.sort_order
+        LIMIT :limit
+        """,
+    )
+    suspend fun ftsHeadwordOutsidePrefix(
+        dir: String,
+        match: String,
+        prefix: String,
+        upper: String,
+        limit: Int,
+    ): List<EntryEntity>
+
+    /**
      * Reverse lookup: entries with a sense gloss matching [match], shortest gloss preview first. [match] must come from
      * `FtsQueryBuilder`; raw user text can throw `malformed MATCH expression`.
      */
@@ -96,6 +120,13 @@ interface EntryDao {
         """,
     )
     suspend fun ftsGloss(dir: String, match: String, limit: Int): List<EntryEntity>
+
+    /**
+     * The first [limit] entries of [dir] in Monlam order. The `(direction_id, sort_order)` index yields them in order,
+     * so SQLite reads [limit] rows instead of sorting the direction.
+     */
+    @Query("SELECT * FROM entries WHERE direction_id = :dir ORDER BY sort_order LIMIT :limit")
+    suspend fun firstBySortOrder(dir: String, limit: Int): List<EntryEntity>
 
     /** The word-of-the-day candidate at [rank]; null when no entry has it. */
     @Query("SELECT * FROM entries WHERE wotd_rank = :rank LIMIT 1")

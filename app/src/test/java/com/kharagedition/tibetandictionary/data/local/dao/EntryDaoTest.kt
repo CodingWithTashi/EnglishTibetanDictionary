@@ -152,6 +152,52 @@ class EntryDaoTest {
     }
 
     @Test
+    fun ftsHeadwordOutsidePrefixSkipsPrefixRows() = runTest {
+        write.insertDirections(listOf(BO_EN, EN_BO))
+        write.insertEntries(
+            listOf(
+                entry(1_000_010, "bo-en", "བཀྲ་ཤིས་", sortOrder = 10, wylie = "bkra shis"),
+                entry(1_000_020, "bo-en", "དཔལ་བཀྲ་ཤིས་", sortOrder = 20, wylie = "dpal bkra shis"),
+                entry(1_000_030, "bo-en", "ཤིས་པ་", sortOrder = 30, wylie = "shis pa"),
+                entry(3_000_010, "en-bo", "Term", sortOrder = 10),
+                entry(3_000_020, "en-bo", "long term", sortOrder = 20),
+                entry(3_000_030, "en-bo", "terms", sortOrder = 30),
+            ),
+        )
+
+        suspend fun contains(dir: String, match: String, prefix: String) =
+            dao.ftsHeadwordOutsidePrefix(dir, match, prefix, PrefixBounds.upper(prefix), limit = 10).map { it.id }
+
+        // A headword or Wylie starting with the prefix is a prefix-step row; only "contains" rows are left.
+        assertThat(contains("bo-en", "\"བཀྲ ཤིས*\"", "བཀྲ་ཤིས")).containsExactly(1_000_020L)
+        assertThat(contains("bo-en", "\"bkra shis*\"", "bkra shis")).containsExactly(1_000_020L)
+        assertThat(contains("bo-en", "\"shis*\"", "shis")).containsExactly(1_000_010L, 1_000_020L).inOrder()
+        // NOCASE like the prefix step ("Term"), and a NULL Wylie never hides a row ("long term").
+        assertThat(contains("en-bo", "\"term*\"", "term")).containsExactly(3_000_020L)
+    }
+
+    @Test
+    fun firstBySortOrderListsOneDirectionInMonlamOrder() = runTest {
+        write.insertDirections(listOf(BO_EN, BO_BO))
+        write.insertEntries(
+            listOf(
+                entry(1_000_030, "bo-en", "ག་", sortOrder = 30),
+                entry(1_000_010, "bo-en", "ཀ་", sortOrder = 10),
+                entry(1_000_040, "bo-en", "ང་", sortOrder = 40),
+                entry(1_000_020, "bo-en", "ཁ་", sortOrder = 20),
+                entry(2_000_001, "bo-bo", "ཀ་", sortOrder = 1),
+            ),
+        )
+
+        assertThat(dao.firstBySortOrder("bo-en", limit = 3).map { it.id })
+            .containsExactly(1_000_010L, 1_000_020L, 1_000_030L).inOrder()
+        assertThat(dao.firstBySortOrder("bo-en", limit = 10).map { it.sortOrder })
+            .containsExactly(10, 20, 30, 40).inOrder()
+        assertThat(dao.firstBySortOrder("bo-bo", limit = 10).map { it.id }).containsExactly(2_000_001L)
+        assertThat(dao.firstBySortOrder("en-bo", limit = 10)).isEmpty()
+    }
+
+    @Test
     fun ftsGlossReverseLookup() = runTest {
         write.insertDirections(listOf(BO_EN, EN_BO))
         write.insertEntries(

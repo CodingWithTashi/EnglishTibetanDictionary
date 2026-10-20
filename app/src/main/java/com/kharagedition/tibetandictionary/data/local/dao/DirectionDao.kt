@@ -12,6 +12,10 @@ interface DirectionDao {
     @Query("SELECT * FROM directions WHERE entry_count > 0 ORDER BY position")
     fun observeVisible(): Flow<List<DirectionEntity>>
 
+    /** [observeVisible] as a one-shot read. */
+    @Query("SELECT * FROM directions WHERE entry_count > 0 ORDER BY position")
+    suspend fun visible(): List<DirectionEntity>
+
     @Query("SELECT * FROM directions WHERE id = :id")
     suspend fun get(id: String): DirectionEntity?
 }
