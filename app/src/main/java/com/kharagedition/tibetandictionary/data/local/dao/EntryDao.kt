@@ -69,11 +69,14 @@ interface EntryDao {
     /**
      * Full-text match on headword and Wylie syllables, in Monlam order. [match] must come from `FtsQueryBuilder`; raw
      * user text can throw `malformed MATCH expression`.
+     *
+     * `CROSS JOIN` makes the full-text index the outer loop. Left to choose, SQLite walks the direction in
+     * `sort_order` (to skip the sort) and runs the MATCH once per entry: seconds on the shipped asset (`ཀ་བ་`).
      */
     @Query(
         """
-        SELECT entries.* FROM entries
-        JOIN entries_fts ON entries_fts.rowid = entries.id
+        SELECT entries.* FROM entries_fts
+        CROSS JOIN entries ON entries.id = entries_fts.rowid
         WHERE entries_fts MATCH :match AND entries.direction_id = :dir
         ORDER BY entries.sort_order
         LIMIT :limit
@@ -85,11 +88,12 @@ interface EntryDao {
      * [ftsHeadword] without the rows the prefix step lists for the same query: an entry whose headword or Wylie is in
      * `[prefix, upper)` (NOCASE, as in [prefixByHeadword] and [prefixByWylie]) is skipped, so search page 0's
      * "contains" hits never repeat a prefix row of that page or a later one. A NULL Wylie is never a prefix match.
+     * Driven by the full-text index, as [ftsHeadword].
      */
     @Query(
         """
-        SELECT entries.* FROM entries
-        JOIN entries_fts ON entries_fts.rowid = entries.id
+        SELECT entries.* FROM entries_fts
+        CROSS JOIN entries ON entries.id = entries_fts.rowid
         WHERE entries_fts MATCH :match AND entries.direction_id = :dir
             AND NOT (entries.headword >= :prefix AND entries.headword < :upper)
             AND NOT (entries.wylie IS NOT NULL AND entries.wylie >= :prefix AND entries.wylie < :upper)
