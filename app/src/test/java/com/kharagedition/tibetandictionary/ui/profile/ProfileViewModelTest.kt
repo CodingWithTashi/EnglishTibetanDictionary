@@ -5,7 +5,6 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
-import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
@@ -28,11 +27,31 @@ class ProfileViewModelTest {
 
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true))
     private val dictionary = FakeDictionaryRepository()
-    private val appliedLocales = mutableListOf<AppLanguage>()
+    private val locale = RecordingLocaleApplier()
+
+    /** Rate and Share app go to [PLAY_URL]; Support and Privacy have no URL, so they are hidden. */
+    private var linkTargets = ProfileLinkTargets(
+        playStore = PLAY_URL,
+        support = "",
+        privacy = "",
+        otherApps = listOf(OtherApp.PRAYER, OtherApp.CALENDAR),
+    )
+
+    /** A per-app language that starts at [current] (null = none set) and records every switch. */
+    private class RecordingLocaleApplier(var current: AppLanguage? = null) : LocaleApplier {
+        val switched = mutableListOf<AppLanguage>()
+
+        override fun setLanguage(language: AppLanguage) {
+            switched += language
+            current = language
+        }
+
+        override fun currentLanguage(): AppLanguage? = current
+    }
 
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary) { appliedLocales += it }
+        val vm = ProfileViewModel(prefs, dictionary, locale, linkTargets)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -149,10 +168,53 @@ class ProfileViewModelTest {
 
         vm.onEvent(ProfileEvent.SetLanguage(AppLanguage.BO))
 
-        assertThat(appliedLocales).containsExactly(AppLanguage.BO)
+        assertThat(locale.switched).containsExactly(AppLanguage.BO)
         assertThat(prefs.prefs.value.appLanguage).isEqualTo(AppLanguage.BO)
         assertThat(vm.state().language).isEqualTo(AppLanguage.BO)
         assertThat(vm.state().sheet).isNull()
+    }
+
+    @Test
+    fun `choosing the language already in use does nothing`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.LANGUAGE))
+
+        vm.onEvent(ProfileEvent.SetLanguage(AppLanguage.EN))
+
+        assertThat(locale.switched).isEmpty()
+        assertThat(prefs.prefs.value.appLanguage).isEqualTo(AppLanguage.EN)
+        assertThat(vm.state().sheet).isNull()
+    }
+
+    @Test
+    fun `the language shown is the app's language even when the stored one is stale`() = runTest {
+        // Changed to བོད་ཡིག in system settings; prefs catch up only at the next start.
+        locale.current = AppLanguage.BO
+        prefs.prefs.value = UserPrefs(appLanguage = AppLanguage.EN)
+        val vm = viewModel()
+
+        assertThat(vm.state().language).isEqualTo(AppLanguage.BO)
+
+        vm.onEvent(ProfileEvent.SetLanguage(AppLanguage.BO))
+        assertThat(locale.switched).isEmpty()
+    }
+
+    @Test
+    fun `the stored language is shown while no app language is set`() = runTest {
+        prefs.prefs.value = UserPrefs(appLanguage = AppLanguage.BO)
+
+        assertThat(viewModel().state().language).isEqualTo(AppLanguage.BO)
+    }
+
+    @Test
+    fun `the app language is read again each time the screen is shown`() = runTest {
+        val vm = viewModel()
+        assertThat(vm.state().language).isEqualTo(AppLanguage.EN)
+
+        locale.current = AppLanguage.BO
+        vm.onEvent(ProfileEvent.Shown)
+
+        assertThat(vm.state().language).isEqualTo(AppLanguage.BO)
     }
 
     // Version line
@@ -177,10 +239,20 @@ class ProfileViewModelTest {
     // Footer links
 
     @Test
-    fun `Privacy link hidden when Links PRIVACY_URL blank`() = runTest {
-        assertThat(Links.PRIVACY_URL).isEmpty()
-
+    fun `Privacy link hidden when the privacy URL is blank`() = runTest {
         assertThat(viewModel().state().links).doesNotContain(ProfileLink.PRIVACY)
+    }
+
+    @Test
+    fun `Privacy link shown and opened once the privacy URL is set`() = runTest {
+        linkTargets = linkTargets.copy(privacy = "https://privacy.example")
+        val vm = viewModel()
+
+        assertThat(vm.state().links).contains(ProfileLink.PRIVACY)
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.PRIVACY))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl("https://privacy.example"))
+        }
     }
 
     @Test
@@ -205,7 +277,7 @@ class ProfileViewModelTest {
     }
 
     @Test
-    fun `the shipped links show About, Rate, Share app and More apps`() = runTest {
+    fun `the footer shows the links whose targets are set`() = runTest {
         assertThat(viewModel().state().links).containsExactly(
             ProfileLink.ABOUT,
             ProfileLink.RATE,
@@ -223,10 +295,10 @@ class ProfileViewModelTest {
             assertThat(awaitItem()).isEqualTo(ProfileEffect.NavigateAbout)
 
             vm.onEvent(ProfileEvent.OpenLink(ProfileLink.RATE))
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(Links.PLAY_STORE_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(PLAY_URL))
 
             vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(Links.PLAY_STORE_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL))
         }
     }
 
@@ -252,7 +324,7 @@ class ProfileViewModelTest {
 
             vm.onEvent(ProfileEvent.OpenOtherApp(OtherApp.CALENDAR))
 
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(Links.CALENDAR_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(OtherApp.CALENDAR.url))
             assertThat(vm.state().sheet).isNull()
         }
     }
@@ -287,5 +359,9 @@ class ProfileViewModelTest {
 
         assertThat(prefs.prefs.value.wotdNotificationEnabled).isTrue()
         assertThat(prefs.prefs.value.wotdNotificationMinute).isEqualTo(8 * 60)
+    }
+
+    private companion object {
+        const val PLAY_URL = "https://play.example/app"
     }
 }

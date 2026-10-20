@@ -73,6 +73,11 @@ data class ProfileLinkTargets(
 }
 
 sealed interface ProfileEvent {
+    /**
+     * The screen is showing: re-read the app language, which the system's per-app language setting can change
+     * while the app is in the background.
+     */
+    data object Shown : ProfileEvent
     data class OpenSheet(val sheet: ProfileSheet) : ProfileEvent
     data object DismissSheet : ProfileEvent
     data class SetTextSize(val size: AppTextSize) : ProfileEvent

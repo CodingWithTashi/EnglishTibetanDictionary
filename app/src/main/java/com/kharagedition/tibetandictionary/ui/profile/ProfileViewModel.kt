@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.Features
+import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
@@ -22,30 +23,33 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * The Profile tab: reading settings, theme, default direction and app language from [prefs], the visible directions
- * and entry count from the dictionary's capabilities, and the footer links. Settings persist as they change; the
- * language is also applied at once through [localeApplier]. [uiState] is null until prefs and capabilities load.
+ * The Profile tab: reading settings, theme and default direction from [prefs], the visible directions and entry count
+ * from the dictionary's capabilities, and the footer links to [linkTargets]. Settings persist as they change. The
+ * language shown is the one the app is in ([localeApplier]), falling back to the stored one while no per-app language
+ * is set; choosing another persists it and switches the app to it. [uiState] is null until prefs and capabilities load.
  */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
     private val localeApplier: LocaleApplier,
+    private val linkTargets: ProfileLinkTargets,
 ) : ViewModel() {
 
-    private val linkTargets = ProfileLinkTargets()
+    private val appLanguage = MutableStateFlow(localeApplier.currentLanguage())
     private val sheet = MutableStateFlow<ProfileSheet?>(null)
 
     private val effectChannel = Channel<ProfileEffect>(Channel.BUFFERED)
     val effects: Flow<ProfileEffect> = effectChannel.receiveAsFlow()
 
     val uiState: StateFlow<ProfileUiState?> =
-        combine(prefs.prefs, dictionary.capabilities, sheet) { prefs, capabilities, sheet ->
-            state(prefs, capabilities, sheet)
+        combine(prefs.prefs, dictionary.capabilities, appLanguage, sheet) { prefs, capabilities, appLanguage, sheet ->
+            state(prefs, capabilities, appLanguage ?: prefs.appLanguage, sheet)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun onEvent(event: ProfileEvent) {
         when (event) {
+            ProfileEvent.Shown -> appLanguage.value = localeApplier.currentLanguage()
             is ProfileEvent.OpenSheet -> sheet.value = event.sheet
             ProfileEvent.DismissSheet -> sheet.value = null
             is ProfileEvent.SetTextSize -> persist { setTextSize(event.size) }
@@ -55,12 +59,7 @@ class ProfileViewModel @Inject constructor(
                 sheet.value = null
                 persist { setDefaultDirectionId(event.direction.id) }
             }
-            is ProfileEvent.SetLanguage -> {
-                // Close the sheet first: applying the locale recreates the activity, and this state outlives it.
-                sheet.value = null
-                persist { setAppLanguage(event.language) }
-                localeApplier.apply(event.language)
-            }
+            is ProfileEvent.SetLanguage -> setLanguage(event.language)
             ProfileEvent.ToggleWotdNotification -> persist {
                 val current = snapshot()
                 setWotdNotification(!current.wotdNotificationEnabled, current.wotdNotificationMinute)
@@ -72,6 +71,18 @@ class ProfileViewModel @Inject constructor(
             }
             // Accounts ship behind Features.ACCOUNTS; there is nothing to sign in to yet.
             ProfileEvent.SignIn, ProfileEvent.OpenAccount -> Unit
+        }
+    }
+
+    private fun setLanguage(language: AppLanguage) {
+        // Close the sheet first: switching the locale recreates the activity, and this state outlives it.
+        sheet.value = null
+        viewModelScope.launch {
+            // Choosing the language in use again would only recreate the activity.
+            if (language == (appLanguage.value ?: prefs.snapshot().appLanguage)) return@launch
+            appLanguage.value = language
+            prefs.setAppLanguage(language)
+            localeApplier.setLanguage(language)
         }
     }
 
@@ -87,7 +98,12 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private fun state(prefs: UserPrefs, capabilities: DictionaryCapabilities, sheet: ProfileSheet?): ProfileUiState {
+    private fun state(
+        prefs: UserPrefs,
+        capabilities: DictionaryCapabilities,
+        language: AppLanguage,
+        sheet: ProfileSheet?,
+    ): ProfileUiState {
         val visible = capabilities.directions.filter { it.entryCount > 0 }.sortedBy(Direction::position)
         return ProfileUiState(
             account = null,
@@ -96,7 +112,7 @@ class ProfileViewModel @Inject constructor(
             appearance = prefs.appearance,
             defaultDirection = defaultDirection(visible, prefs.defaultDirectionId),
             directions = visible,
-            language = prefs.appLanguage,
+            language = language,
             wotdNotification = if (Features.WOTD_NOTIFICATION) {
                 WotdNotifUi(prefs.wotdNotificationEnabled, prefs.wotdNotificationMinute)
             } else {

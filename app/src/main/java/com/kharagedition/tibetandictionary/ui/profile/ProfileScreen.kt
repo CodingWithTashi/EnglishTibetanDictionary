@@ -39,6 +39,8 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.R
@@ -107,6 +109,8 @@ internal const val PROFILE_SCREEN_TAG = "profile_screen"
 fun ProfileScreen(onOpenAbout: () -> Unit) {
     val viewModel = hiltViewModel<ProfileViewModel>()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Each time the tab is shown (also back from the background or recreated): the app language may have changed.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onEvent(ProfileEvent.Shown) }
     ProfileEffects(viewModel.effects, onOpenAbout)
     val loaded = state
     if (loaded != null) {
