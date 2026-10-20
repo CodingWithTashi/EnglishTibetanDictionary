@@ -46,8 +46,9 @@ import org.robolectric.annotation.Config
 
 /**
  * The shell on a Hilt graph with fake repositories and an installed dictionary: start destination, app links and
- * back between routes. Entry is the real screen over the sample entries (42 is not one of them, so it shows the
- * missing notice); the other destinations are still stubs: their route name plus one `stub_*` button per callback.
+ * back between routes. Entry, Onboarding, Profile and About are the real screens (entry 42 is not one of the sample
+ * entries, so it shows the missing notice); the other destinations are still stubs: their route name plus one
+ * `stub_*` button per callback.
  */
 @HiltAndroidTest
 @UninstallModules(RepositoryModule::class)
@@ -150,7 +151,7 @@ class AppNavHostTest {
     fun `a new user starts on onboarding without the bottom bar`() {
         launch(onboarded = false)
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
     }
 
@@ -158,12 +159,13 @@ class AppNavHostTest {
     fun `back after finishing onboarding leaves the app instead of returning to onboarding`() {
         launch(onboarded = false)
 
-        tap("stub_finish")
+        tap("onboarding_continue")
+        tap("onboarding_continue")
         assertOnTabs()
 
         pressBack()
 
-        compose.onNodeWithText("Onboarding").assertDoesNotExist()
+        compose.onNodeWithTag("onboarding_screen").assertDoesNotExist()
         assertThat(activity.get().isFinishing).isTrue()
     }
 
@@ -174,7 +176,7 @@ class AppNavHostTest {
         bus.emit(DeepLink.OpenEntry(42))
         compose.waitForIdle()
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithTag("entry_screen").assertDoesNotExist()
     }
 
@@ -219,7 +221,7 @@ class AppNavHostTest {
     fun `a cold-start entry link waits for onboarding`() {
         launch(onboarded = false, intent = linkIntent("app://entry/42"))
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithTag("entry_screen").assertDoesNotExist()
         assertThat(activity.get().intent.data).isNull()
     }
@@ -253,13 +255,14 @@ class AppNavHostTest {
     fun `back from About returns to the Profile tab`() {
         launch(onboarded = true)
         tap("nav_profile")
-        tap("stub_open_about")
-        compose.onNodeWithText("About").assertExists()
+        compose.onNodeWithTag("profile_link_about").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("about_screen").assertExists()
         compose.onNodeWithTag("nav_profile").assertDoesNotExist()
 
         pressBack()
 
-        compose.onNodeWithTag("stub_open_about").assertExists()
+        compose.onNodeWithTag("profile_screen").assertExists()
         compose.onNodeWithTag("nav_profile").assertIsSelected()
     }
 

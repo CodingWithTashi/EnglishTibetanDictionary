@@ -185,4 +185,13 @@
     <!-- Installing (T5.2) -->
     <!-- Replaces install_failed_body when preparing the dictionary was cancelled rather than failing -->
     <string name="install_interrupted">Preparation was interrupted.</string>
+
+    <!-- Profile (T4.1) -->
+    <!-- Signed-out account card on Profile (shown once accounts ship) -->
+    <string name="profile_signed_out_title">Not signed in</string>
+    <string name="profile_signed_out_body">Sync saved words across devices</string>
+    <string name="sign_in">Sign in</string>
+    <!-- The developer's other apps, listed under "More apps" -->
+    <string name="other_app_prayer">Tibetan Prayer</string>
+    <string name="other_app_calendar">Tibetan Calendar</string>
 </resources>
