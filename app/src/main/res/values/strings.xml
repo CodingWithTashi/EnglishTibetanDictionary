@@ -168,4 +168,15 @@
     <string name="copied">Copied</string>
     <!-- Saving, removing or filing a word failed -->
     <string name="entry_action_failed">Something went wrong. Please try again.</string>
+
+    <!-- Saved (T3.2) -->
+    <!-- Section headers of the saved list, by when a word was saved -->
+    <string name="saved_group_today">Today</string>
+    <string name="saved_group_week">This week</string>
+    <string name="saved_group_month">This month</string>
+    <string name="saved_group_earlier">Earlier</string>
+    <!-- Under "No matches" when the search or folder filter leaves no saved words -->
+    <string name="saved_no_matches_body">Try another word or folder.</string>
+    <!-- Content description of the filled heart on a saved row; tapping it removes the word -->
+    <string name="unsave">Remove from Saved</string>
 </resources>
