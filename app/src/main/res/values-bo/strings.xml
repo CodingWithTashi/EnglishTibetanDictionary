@@ -48,7 +48,7 @@
     <string name="example_abbr">དཔེར་ན།</string>
     <string name="report_correction_prefix">ནོར་འཁྲུལ་ཡོད་དམ།</string>
     <string name="report_correction">ནོར་བཅོས་ཞུ།</string>
-    <string name="entry_truncated">ཚིག་འདིའི་འགྲེལ་བཤད་མཉེན་ཆས་ནང་འཚུད་ཆེད་མདོར་བསྡུས་བྱས་ཡོད། ཆ་ཚང་ཁུངས་ཀྱི་ཚིག་མཛོད་ནང་ཡོད།</string>
+    <string name="entry_truncated">ཚིག་འདིའི་འགྲེལ་བཤད་མཉེན་ཆས་ནང་འཚུད་ཆེད་མདོར་བསྡུས་བྱས་ཡོད། འགྲེལ་བཤད་ཆ་ཚང་ཁུངས་ཀྱི་ཚིག་མཛོད་ནང་ཡོད།</string>
     <string name="entry_missing">ཚིག་འདི་ད་ལྟ་ཚིག་མཛོད་ནང་མི་འདུག</string>
 
     <!-- Saved -->
@@ -101,7 +101,7 @@
     <string name="onboarding_direction_body">འདིས་སྔོན་སྒྲིག་ཁ་ཕྱོགས་གཏན་འཁེལ་བྱེད། དུས་ནམ་ཡིན་ཡང་ཐེངས་གཅིག་མནན་ནས་བརྗེ་ཆོག</string>
     <string name="onboarding_textsize_title">ཀློག་བདེ་པོ་འདུག་གམ།</string>
     <string name="onboarding_textsize_body">བརྩེགས་ཡིག་གསལ་པོ་མཐོང་ཆེད་བོད་ཡིག་དབྱིན་ཡིག་ལས་ཆེ་བ་སྟོན།</string>
-    <string name="onboarding_account_title">ཁྱེད་ཀྱི་ཚིག་སྒྲིག་ཆས་ཚང་མར་ཉར།</string>
+    <string name="onboarding_account_title">ཁྱེད་ཀྱི་ཚིག་རྣམས་སྒྲིག་ཆས་ཚང་མར་ཉར།</string>
     <string name="onboarding_account_body">ནང་འཛུལ་བྱས་ན་ཉར་བའི་ཚིག་དང་། འཚོལ་ཐོ། སྒྲིག་འགོད་བཅས་མཉམ་སྒྲིག་ཁོ་ན་བྱེད། ནང་འཛུལ་མ་བྱས་ཀྱང་ཚང་མ་དྲ་རྒྱ་མེད་པར་བེད་སྤྱོད་ཐུབ།</string>
     <string name="continue_without_account">ཐོ་ཁོངས་མེད་པར་མུ་མཐུད།</string>
     <string name="sign_in_google">Google བརྒྱུད་ནས་ནང་འཛུལ།</string>
@@ -162,7 +162,7 @@
 
     <!-- Profile (T4.1) -->
     <string name="profile_signed_out_title">ནང་འཛུལ་བྱས་མེད།</string>
-    <string name="profile_signed_out_body">ཉར་བའི་ཚིག་སྒྲིག་ཆས་ཁག་ལ་མཉམ་སྒྲིག</string>
+    <string name="profile_signed_out_body">ཉར་བའི་ཚིག་རྣམས་སྒྲིག་ཆས་ཚང་མར་མཉམ་སྒྲིག</string>
     <string name="sign_in">ནང་འཛུལ།</string>
     <!-- The apps' own Tibetan names -->
     <string name="other_app_prayer">ཉིན་རེའི་ཁ་འདོན།</string>
