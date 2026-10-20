@@ -26,8 +26,8 @@ interface SavedRepository {
     suspend fun unsave(entryId: Long)
 
     /**
-     * Re-inserts a removed row (Undo) keeping savedAt and note, as well as its folder. The default approximates it
-     * with [save], which stamps a new savedAt and drops the note.
+     * Re-inserts a removed row (Undo) exactly as [entry] snapshots it: savedAt, updatedAt, note and folder. The default
+     * approximates it with [save], which stamps new times and drops the note; implementations override it.
      */
     suspend fun restore(entry: SavedEntry) {
         save(entry.toSummary(), entry.folderId)

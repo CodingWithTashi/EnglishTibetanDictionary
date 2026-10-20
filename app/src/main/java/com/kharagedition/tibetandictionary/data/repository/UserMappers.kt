@@ -17,6 +17,20 @@ internal fun SavedEntryEntity.toDomain(): SavedEntry = SavedEntry(
     folderId = folderId,
     note = note,
     savedAt = savedAt,
+    updatedAt = updatedAt,
+)
+
+/** The row [this] was read from, filed in [folderId]. */
+internal fun SavedEntry.toEntity(folderId: Long? = this.folderId): SavedEntryEntity = SavedEntryEntity(
+    entryId = entryId,
+    directionId = directionId,
+    headword = headword,
+    wylie = wylie,
+    glossPreview = glossPreview,
+    folderId = folderId,
+    note = note,
+    savedAt = savedAt,
+    updatedAt = updatedAt,
 )
 
 /** Snapshots [this] for user.db at [now] (epoch milliseconds); [note] is carried over when re-saving. */
