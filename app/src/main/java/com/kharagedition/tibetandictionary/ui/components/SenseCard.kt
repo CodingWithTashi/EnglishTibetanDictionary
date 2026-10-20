@@ -20,7 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -45,19 +46,20 @@ private val NumberGap = 14.dp
 /** Space between the definition and the note under it. */
 private val NoteGap = 4.dp
 
-/** Inline-content id of the label badge in the definition text. */
-private const val LABEL_BADGE_ID = "sense_label"
+/** Inline-content id prefix of the label badges in the definition text, one per label. */
+private const val LABEL_BADGE_ID = "sense_label_"
 internal const val LABEL_BADGE_TAG = "sense_label_badge"
 
 /**
  * One sense of an entry on a surface1 card (radius 16, padding 14×16): an accent 13/600 [number] in a 16dp
  * column (omitted when null; with [reserveNumberColumn] the empty column is kept, so a later card of a numbered
- * sense lines up with its first), then 15/1.6 text with an inline "(n.)" [partOfSpeech] prefix, the usage [label]
- * as an outline badge (10/600, muted, 1dp outline, radius 6) right after it, the definition, and every one of
- * [examples], each after a muted " — e.g. " (Jomolhari in bo; Tibetan examples in Jomolhari 19/1.6) and followed
- * by its translation. A blank [text] starts with the first example, without the dash. The [note] ("broke,
+ * sense lines up with its first), then 15/1.6 text with an inline "(n.)" [partOfSpeech] prefix, each of the usage
+ * [labels] as its own outline badge (10/600, muted, 1dp outline, radius 6) right after it, the definition, and every
+ * one of [examples], each after a muted " — e.g. " (Jomolhari in bo; Tibetan examples in Jomolhari 19/1.6) and
+ * followed by its translation. A blank [text] starts with the first example, without the dash. The [note] ("broke,
  * broken") goes on a muted 13sp line under the text. Tibetan definitions (bo→bo) draw in Jomolhari 18/1.6. The
- * badge is measured, so the card grows with the text size and font scale.
+ * badges are measured, so the card grows with the text size and font scale, and they wrap between labels like
+ * words; screen readers read each label once, from the text.
  */
 @Composable
 fun SenseCard(
@@ -66,7 +68,7 @@ fun SenseCard(
     text: String,
     examples: List<ExampleUi>,
     modifier: Modifier = Modifier,
-    label: String? = null,
+    labels: List<String> = emptyList(),
     note: String? = null,
     reserveNumberColumn: Boolean = false,
 ) {
@@ -74,18 +76,20 @@ fun SenseCard(
     val dimens = DictTheme.dimens
     val type = DictTheme.type
     val exampleAbbr = stringResource(R.string.example_abbr)
-    val badge = rememberLabelBadge(label)
-    val styled = remember(partOfSpeech, label, text, examples, exampleAbbr, type, colors) {
+    val badges = rememberLabelBadges(labels)
+    val styled = remember(partOfSpeech, labels, text, examples, exampleAbbr, type, colors) {
         val hasText = text.isNotBlank()
-        var badgeRange: IntRange? = null
+        val badgeRanges = mutableListOf<IntRange>()
         val annotated = buildAnnotatedString {
             if (partOfSpeech != null) appendMixed("($partOfSpeech) ", null, type.tibetanGloss)
-            if (label != null) {
+            labels.forEachIndexed { index, label ->
+                // A space between badges is where a line may break, so a long run of labels wraps.
+                if (index > 0) append(" ")
                 val start = length
-                appendInlineContent(LABEL_BADGE_ID, label)
-                badgeRange = start until length
-                if (hasText || examples.isNotEmpty()) append(" ")
+                appendInlineContent(LABEL_BADGE_ID + index, label)
+                badgeRanges += start until length
             }
+            if (labels.isNotEmpty() && (hasText || examples.isNotEmpty())) append(" ")
             if (hasText) appendMixed(text, null, type.tibetanGloss)
             examples.forEachIndexed { index, example ->
                 val dash = if (hasText || index > 0) " — $exampleAbbr " else "$exampleAbbr "
@@ -109,8 +113,8 @@ fun SenseCard(
             type.tibetanExample.takeIf { examples.any { TibetanScript.hasTibetan(it.text) } },
             type.tibetanGloss.takeIf { examples.any { it.translation?.let(TibetanScript::hasTibetan) == true } },
         )
-        // A pure-Tibetan definition keeps Jomolhari's paragraph line breaking; the badge is not text it draws.
-        val drawn = badgeRange?.let { annotated.text.removeRange(it) } ?: annotated.text
+        // A pure-Tibetan definition keeps Jomolhari's paragraph line breaking; the badges are not text it draws.
+        val drawn = badgeRanges.foldRight(annotated.text) { range, rest -> rest.removeRange(range) }
         val base = if (hasNonTibetan(drawn)) type.body else type.tibetanGloss
         StyledText(annotated, base.copy(lineHeight = tallestLineHeight(*involved.toTypedArray())))
     }
@@ -138,7 +142,7 @@ fun SenseCard(
                 styled.text,
                 color = colors.ink,
                 style = styled.style,
-                inlineContent = badge?.let { mapOf(LABEL_BADGE_ID to it) }.orEmpty(),
+                inlineContent = badges,
             )
             if (note != null) MixedText(note, type.secondary, type.tibetanInline14, color = colors.muted)
         }
@@ -146,43 +150,46 @@ fun SenseCard(
 }
 
 /**
- * The outline badge for [label] as inline text content, sized to its measured text plus the badge padding, so it
- * scales with the text size and font scale; null without a label.
+ * One outline badge per label of [labels] as inline text content, keyed by its inline-content id, each sized to its
+ * measured text plus the badge padding, so it scales with the text size and font scale. The text carries the label
+ * as the placeholder's alternate text, so the badge itself is hidden from screen readers.
  */
 @Composable
-private fun rememberLabelBadge(label: String?): InlineTextContent? {
+private fun rememberLabelBadges(labels: List<String>): Map<String, InlineTextContent> {
     val colors = DictTheme.colors
     val dimens = DictTheme.dimens
     val type = DictTheme.type
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
-    return remember(label, colors, dimens, type, density, measurer) {
-        if (label == null) return@remember null
-        val badgeText = mixedText(label, type.badge, type.tibetanBadge)
-        val measured = measurer.measure(badgeText.text, badgeText.style, softWrap = false, maxLines = 1, density = density)
-        val placeholder = with(density) {
-            val width = measured.size.width + 2 * dimens.badgePaddingHorizontalOutline.toPx()
-            val height = measured.size.height + 2 * dimens.badgePaddingVertical.toPx()
-            // Rounded up so the badge never clips its text after the sp round trip.
-            Placeholder(ceil(width + 1).toSp(), ceil(height + 1).toSp(), PlaceholderVerticalAlign.TextCenter)
-        }
-        InlineTextContent(placeholder) {
-            val shape = DictShapes.extraSmall
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clip(shape)
-                    .border(dimens.border, colors.outline, shape)
-                    .testTag(LABEL_BADGE_TAG),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(badgeText.text, color = colors.muted, style = badgeText.style, maxLines = 1, softWrap = false)
+    return remember(labels, colors, dimens, type, density, measurer) {
+        labels.withIndex().associate { (index, label) ->
+            val badgeText = mixedText(label, type.badge, type.tibetanBadge)
+            val measured =
+                measurer.measure(badgeText.text, badgeText.style, softWrap = false, maxLines = 1, density = density)
+            val placeholder = with(density) {
+                val width = measured.size.width + 2 * dimens.badgePaddingHorizontalOutline.toPx()
+                val height = measured.size.height + 2 * dimens.badgePaddingVertical.toPx()
+                // Rounded up so the badge never clips its text after the sp round trip.
+                Placeholder(ceil(width + 1).toSp(), ceil(height + 1).toSp(), PlaceholderVerticalAlign.TextCenter)
+            }
+            LABEL_BADGE_ID + index to InlineTextContent(placeholder) {
+                val shape = DictShapes.extraSmall
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .border(dimens.border, colors.outline, shape)
+                        .clearAndSetSemantics { testTag = LABEL_BADGE_TAG },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(badgeText.text, color = colors.muted, style = badgeText.style, maxLines = 1, softWrap = false)
+                }
             }
         }
     }
 }
 
-/** [SenseCard] for a [SenseUi]; its label keys are shown through [usageLabelText]. */
+/** [SenseCard] for a [SenseUi]; its label keys are shown through [usageLabels]. */
 @Composable
 fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier) {
     SenseCard(
@@ -191,7 +198,7 @@ fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier) {
         text = sense.text,
         examples = sense.examples,
         modifier = modifier,
-        label = sense.label?.let { usageLabelText(it) },
+        labels = sense.label?.let { usageLabels(it) }.orEmpty(),
         note = sense.note,
         reserveNumberColumn = sense.reserveNumberColumn,
     )

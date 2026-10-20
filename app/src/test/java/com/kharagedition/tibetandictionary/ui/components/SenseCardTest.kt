@@ -1,18 +1,26 @@
 package com.kharagedition.tibetandictionary.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
@@ -29,6 +37,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 class SenseCardTest {
@@ -93,11 +102,22 @@ class SenseCardTest {
         val node = compose.onNodeWithText("ཁྱིམ།", substring = true)
         // The badge's text is the placeholder's alternate text, so screen readers read it in place.
         assertThat(node.text().text).isEqualTo("(n.) astrol. ཁྱིམ།")
-        compose.onNodeWithText("astrol.", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(LABEL_BADGE_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
-    fun `canonical label keys read as short display strings`() {
+    fun `a screen reader reads the label once, from the text, not again from the badge`() {
+        show { SenseCard(SenseUi(4, "n.", "ཁྱིམ།", label = "astrol")) }
+
+        // The merged tree is what accessibility services read.
+        compose.onAllNodesWithText("astrol.", substring = true).assertCountEquals(1)
+        val badge = compose.onNodeWithTag(LABEL_BADGE_TAG).fetchSemanticsNode()
+        assertThat(SemanticsProperties.Text in badge.config).isFalse()
+        assertThat(badge.children).isEmpty()
+    }
+
+    @Test
+    fun `canonical label keys read as short display strings, one badge each`() {
         show {
             SenseCard(SenseUi(1, null, "a support", label = "poetic,archaic"))
             SenseCard(SenseUi(2, null, "council", label = "adm,law"))
@@ -105,30 +125,53 @@ class SenseCardTest {
         }
 
         assertThat(compose.onNodeWithText("a support", substring = true).text().text)
-            .isEqualTo("poet. · archaic a support")
-        assertThat(compose.onNodeWithText("council", substring = true).text().text).isEqualTo("adm. · law council")
-        assertThat(compose.onNodeWithText("a lord", substring = true).text().text).isEqualTo("US · def. a lord")
+            .isEqualTo("poet. archaic a support")
+        assertThat(compose.onNodeWithText("council", substring = true).text().text).isEqualTo("adm. law council")
+        assertThat(compose.onNodeWithText("a lord", substring = true).text().text).isEqualTo("US def. a lord")
+        compose.onAllNodesWithTag(LABEL_BADGE_TAG, useUnmergedTree = true).assertCountEquals(6)
     }
 
-    @Test
-    fun `the badge is measured, so it holds its text at the largest settings`() {
+    /** Shows [content] at the largest text size and font scale 2.0 in a 360dp-wide column. */
+    private fun showAtLargest(content: @Composable () -> Unit) {
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
                 DictTheme(darkTheme = false, textScale = AppTextSize.LARGEST.scale, language = AppLanguage.EN) {
-                    Column { SenseCard(SenseUi(1, "n.", "ཁྱིམ།", label = "astrol")) }
+                    Column(Modifier.width(360.dp)) { content() }
                 }
             }
         }
+    }
+
+    @Test
+    fun `the badge is measured, so it holds its text at the largest settings`() {
+        var textSize = DpSize.Zero
+        showAtLargest {
+            val measured = rememberTextMeasurer().measure("astrol.", DictTheme.type.badge).size
+            textSize = with(LocalDensity.current) { DpSize(measured.width.toDp(), measured.height.toDp()) }
+            SenseCard(SenseUi(1, "n.", "ཁྱིམ།", label = "astrol"))
+        }
 
         val badge = compose.onNodeWithTag(LABEL_BADGE_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
-        val text = compose.onNodeWithText("astrol.", useUnmergedTree = true).getUnclippedBoundsInRoot()
         // 10sp × 1.3 × 2: the badge grows with the text instead of clipping it.
-        assertThat(text.height.value).isGreaterThan(20f)
-        assertThat(badge.height.value).isAtLeast(text.height.value)
-        assertThat(badge.width.value).isAtLeast(text.width.value + 12f)
-        assertThat(badge.left.value).isAtMost(text.left.value)
-        assertThat(badge.right.value).isAtLeast(text.right.value)
+        assertThat(textSize.height.value).isGreaterThan(20f)
+        assertThat(badge.height.value).isAtLeast(textSize.height.value)
+        assertThat(badge.width.value).isAtLeast(textSize.width.value + 12f)
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `a long run of labels wraps between badges inside the card at the largest settings`() {
+        showAtLargest { SenseCard(SenseUi(3, null, "a format", label = "adm,pub,jrn,comput,sci"), Modifier.testTag("card")) }
+
+        val card = compose.onNodeWithTag("card").getUnclippedBoundsInRoot()
+        val badges = compose.onAllNodesWithTag(LABEL_BADGE_TAG, useUnmergedTree = true).fetchSemanticsNodes()
+            .map { it.boundsInRoot }
+        assertThat(badges).hasSize(5)
+        val contentRight = with(compose.density) { card.right.toPx() - 16.dp.toPx() }
+        // Each badge stays inside the card's 16dp padding; one joined badge ran past it and was clipped.
+        badges.forEach { assertThat(it.right).isAtMost(contentRight + 0.5f) }
+        assertThat(badges.map { it.top }.distinct().size).isGreaterThan(1)
     }
 
     @Test
@@ -136,7 +179,9 @@ class SenseCardTest {
     fun `Tibetan-source labels read in Tibetan in bo`() {
         show(language = null) { SenseCard(SenseUi(2, null, "སངས་རྒྱས་ཀྱི་མཚན།", label = "poetic")) }
 
-        compose.onNodeWithText("མངོན་བརྗོད།", useUnmergedTree = true).assertIsDisplayed()
+        assertThat(compose.onNodeWithText("སངས་རྒྱས་ཀྱི་མཚན།", substring = true).text().text)
+            .isEqualTo("མངོན་བརྗོད། སངས་རྒྱས་ཀྱི་མཚན།")
+        compose.onNodeWithTag(LABEL_BADGE_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

@@ -50,16 +50,22 @@ private fun usageLabel(key: String, resources: Resources): String =
         ?: if (key in WHOLE_WORD_LABELS || key.endsWith('.')) key else "$key."
 
 /**
- * The display text of comma-joined usage-label [keys] ("adm,law" → "adm. · law"): the one place that turns the
- * data's canonical label keys into badge and caption text.
+ * The display labels of comma-joined usage-label [keys] ("adm,law" → ["adm.", "law"]), in order and without
+ * repeats: the one place that turns the data's canonical label keys into badge and caption text.
  */
-fun usageLabelText(keys: String, resources: Resources): String =
+fun usageLabels(keys: String, resources: Resources): List<String> =
     keys.split(LABEL_KEY_SEPARATOR)
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .map { usageLabel(it, resources) }
         .distinct()
-        .joinToString(DOT_SEPARATOR)
+
+/** [usageLabels] in the current app language. */
+@Composable
+fun usageLabels(keys: String): List<String> = usageLabels(keys, LocalResources.current)
+
+/** The [usageLabels] of [keys] as one caption ("adm,law" → "adm. · law"). */
+fun usageLabelText(keys: String, resources: Resources): String = usageLabels(keys, resources).joinToString(DOT_SEPARATOR)
 
 /** [usageLabelText] in the current app language. */
 @Composable
