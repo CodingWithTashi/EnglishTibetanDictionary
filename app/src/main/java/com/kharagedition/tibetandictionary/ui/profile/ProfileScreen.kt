@@ -29,8 +29,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -38,7 +38,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import androidx.core.os.ConfigurationCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.Features
@@ -74,7 +73,6 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 
 /** Screen padding above the title and below the version line; gap between the screen's blocks. */
@@ -251,9 +249,8 @@ private fun languageName(language: AppLanguage): String =
 /** [minuteOfDay] as a short local time ("9:00 AM"), in Tibetan digits for the bo UI. */
 @Composable
 private fun notificationTime(minuteOfDay: Int): String {
-    val locale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.getDefault()
     val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-        .withLocale(locale)
+        .withLocale(LocalLocale.current.platformLocale)
         .format(LocalTime.of(minuteOfDay / MINUTES_PER_HOUR, minuteOfDay % MINUTES_PER_HOUR))
     return if (DictTheme.language.usesTibetanDigits) TibetanNumerals.toTibetan(time) else time
 }
