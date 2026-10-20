@@ -73,6 +73,17 @@ class FolderDaoTest {
     }
 
     @Test
+    fun existsByIdIsTrueOnlyForExistingFolders() = runTest {
+        val verbs = dao.insert(folder("Verbs"))
+
+        assertThat(dao.exists(verbs)).isTrue()
+        assertThat(dao.exists(verbs + 1)).isFalse()
+
+        dao.delete(verbs)
+        assertThat(dao.exists(verbs)).isFalse()
+    }
+
+    @Test
     fun renameUpdatesNameAndTimestamp() = runTest {
         val id = dao.insert(folder("Verbs"))
 

@@ -3,6 +3,8 @@ package com.kharagedition.tibetandictionary.core.di
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.kharagedition.tibetandictionary.data.install.ApkAssetSource
+import com.kharagedition.tibetandictionary.data.install.AssetSource
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.dao.ActivityDayDao
@@ -37,6 +39,10 @@ object DatabaseModule {
             .fallbackToDestructiveMigration(dropAllTables = true)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .build()
+
+    /** What the dictionary installer copies onto the device before Room opens it. */
+    @Provides
+    fun provideAssetSource(source: ApkAssetSource): AssetSource = source
 
     @Provides
     @Singleton
