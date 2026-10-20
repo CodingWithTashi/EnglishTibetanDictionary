@@ -1,6 +1,5 @@
 package com.kharagedition.tibetandictionary.ui.about
 
-import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.BuildConfig
@@ -11,17 +10,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-
-/**
- * About: the app version, the entry count (null when unknown) and the installed data's own [attribution] text
- * (null when it has none).
- */
-@Immutable
-data class AboutUiState(
-    val versionName: String,
-    val entryCount: Int?,
-    val attribution: String?,
-)
 
 /** Reads what About shows from the installed dictionary; [uiState] is null until its capabilities load. */
 @HiltViewModel
