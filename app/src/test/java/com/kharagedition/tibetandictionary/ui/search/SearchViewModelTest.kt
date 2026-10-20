@@ -268,6 +268,21 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `clearing and quickly typing the same query again searches it again`() = runTest {
+        val vm = viewModel()
+        vm.type("bkra")
+        advanceUntilIdle()
+
+        vm.onEvent(SearchEvent.Clear)
+        advanceTimeBy(50)
+        vm.type("bkra")
+        advanceUntilIdle()
+
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.Results)
+        assertThat(vm.state.results.map { it.entryId }).containsExactly(tashi.id, tashiDelek.id).inOrder()
+    }
+
+    @Test
     fun `a recent search runs again in its direction`() = runTest {
         recents.recents.value = listOf(recentHouse)
         val vm = viewModel()

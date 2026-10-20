@@ -142,8 +142,14 @@ class SearchViewModel @AssistedInject constructor(
         )
 
     init {
+        // An emptied field passes at once, so typing the same query again right after clearing is a new search.
+        val queries = field
+            .map { normalize(it.text) }
+            .distinctUntilChanged()
+            .debounce { query -> if (query.isEmpty()) 0L else DEBOUNCE_MS }
+            .distinctUntilChanged()
         combine(
-            field.debounce(DEBOUNCE_MS).map { normalize(it.text) }.distinctUntilChanged(),
+            queries,
             selection,
             capabilities.filterNotNull(),
             defaultDirectionId,
