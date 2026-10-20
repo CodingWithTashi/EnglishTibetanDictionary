@@ -54,6 +54,10 @@ data class SuggestionUi(
  * directions are known); [autoSelected] when detection moved it away from the user's selection. [highlightFirst]
  * marks the first result as an exact match of the query. [resultCount] counts the rows loaded so far; more can
  * be paged in while [hasMore]. [alternateDirection] is only offered with [SearchPhase.NoResults].
+ *
+ * [settledQuery] is the (normalised) query the shown results or "No match for …" are for; it trails [query]
+ * while the next search is pending. [searchId] identifies that search and changes with every new one, but not
+ * with paging; [pagesLoaded] counts the pages it has fetched.
  */
 @Immutable
 data class SearchUiState(
@@ -73,6 +77,9 @@ data class SearchUiState(
     val alternateDirection: Direction? = null,
     val noMatchHint: NoMatchHint = NoMatchHint.English,
     val micAvailable: Boolean = false,
+    val settledQuery: String = "",
+    val searchId: Int = 0,
+    val pagesLoaded: Int = 0,
 )
 
 /** User actions on the Search route. */

@@ -3,12 +3,14 @@ package com.kharagedition.tibetandictionary.ui.search
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -185,6 +187,64 @@ class SearchScreenTest {
     }
 
     @Test
+    fun `the end of the list asks again after each page and stops when paging ends`() {
+        val paging = base.copy(
+            query = query("bkra"),
+            phase = SearchPhase.Results,
+            results = listOf(tashi, tashiDelek),
+            resultCount = 2,
+            hasMore = true,
+            settledQuery = "bkra",
+            searchId = 1,
+            pagesLoaded = 1,
+        )
+        show(paging)
+        compose.waitForIdle()
+        assertThat(events).containsExactly(SearchEvent.LoadMore)
+
+        // A page landed (even one that listed nothing new): the trailing row, still in view, asks again.
+        state = paging.copy(pagesLoaded = 2)
+        compose.waitForIdle()
+        assertThat(events).containsExactly(SearchEvent.LoadMore, SearchEvent.LoadMore)
+
+        // A failed or empty page ends paging: the trailing skeleton goes and nothing more is asked.
+        state = paging.copy(pagesLoaded = 2, hasMore = false)
+        compose.onNodeWithTag("search_load_more").assertDoesNotExist()
+        compose.onNodeWithTag("search_results_count").assertTextEquals("2 results")
+        assertThat(events).hasSize(2)
+    }
+
+    @Test
+    fun `a new settled search starts the list at the top`() {
+        val rows = (1..40L).map { tashi.copy(entryId = 100 + it, wylie = "bkra shis $it") }
+        val first = base.copy(
+            query = query("bkra"),
+            phase = SearchPhase.Results,
+            results = rows,
+            resultCount = rows.size,
+            settledQuery = "bkra",
+            searchId = 1,
+            pagesLoaded = 1,
+        )
+        show(first)
+        compose.onNodeWithTag("search_results").performScrollToIndex(rows.lastIndex)
+        compose.onNodeWithTag("result_row_101").assertDoesNotExist()
+
+        // The same search, with another page: the position is kept.
+        state = first.copy(pagesLoaded = 2)
+        compose.onNodeWithTag("result_row_140").assertIsDisplayed()
+
+        val others = (1..40L).map { tashi.copy(entryId = 200 + it, wylie = "bkra shis $it pa") }
+        state = first.copy(
+            query = query("bkra shis"),
+            results = others,
+            settledQuery = "bkra shis",
+            searchId = 2,
+        )
+        compose.onNodeWithTag("result_row_201").assertIsDisplayed()
+    }
+
+    @Test
     fun `while the first search is pending nothing is listed`() {
         show(base.copy(query = query("bkra"), phase = SearchPhase.Results))
 
@@ -200,6 +260,7 @@ class SearchScreenTest {
         show(
             base.copy(
                 query = query("bkrashi"),
+                settledQuery = "bkrashi",
                 phase = SearchPhase.NoResults,
                 suggestions = listOf(SuggestionUi(11, boEn.id, "བཀྲ་ཤིས་", true, "bkra shis · auspicious")),
                 alternateDirection = enBo,
@@ -222,10 +283,25 @@ class SearchScreenTest {
 
     @Test
     fun `no results with nothing to suggest show only the message`() {
-        show(base.copy(query = query("zzzz"), phase = SearchPhase.NoResults, noMatchHint = NoMatchHint.English))
+        show(
+            base.copy(
+                query = query("zzzz"),
+                settledQuery = "zzzz",
+                phase = SearchPhase.NoResults,
+                noMatchHint = NoMatchHint.English,
+            ),
+        )
 
         compose.onNodeWithText("No match for “zzzz”").assertExists()
         compose.onNodeWithText("Check the spelling or try a shorter word.").assertExists()
         compose.onNodeWithTag("search_try_alternate").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the no-match title names the query that was searched, not the one being typed`() {
+        show(base.copy(query = query("zzzzq"), settledQuery = "zzzz", phase = SearchPhase.NoResults))
+
+        compose.onNodeWithText("No match for “zzzz”").assertExists()
+        compose.onNodeWithText("No match for “zzzzq”").assertDoesNotExist()
     }
 }

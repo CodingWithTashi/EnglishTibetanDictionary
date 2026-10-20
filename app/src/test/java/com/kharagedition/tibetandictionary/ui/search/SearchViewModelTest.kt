@@ -30,6 +30,7 @@ import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository.Search
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -79,6 +80,10 @@ class SearchViewModelTest {
     private val SearchViewModel.state: SearchUiState get() = uiState.value
 
     private fun searchedQueries() = dictionary.searches.map { it.query }.distinct()
+
+    /** Sixty Tibetan-to-English rows whose Wylie starts with "bkra shis", so "bkra" fills more than a page. */
+    private val many = (1..60).map { i -> tashi.copy(id = 1_100_000L + i, wylie = "bkra shis $i") }
+    private fun bigDictionary() = FakeDictionaryRepository(entries = many.map { SampleData.tashiEntry.copy(summary = it) })
 
     // Debounce
 
@@ -364,8 +369,7 @@ class SearchViewModelTest {
 
     @Test
     fun `load more appends the next page without repeating rows`() = runTest {
-        val many = (1..60).map { i -> tashi.copy(id = 1_100_000L + i, wylie = "bkra shis $i") }
-        val big = FakeDictionaryRepository(entries = many.map { SampleData.tashiEntry.copy(summary = it) })
+        val big = bigDictionary()
         // Page 0 carries two full-text rows beyond the limit, as the real repository may.
         val repository = object : DictionaryRepository by big {
             override suspend fun search(query: String, directionId: String, limit: Int, offset: Int) =
@@ -377,6 +381,8 @@ class SearchViewModelTest {
         advanceUntilIdle()
         assertThat(vm.state.resultCount).isEqualTo(52)
         assertThat(vm.state.hasMore).isTrue()
+        assertThat(vm.state.pagesLoaded).isEqualTo(1)
+        val searchId = vm.state.searchId
 
         vm.onEvent(SearchEvent.LoadMore)
         advanceUntilIdle()
@@ -385,10 +391,149 @@ class SearchViewModelTest {
         assertThat(vm.state.results.map { it.entryId }).containsExactlyElementsIn(many.map { it.id }).inOrder()
         assertThat(vm.state.resultCount).isEqualTo(60)
         assertThat(vm.state.hasMore).isFalse()
+        // Paging is not a new search: the list keeps its scroll position.
+        assertThat(vm.state.pagesLoaded).isEqualTo(2)
+        assertThat(vm.state.searchId).isEqualTo(searchId)
 
         vm.onEvent(SearchEvent.LoadMore)
         advanceUntilIdle()
         assertThat(big.searches.last().offset).isEqualTo(50)
+    }
+
+    @Test
+    fun `a load-more page that fails is reported and ends paging`() = runTest {
+        val failure = IllegalStateException("page lost")
+        val big = bigDictionary()
+        val repository = object : DictionaryRepository by big {
+            override suspend fun search(query: String, directionId: String, limit: Int, offset: Int): SearchResult =
+                if (offset > 0) throw failure else big.search(query, directionId, limit, offset)
+        }
+        val vm = viewModel(repository = repository)
+        vm.type("bkra")
+        advanceUntilIdle()
+        assertThat(vm.state.hasMore).isTrue()
+
+        vm.onEvent(SearchEvent.LoadMore)
+        advanceUntilIdle()
+
+        assertThat(errors.recorded.map { it.message }).containsExactly(failure.message)
+        assertThat(vm.state.resultCount).isEqualTo(50)
+        // The trailing skeleton goes, so the end of the list stops asking for a page that will not come.
+        assertThat(vm.state.hasMore).isFalse()
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.Results)
+    }
+
+    @Test
+    fun `a load-more page that adds no new rows ends paging`() = runTest {
+        val big = bigDictionary()
+        // Every page repeats the first one, as a repository with an unstable order could.
+        val repository = object : DictionaryRepository by big {
+            override suspend fun search(query: String, directionId: String, limit: Int, offset: Int) =
+                big.search(query, directionId, limit, 0)
+        }
+        val vm = viewModel(repository = repository)
+        vm.type("bkra")
+        advanceUntilIdle()
+        assertThat(vm.state.hasMore).isTrue()
+
+        vm.onEvent(SearchEvent.LoadMore)
+        advanceUntilIdle()
+
+        assertThat(vm.state.resultCount).isEqualTo(50)
+        assertThat(vm.state.hasMore).isFalse()
+    }
+
+    /** [big], with every page after the first waiting for [gate]. */
+    private fun gatedPages(big: FakeDictionaryRepository, gate: CompletableDeferred<Unit>) =
+        object : DictionaryRepository by big {
+            override suspend fun search(query: String, directionId: String, limit: Int, offset: Int): SearchResult {
+                if (offset > 0) gate.await()
+                return big.search(query, directionId, limit, offset)
+            }
+        }
+
+    @Test
+    fun `a load-more page is dropped once the query changed`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val vm = viewModel(repository = gatedPages(bigDictionary(), gate))
+        vm.type("bkra")
+        advanceUntilIdle()
+
+        vm.onEvent(SearchEvent.LoadMore)
+        advanceUntilIdle()
+        vm.type("bkra shis 1")
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        val elevenRows = listOf(1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19).map { 1_100_000L + it }
+        assertThat(vm.state.settledQuery).isEqualTo("bkra shis 1")
+        assertThat(vm.state.results.map { it.entryId }).containsExactlyElementsIn(elevenRows)
+        assertThat(vm.state.pagesLoaded).isEqualTo(1)
+    }
+
+    @Test
+    fun `a load-more page is dropped once the direction changed`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val vm = viewModel(repository = gatedPages(bigDictionary(), gate))
+        vm.type("bkra")
+        advanceUntilIdle()
+
+        vm.onEvent(SearchEvent.LoadMore)
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.SelectDirection(boBo.id))
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(boBo)
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.NoResults)
+        assertThat(vm.state.results).isEmpty()
+    }
+
+    @Test
+    fun `a slow search that was superseded never lands`() = runTest {
+        val started = mutableListOf<String>()
+        val slowFirst = object : DictionaryRepository by dictionary {
+            override suspend fun search(query: String, directionId: String, limit: Int, offset: Int): SearchResult {
+                started += query
+                if (query == "bkra") delay(1_000)
+                return dictionary.search(query, directionId, limit, offset)
+            }
+        }
+        val vm = viewModel(repository = slowFirst)
+        val shown = mutableListOf<Pair<String, List<Long>>>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.uiState.collect { shown += it.settledQuery to it.results.map { row -> row.entryId } }
+        }
+
+        vm.type("bkra")
+        advanceTimeBy(400)
+        assertThat(started).contains("bkra")
+        vm.type("house")
+        advanceUntilIdle()
+
+        assertThat(vm.state.settledQuery).isEqualTo("house")
+        assertThat(vm.state.results.map { it.entryId }).containsExactly(house.id)
+        assertThat(shown.map { it.first }).doesNotContain("bkra")
+        assertThat(shown.flatMap { it.second }).doesNotContain(tashi.id)
+    }
+
+    @Test
+    fun `the settled query trails the field until its search finishes`() = runTest {
+        val vm = viewModel()
+        vm.type("bkrashi")
+        advanceUntilIdle()
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.NoResults)
+        assertThat(vm.state.settledQuery).isEqualTo("bkrashi")
+        val searchId = vm.state.searchId
+
+        vm.type("BKRASHIS")
+        assertThat(vm.state.settledQuery).isEqualTo("bkrashi")
+
+        advanceUntilIdle()
+        assertThat(vm.state.settledQuery).isEqualTo("bkrashis")
+        assertThat(vm.state.searchId).isNotEqualTo(searchId)
     }
 
     @Test
@@ -501,6 +646,33 @@ class SearchViewModelTest {
         // " a " opened a result too, but one character is never recorded; nor is a blank query.
         assertThat(recents.recents.value.map { it.query }).containsExactly("bkra shis", "བཀྲ་ཤིས").inOrder()
         assertThat(vm.state.phase).isEqualTo(SearchPhase.Results)
+    }
+
+    @Test
+    fun `a single Tibetan stack is searched but never recorded`() = runTest {
+        val stack = "ཀྲ" // two code points, one character on screen
+        dictionary.searchResults[stack to boEn.id] = SearchResult(
+            query = stack,
+            directionId = boEn.id,
+            script = Script.TIBETAN,
+            hits = listOf(SearchHit(tashi, MatchField.HEADWORD, null, null, null)),
+            hasMore = false,
+            suggestions = emptyList(),
+        )
+        val vm = viewModel()
+
+        vm.type(stack)
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(tashi.id))
+        advanceUntilIdle()
+        assertThat(recents.recents.value).isEmpty()
+
+        // Two characters (a prefix letter and the stack) are recorded.
+        vm.type("བཀྲ")
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(tashi.id))
+        advanceUntilIdle()
+        assertThat(recents.recents.value.map { it.query }).containsExactly("བཀྲ")
     }
 
     // Opening a result

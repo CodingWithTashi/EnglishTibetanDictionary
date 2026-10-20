@@ -10,8 +10,6 @@ import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
-import com.kharagedition.tibetandictionary.data.model.EntrySummary
-import com.kharagedition.tibetandictionary.data.model.RecentSearch
 import com.kharagedition.tibetandictionary.data.model.SearchHit
 import com.kharagedition.tibetandictionary.data.model.SearchResult
 import com.kharagedition.tibetandictionary.data.model.Suggestion
@@ -23,11 +21,11 @@ import com.kharagedition.tibetandictionary.domain.DetectScript
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.InputScript
 import com.kharagedition.tibetandictionary.domain.ResolveDirection
-import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.BreakIterator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -92,8 +90,12 @@ class SearchViewModel @AssistedInject constructor(
         val directions: List<Direction>,
     )
 
-    /** What a [Request] found, in the resolved [directionId]; [pages] of [PAGE_SIZE] have been fetched. */
+    /**
+     * What search [id] found for a [Request], in the resolved [directionId]; [pages] of [PAGE_SIZE] have been
+     * fetched.
+     */
     private data class Outcome(
+        val id: Int,
         val query: String,
         val script: InputScript,
         val directionId: String,
@@ -122,6 +124,9 @@ class SearchViewModel @AssistedInject constructor(
 
     /** The normalised query that was last counted with [ActivityRepository.markSearch]. */
     private var countedQuery: String? = null
+
+    /** The id of the last search started; each [Outcome] carries its own. */
+    private var lastSearchId = 0
     private var loadMoreJob: Job? = null
 
     private val effectChannel = Channel<SearchEffect>(Channel.BUFFERED)
@@ -216,6 +221,7 @@ class SearchViewModel @AssistedInject constructor(
      */
     private suspend fun search(request: Request): Outcome = withSkeleton {
         loadMoreJob?.cancel()
+        val id = ++lastSearchId
         val query = request.query
         val script = DetectScript.detect(query)
         try {
@@ -241,6 +247,7 @@ class SearchViewModel @AssistedInject constructor(
             )
             val result = results[resolution.directionId] ?: dictionary.search(query, resolution.directionId, PAGE_SIZE)
             Outcome(
+                id = id,
                 query = query,
                 script = script,
                 directionId = resolution.directionId,
@@ -255,6 +262,7 @@ class SearchViewModel @AssistedInject constructor(
         } catch (t: Throwable) {
             errors.record(t)
             Outcome(
+                id = id,
                 query = query,
                 script = script,
                 directionId = request.selectedId,
@@ -288,22 +296,34 @@ class SearchViewModel @AssistedInject constructor(
         launchSafely { activity.markSearch() }
     }
 
-    /** Fetches the next page of the shown outcome and appends the rows not already listed. */
+    /**
+     * Fetches the next page of the shown outcome and appends the rows not already listed. A page that fails or
+     * adds nothing ends paging; one that lands after another search replaced the outcome is dropped.
+     */
     private fun loadMore() {
         val current = outcome.value ?: return
         if (!current.hasMore || loadMoreJob?.isActive == true) return
-        loadMoreJob = launchSafely {
-            val offset = current.pages * PAGE_SIZE
-            val page = dictionary.search(current.query, current.directionId, PAGE_SIZE, offset)
+        loadMoreJob = viewModelScope.launch {
+            val page = try {
+                dictionary.search(current.query, current.directionId, PAGE_SIZE, current.pages * PAGE_SIZE)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                errors.record(t)
+                null
+            }
             outcome.update { latest ->
-                if (latest?.query != current.query || latest.directionId != current.directionId) {
-                    latest
-                } else {
-                    latest.copy(
-                        hits = (latest.hits + page.hits).distinctBy { it.entry.id },
-                        hasMore = page.hasMore,
-                        pages = latest.pages + 1,
-                    )
+                when {
+                    latest == null || latest.id != current.id -> latest
+                    page == null -> latest.copy(hasMore = false)
+                    else -> {
+                        val hits = (latest.hits + page.hits).distinctBy { it.entry.id }
+                        latest.copy(
+                            hits = hits,
+                            hasMore = page.hasMore && hits.size > latest.hits.size,
+                            pages = latest.pages + 1,
+                        )
+                    }
                 }
             }
         }
@@ -314,7 +334,7 @@ class SearchViewModel @AssistedInject constructor(
         effectChannel.trySend(SearchEffect.NavigateEntry(entryId))
         val current = outcome.value ?: return
         val opened = current.hits.firstOrNull { it.entry.id == entryId }?.entry ?: return
-        if (current.query.codePointCount(0, current.query.length) < MIN_RECORDED_LENGTH) return
+        if (graphemeCount(current.query) < MIN_RECORDED_LENGTH) return
         launchSafely { recentSearches.record(current.query, current.directionId, opened) }
     }
 
@@ -372,6 +392,9 @@ class SearchViewModel @AssistedInject constructor(
             alternateDirection = if (noResults) directions.firstOrNull { it.id == shown?.alternateId } else null,
             noMatchHint = noMatchHint(shown?.script),
             micAvailable = micAvailable,
+            settledQuery = shown?.query.orEmpty(),
+            searchId = shown?.id ?: 0,
+            pagesLoaded = shown?.pages ?: 0,
         )
     }
 
@@ -381,11 +404,13 @@ class SearchViewModel @AssistedInject constructor(
         const val STOP_TIMEOUT_MS = 5_000L
         const val PAGE_SIZE = 50
 
-        /** Shorter normalised queries (one letter, one syllable stack) are searched but never recorded. */
+        /**
+         * Normalised queries of fewer characters, counted as the user sees them (one letter, one Tibetan stack
+         * such as ཀྲ), are searched but never recorded.
+         */
         const val MIN_RECORDED_LENGTH = 2
 
         private val Whitespace = Regex("\\s+")
-        private val TrailingMarks = charArrayOf(TibetanScript.TSHEG, TibetanScript.NON_BREAKING_TSHEG, '།', '༎')
 
         /**
          * The query as searched and recorded: non-breaking tshegs made plain, whitespace trimmed and collapsed,
@@ -400,60 +425,17 @@ class SearchViewModel @AssistedInject constructor(
             return if (TibetanScript.hasTibetan(collapsed)) collapsed else collapsed.lowercase()
         }
 
-        /** [text] without trailing tsheg and shad, lower-cased, so "བཀྲ་ཤིས་" matches "བཀྲ་ཤིས". */
-        fun exactKey(text: String): String = text.trimEnd(*TrailingMarks).lowercase()
-
-        /** True when the headword or the Wylie of the hit is the whole [query]. */
-        fun SearchHit.isExact(query: String): Boolean {
-            val key = exactKey(query)
-            return exactKey(entry.headword) == key || entry.wylie?.let(::exactKey) == key
-        }
-
         /** The user's selection when it is visible, else the default direction (falling back to the first). */
         fun selectedDirection(sel: Selection, caps: DictionaryCapabilities, defaultId: String): Direction? =
             caps.directions.firstOrNull { it.id == sel.directionId && it.entryCount > 0 }
                 ?: DirectionSlots.defaultDirection(caps.directions, defaultId)
 
-        fun noMatchHint(script: InputScript?): NoMatchHint = when (script) {
-            InputScript.WYLIE -> NoMatchHint.Wylie
-            InputScript.TIBETAN, InputScript.HAN -> NoMatchHint.Tibetan
-            InputScript.LATIN, null -> NoMatchHint.English
-        }
-
-        /** The result row, or null when the hit's direction is not among [directions]. */
-        fun SearchHit.toUi(directions: List<Direction>, searchedId: String?): SearchResultUi? = SearchResultUi(
-            entryId = entry.id,
-            direction = directions.firstOrNull { it.id == entry.directionId } ?: return null,
-            headword = entry.headword,
-            headwordIsTibetan = TibetanScript.hasTibetan(entry.headword),
-            wylie = entry.wylie,
-            matchRange = wylieHighlight,
-            headwordMatchRange = headwordHighlight,
-            gloss = entry.glossPreview,
-            showBadge = entry.directionId != searchedId,
-        )
-
-        fun Suggestion.toUi(): SuggestionUi = SuggestionUi(
-            entryId = hit.entry.id,
-            directionId = directionId,
-            headword = hit.entry.headword,
-            headwordIsTibetan = TibetanScript.hasTibetan(hit.entry.headword),
-            detail = hit.entry.detail(),
-        )
-
-        fun EntrySummary.detail(): String =
-            listOfNotNull(wylie, glossPreview.takeIf { it.isNotBlank() }).joinToString(" · ")
-
-        fun RecentSearch.toRow(): RecentRowUi {
-            val opened = headword?.takeUnless { exactKey(it) == exactKey(query) }
-            return RecentRowUi(
-                id = id,
-                query = query,
-                queryIsTibetan = TibetanScript.hasTibetan(query),
-                directionId = directionId,
-                openedHeadword = opened,
-                openedIsTibetan = opened != null && TibetanScript.hasTibetan(opened),
-            )
+        /** User-perceived characters in [text]: a Tibetan stack such as ཀྲ counts once. */
+        fun graphemeCount(text: String): Int {
+            val boundaries = BreakIterator.getCharacterInstance().apply { setText(text) }
+            var count = 0
+            while (boundaries.next() != BreakIterator.DONE) count++
+            return count
         }
     }
 }
