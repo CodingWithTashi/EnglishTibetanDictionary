@@ -3,7 +3,9 @@ package com.kharagedition.tibetandictionary.ui.entry
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -263,7 +267,7 @@ internal fun EntryLoading(modifier: Modifier = Modifier) {
 /** The id is not in the installed dictionary: a centred notice with a way back. */
 @Composable
 internal fun EntryMissing(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    CenteredScrollColumn(modifier) {
         FullEmptyState(
             DictIcons.EmptyState.SearchOff,
             title = stringResource(R.string.entry_missing),
@@ -277,6 +281,25 @@ internal fun EntryMissing(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 size = ButtonSize.Medium,
             )
         }
+    }
+}
+
+/**
+ * Centres [content] in the space it is given, but scrolls once the content is taller than that space (large text
+ * at a big font scale), so a full empty state never clips its action off the screen.
+ */
+@Composable
+internal fun CenteredScrollColumn(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
     }
 }
 

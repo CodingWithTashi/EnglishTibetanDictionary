@@ -48,7 +48,7 @@ fun SavedScreen(onOpenEntry: (Long) -> Unit) {
 
 /** Performs [effects]: navigation and toasts (copy resolved in the app language); toast actions send events. */
 @Composable
-private fun SavedEffects(effects: Flow<SavedEffect>, onEvent: (SavedEvent) -> Unit, onOpenEntry: (Long) -> Unit) {
+internal fun SavedEffects(effects: Flow<SavedEffect>, onEvent: (SavedEvent) -> Unit, onOpenEntry: (Long) -> Unit) {
     val resources = LocalResources.current
     val toaster = LocalToaster.current
     // Toasts outlive the collector's turn (they suspend until closed) but not the screen.
@@ -107,7 +107,11 @@ fun SavedContent(state: SavedUiState, onEvent: (SavedEvent) -> Unit, modifier: M
                 FolderChips(state, onEvent, Modifier.padding(top = ChipRowTop))
                 if (state.noMatches) {
                     val padding = DictTheme.dimens.screenPadding
-                    SavedNoMatches(Modifier.padding(start = padding, top = ListTop + DictTheme.dimens.blockGap, end = padding))
+                    SavedNoMatches(
+                        Modifier
+                            .weight(1f)
+                            .padding(start = padding, top = ListTop + DictTheme.dimens.blockGap, end = padding),
+                    )
                 } else {
                     SavedList(state.groups, onEvent, Modifier.weight(1f))
                 }
@@ -194,4 +198,10 @@ private fun SavedNoMatchesPreview() {
 @Composable
 private fun SavedExtremeScalePreview() {
     ExtremeScale(edgeToEdge = true) { SavedContent(SavedSamples.populated, onEvent = {}) }
+}
+
+@ExtremeScalePreview
+@Composable
+private fun SavedEmptyExtremeScalePreview() {
+    ExtremeScale(edgeToEdge = true) { SavedContent(SavedSamples.empty, onEvent = {}) }
 }

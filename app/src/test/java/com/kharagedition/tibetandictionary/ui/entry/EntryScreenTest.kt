@@ -1,5 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.entry
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -7,9 +9,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -162,6 +166,22 @@ class EntryScreenTest {
         compose.onNodeWithText("It may have been removed in a dictionary update", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("entry_save").assertDoesNotExist()
         compose.onNodeWithTag("entry_missing_back").performClick()
+        assertThat(events).containsExactly(EntryEvent.Back)
+    }
+
+    @Test
+    fun `at the largest text settings the missing notice scrolls to its back button`() {
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                DictTheme(darkTheme = false, textScale = 1.3f, lineSpacing = LineSpacing.MAX) {
+                    EntryContent(EntryUiState(loading = false, missing = true), onEvent = { events += it })
+                }
+            }
+        }
+
+        compose.onNodeWithTag("entry_missing_back").performScrollTo().assertIsDisplayed().performClick()
+
         assertThat(events).containsExactly(EntryEvent.Back)
     }
 

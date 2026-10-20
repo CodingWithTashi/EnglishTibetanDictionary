@@ -1,8 +1,17 @@
 package com.kharagedition.tibetandictionary.ui.saved
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -14,18 +23,26 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
+import com.kharagedition.tibetandictionary.ui.components.AppToastHost
+import com.kharagedition.tibetandictionary.ui.components.LocalToaster
+import com.kharagedition.tibetandictionary.ui.components.Toaster
 import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.entry.UiText
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -218,6 +235,75 @@ class SavedScreenTest {
         compose.onNodeWithTag("folder_chip_all").assertDoesNotExist()
         compose.onNodeWithText("Nothing saved yet").assertDoesNotExist()
         compose.onNodeWithText("words", substring = true).assertDoesNotExist()
+    }
+
+    // Largest text settings (Review Focus 5)
+
+    /** [content] at text size ×1.3, line spacing 2.3 and system font scale 2.0, on the default small test screen. */
+    private fun showAtExtremeScale(content: @Composable () -> Unit) {
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                DictTheme(darkTheme = false, textScale = 1.3f, lineSpacing = LineSpacing.MAX) { content() }
+            }
+        }
+    }
+
+    @Test
+    fun `at the largest text settings the empty state scrolls to its button`() {
+        showAtExtremeScale { SavedContent(empty, onEvent = { events += it }) }
+
+        compose.onNodeWithTag("saved_empty_cta").performScrollTo().assertIsDisplayed().performClick()
+
+        assertThat(events).containsExactly(SavedEvent.SaveWotd)
+    }
+
+    @Test
+    fun `at the largest text settings No matches scrolls into view`() {
+        showAtExtremeScale { SavedContent(populated.copy(totalCount = 9, query = "zzz", groups = emptyList()), onEvent = {}) }
+
+        compose.onNodeWithTag("saved_no_matches").performScrollTo().assertIsDisplayed()
+    }
+
+    // Effects
+
+    @Test
+    fun `effects navigate, and the toast actions send Undo and Change back`() {
+        val channel = Channel<SavedEffect>(Channel.UNLIMITED)
+        val effects = channel.receiveAsFlow()
+        val opened = mutableListOf<Long>()
+        compose.setContent {
+            DictTheme(darkTheme = false) {
+                val host = remember { SnackbarHostState() }
+                val toaster = remember(host) { Toaster(host) }
+                CompositionLocalProvider(LocalToaster provides toaster) {
+                    Box(Modifier.fillMaxSize()) {
+                        AppToastHost(host, rootHeightPx = 0, modifier = Modifier.align(Alignment.BottomCenter))
+                    }
+                    SavedEffects(effects, onEvent = { events += it }, onOpenEntry = { opened += it })
+                }
+            }
+        }
+
+        channel.trySend(SavedEffect.NavigateEntry(7))
+        channel.trySend(SavedEffect.Removed(1, folderId = 2))
+        compose.onNodeWithText("Removed").assertIsDisplayed()
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitForIdle()
+
+        channel.trySend(
+            SavedEffect.Toast(
+                UiText(R.string.saved_to_folder, listOf("བཀྲ་ཤིས་", "Daily")),
+                R.string.change,
+                SavedEvent.ChangeFolder(1),
+            ),
+        )
+        compose.onNodeWithText("Saved བཀྲ་ཤིས་ to Daily").assertIsDisplayed()
+        compose.onNodeWithText("Change").performClick()
+        compose.waitForIdle()
+
+        assertThat(opened).containsExactly(7L)
+        assertThat(events).containsExactly(SavedEvent.UndoUnsave(1, folderId = 2), SavedEvent.ChangeFolder(1)).inOrder()
     }
 
     // Sheets

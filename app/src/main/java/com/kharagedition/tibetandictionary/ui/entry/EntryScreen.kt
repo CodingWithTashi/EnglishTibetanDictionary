@@ -239,3 +239,11 @@ private fun EntryExtremeScalePreview() {
         EntryContent(EntryUiState(loading = false, entry = EntrySamples.populated), onEvent = {})
     }
 }
+
+@ExtremeScalePreview
+@Composable
+private fun EntryMissingExtremeScalePreview() {
+    ExtremeScale(edgeToEdge = true) {
+        EntryContent(EntryUiState(loading = false, missing = true), onEvent = {})
+    }
+}

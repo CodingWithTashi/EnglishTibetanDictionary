@@ -1,38 +1,22 @@
 package com.kharagedition.tibetandictionary.ui.saved
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.Features
@@ -43,9 +27,7 @@ import com.kharagedition.tibetandictionary.ui.components.AddChip
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.ChipSize
 import com.kharagedition.tibetandictionary.ui.components.DictIconButton
-import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
-import com.kharagedition.tibetandictionary.ui.components.FolderPickerSheet
 import com.kharagedition.tibetandictionary.ui.components.FullEmptyState
 import com.kharagedition.tibetandictionary.ui.components.InlineEmptyState
 import com.kharagedition.tibetandictionary.ui.components.MixedText
@@ -57,10 +39,9 @@ import com.kharagedition.tibetandictionary.ui.components.TextChip
 import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.bottomDivider
 import com.kharagedition.tibetandictionary.ui.components.pullUp
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.entry.CenteredScrollColumn
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
-import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 
 /** Header: 16 above the title, 14 between title, search field and chips (1i). */
@@ -88,18 +69,12 @@ private val SecondaryOverlap = 5.dp
 private val LatinHeadwordTop = 6.dp
 private val LatinHeadwordBottom = 2.dp
 
-/** New-folder sheet: title padding and the gap between its rows. */
-private val SheetTitleTop = 8.dp
-private val SheetGap = 12.dp
-private val SheetBottom = 24.dp
-
 internal const val SCREEN_TAG = "saved_screen"
 internal const val SEARCH_TAG = "saved_search"
 internal const val ALL_CHIP_TAG = "folder_chip_all"
 internal const val ADD_FOLDER_TAG = "saved_add_folder"
 internal const val EMPTY_CTA_TAG = "saved_empty_cta"
 internal const val NO_MATCHES_TAG = "saved_no_matches"
-internal const val FOLDER_NAME_TAG = "saved_folder_name"
 
 internal fun folderChipTag(folderId: Long): String = "folder_chip_$folderId"
 
@@ -167,7 +142,11 @@ internal fun FolderChips(state: SavedUiState, onEvent: (SavedEvent) -> Unit, mod
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextChip(
-            "${stringResource(R.string.all_folder)} ${TibetanNumerals.formatCount(state.totalCount, language)}",
+            stringResource(
+                R.string.saved_folder_chip,
+                stringResource(R.string.all_folder),
+                TibetanNumerals.formatCount(state.totalCount, language),
+            ),
             { onEvent(SavedEvent.SelectFolder(null)) },
             Modifier.testTag(ALL_CHIP_TAG),
             selected = state.selectedFolderId == null,
@@ -175,7 +154,7 @@ internal fun FolderChips(state: SavedUiState, onEvent: (SavedEvent) -> Unit, mod
         )
         state.folders.forEach { folder ->
             TextChip(
-                "${folder.name} ${TibetanNumerals.formatCount(folder.count, language)}",
+                stringResource(R.string.saved_folder_chip, folder.name, TibetanNumerals.formatCount(folder.count, language)),
                 { onEvent(SavedEvent.SelectFolder(folder.id)) },
                 Modifier.testTag(folderChipTag(folder.id)),
                 selected = folder.id == state.selectedFolderId,
@@ -274,20 +253,27 @@ internal fun SavedRow(
     }
 }
 
-/** A filter that leaves nothing: the dashed inline notice. */
+/** A filter that leaves nothing: the dashed inline notice, top-aligned, scrolling when large text outgrows the space. */
 @Composable
 internal fun SavedNoMatches(modifier: Modifier = Modifier) {
-    InlineEmptyState(
-        DictIcons.SearchOff,
-        title = stringResource(R.string.no_matches),
-        body = stringResource(R.string.saved_no_matches_body),
-        modifier = modifier.testTag(NO_MATCHES_TAG),
-    )
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        InlineEmptyState(
+            DictIcons.SearchOff,
+            title = stringResource(R.string.no_matches),
+            body = stringResource(R.string.saved_no_matches_body),
+            modifier = Modifier.testTag(NO_MATCHES_TAG),
+        )
+    }
 }
 
 /**
  * Nothing saved yet (3c): the heart in a 72 circle, the title, the hint (plus the flashcards sentence when
- * [learnEnabled]) and, when [wotd] is given, "Save today's word {headword}".
+ * [learnEnabled]) and, when [wotd] is given, "Save today's word {headword}"; centred, and scrolls when large text
+ * outgrows the screen.
  */
 @Composable
 fun SavedEmpty(
@@ -312,7 +298,7 @@ fun SavedEmpty(
     } else {
         null
     }
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    CenteredScrollColumn(modifier) {
         FullEmptyState(
             DictIcons.EmptyState.Heart,
             title = stringResource(R.string.saved_empty_title),
@@ -320,104 +306,4 @@ fun SavedEmpty(
             action = action,
         )
     }
-}
-
-/** The hoisted [FolderPickerSheet] for today's word, just saved. */
-@Composable
-internal fun SavedFolderPicker(picker: FolderPickerUi, onEvent: (SavedEvent) -> Unit) {
-    FolderPickerSheet(
-        folders = picker.folders,
-        selectedId = picker.selectedId,
-        onPick = { onEvent(SavedEvent.PickFolder(it)) },
-        creating = picker.creating,
-        newFolderName = picker.newFolderName,
-        onNewFolderNameChange = { onEvent(SavedEvent.NewFolderNameChanged(it)) },
-        onStartCreate = { onEvent(SavedEvent.StartCreateFolder) },
-        onCancelCreate = { onEvent(SavedEvent.CancelCreateFolder) },
-        onCreate = { onEvent(SavedEvent.CreateFolder(it)) },
-        onDismiss = { onEvent(SavedEvent.DismissFolderPicker) },
-        createError = picker.createError?.resolve(LocalResources.current),
-    )
-}
-
-/** The "+" chip's sheet: "New folder", a name field with Save, and the duplicate-name error under it. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun NewFolderSheet(state: NewFolderUi, onEvent: (SavedEvent) -> Unit) {
-    DictModalSheet(onDismissRequest = { onEvent(SavedEvent.DismissAddFolder) }) {
-        NewFolderContent(
-            state,
-            onNameChange = { onEvent(SavedEvent.NewFolderNameChanged(it)) },
-            onCreate = { onEvent(SavedEvent.AddFolder(it)) },
-        )
-    }
-}
-
-@Composable
-internal fun NewFolderContent(state: NewFolderUi, onNameChange: (String) -> Unit, onCreate: (String) -> Unit) {
-    val colors = DictTheme.colors
-    val type = DictTheme.type
-    val name = state.name.trim()
-    val save = { if (name.isNotEmpty()) onCreate(name) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = DictTheme.dimens.screenPadding, end = DictTheme.dimens.screenPadding, bottom = SheetBottom),
-        verticalArrangement = Arrangement.spacedBy(SheetGap),
-    ) {
-        MixedText(
-            stringResource(R.string.new_folder),
-            type.noResultsTitle,
-            type.tibetanGloss,
-            Modifier
-                .padding(top = SheetTitleTop)
-                .semantics { heading() },
-            color = colors.ink,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
-            FolderNameField(state.name, onNameChange, onDone = save, Modifier.weight(1f))
-            FilledButton(stringResource(R.string.save), save, size = ButtonSize.Small, enabled = name.isNotEmpty())
-        }
-        val error = state.error
-        if (error != null) {
-            MixedText(error.resolve(LocalResources.current), type.caption, type.tibetanInline14, color = colors.danger)
-        }
-    }
-}
-
-/**
- * Pill name field (surface1, 2dp accent border, at least 48 high) that takes focus when shown; Done saves.
- * `FolderPickerSheet` has the same field but keeps it private.
- */
-@Composable
-private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = DictTheme.colors
-    val type = DictTheme.type
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(focus) { focus.requestFocus() }
-    BasicTextField(
-        value = name,
-        onValueChange = onNameChange,
-        modifier = modifier
-            .heightIn(min = DictTheme.dimens.searchFieldCompact)
-            .clip(DictShapes.pill)
-            .background(colors.surface1)
-            .border(DictTheme.dimens.focusBorder, colors.accent, DictShapes.pill)
-            .padding(horizontal = DictTheme.dimens.cardPaddingHorizontal)
-            .focusRequester(focus)
-            .testTag(FOLDER_NAME_TAG),
-        textStyle = type.body.copy(color = colors.ink),
-        singleLine = true,
-        cursorBrush = SolidColor(colors.accent),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onDone() }),
-        decorationBox = { inner ->
-            Box(contentAlignment = Alignment.CenterStart) {
-                if (name.isEmpty()) {
-                    MixedText(stringResource(R.string.new_folder_hint), type.body, type.tibetanInline16, color = colors.muted)
-                }
-                inner()
-            }
-        },
-    )
 }
