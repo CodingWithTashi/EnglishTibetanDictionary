@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.data.repository
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
+import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.entity.FolderEntity
@@ -10,6 +11,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.SavedEntryEntity
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
+import com.kharagedition.tibetandictionary.data.search.QueryNormalizer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -36,10 +38,14 @@ class SavedRepositoryImpl @Inject constructor(
         (if (folderId == null) savedDao.observeUnfiled() else savedDao.observeInFolder(folderId)).mapToDomain()
 
     /**
-     * Matches [query] anywhere in the headword, Wylie or gloss preview. Case-insensitivity is ASCII-only (SQLite
-     * `LIKE`); full Unicode case folding is not attempted. `%` and `_` in [query] match themselves.
+     * Matches [query] anywhere in the headword, Wylie or gloss preview. The query is normalised as the dictionary
+     * search normalises it ([QueryNormalizer]: zero-width characters, non-breaking tsheg, typographic apostrophes,
+     * spaces, a trailing shad) and loses a trailing tsheg, so "བཀྲ་ཤིས།" finds the stored "བཀྲ་ཤིས་" and "ཁང་པ་" a
+     * gloss "ཁང་པ།". Case-insensitivity is ASCII-only (SQLite `LIKE`); full Unicode case folding is not attempted.
+     * `%` and `_` in [query] match themselves.
      */
-    override fun search(query: String): Flow<List<SavedEntry>> = savedDao.search(query).mapToDomain()
+    override fun search(query: String): Flow<List<SavedEntry>> =
+        savedDao.search(TibetanScript.stripTrailingTsheg(QueryNormalizer.normalize(query))).mapToDomain()
 
     override fun observeIsSaved(entryId: Long): Flow<Boolean> =
         savedDao.observeIsSaved(entryId).distinctUntilChanged().flowOn(io)

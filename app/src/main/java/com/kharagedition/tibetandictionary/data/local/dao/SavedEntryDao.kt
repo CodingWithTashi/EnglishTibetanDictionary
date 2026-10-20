@@ -20,7 +20,11 @@ abstract class SavedEntryDao {
     @Query("SELECT * FROM saved_entries WHERE folder_id IS NULL ORDER BY saved_at DESC")
     abstract fun observeUnfiled(): Flow<List<SavedEntryEntity>>
 
-    /** Entries whose headword, Wylie or gloss preview contains [query] (ASCII case-insensitive, wildcards literal). */
+    /**
+     * Entries whose headword, Wylie or gloss preview contains [query] (ASCII case-insensitive, wildcards literal).
+     * The stored text's typographic apostrophes (’ ‘ ʼ, as in the English headword "bird’s nest") compare as the
+     * ASCII `'` the search query is folded to.
+     */
     fun search(query: String): Flow<List<SavedEntryEntity>> = searchLike("%" + escapeLike(query) + "%")
 
     @Query("SELECT EXISTS(SELECT 1 FROM saved_entries WHERE entry_id = :entryId)")
@@ -53,9 +57,9 @@ abstract class SavedEntryDao {
     @Query(
         """
         SELECT * FROM saved_entries
-        WHERE headword LIKE :pattern ESCAPE '\'
+        WHERE REPLACE(REPLACE(REPLACE(headword, '’', ''''), '‘', ''''), 'ʼ', '''') LIKE :pattern ESCAPE '\'
             OR wylie LIKE :pattern ESCAPE '\'
-            OR gloss_preview LIKE :pattern ESCAPE '\'
+            OR REPLACE(REPLACE(REPLACE(gloss_preview, '’', ''''), '‘', ''''), 'ʼ', '''') LIKE :pattern ESCAPE '\'
         ORDER BY saved_at DESC
         """,
     )

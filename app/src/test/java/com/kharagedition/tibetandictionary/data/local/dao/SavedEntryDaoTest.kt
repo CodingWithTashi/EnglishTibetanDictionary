@@ -117,6 +117,18 @@ class SavedEntryDaoTest {
     }
 
     @Test
+    fun searchComparesStoredTypographicApostrophesAsAscii() = runTest {
+        dao.insert(saved(1, "bird’s nest", savedAt = 100, gloss = "བྱའི་ཚང་།"))
+        dao.insert(saved(2, "སྐྱེས་བུ་", savedAt = 200, wylie = "skyes bu", gloss = "one‘s own ʼway’"))
+        dao.insert(saved(3, "འཇམ་དཔལ་", savedAt = 300, wylie = "'jam dpal", gloss = "Manjushri"))
+
+        assertThat(dao.search("bird's").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("one's own 'way'").first().map { it.entryId }).containsExactly(2L)
+        assertThat(dao.search("'jam").first().map { it.entryId }).containsExactly(3L)
+        assertThat(dao.search("'").first().map { it.entryId }).containsExactly(3L, 2L, 1L).inOrder()
+    }
+
+    @Test
     fun setNoteStoresAndClears() = runTest {
         dao.insert(saved(1, "a", savedAt = 100))
 

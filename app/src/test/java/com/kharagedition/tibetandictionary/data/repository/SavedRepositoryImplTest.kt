@@ -189,6 +189,30 @@ class SavedRepositoryImplTest {
     }
 
     @Test
+    fun searchNormalisesTheQueryAsTheDictionarySearchDoes() = runTest {
+        val birdsNest = house.copy(id = 3_000_100, headword = "bird’s nest", glossPreview = "བྱའི་ཚང་།")
+        repo.save(tashi, folderId = null)
+        tick()
+        repo.save(house, folderId = null)
+        tick()
+        repo.save(birdsNest, folderId = null)
+
+        suspend fun ids(query: String) = repo.search(query).first().map { it.entryId }
+
+        // A trailing shad, a zero-width space and a non-breaking tsheg still find the stored "བཀྲ་ཤིས་".
+        assertThat(ids("བཀྲ་ཤིས།")).containsExactly(tashi.id)
+        assertThat(ids("བཀྲ་ཤིས་​")).containsExactly(tashi.id)
+        assertThat(ids("བཀྲ༌ཤིས")).containsExactly(tashi.id)
+        // A trailing tsheg is dropped, so the gloss "ཁང་པ། ..." matches "ཁང་པ་".
+        assertThat(ids("ཁང་པ་")).containsExactly(house.id)
+        // Spaces collapse and case folds.
+        assertThat(ids("  BKRA   shis ")).containsExactly(tashi.id)
+        // Either apostrophe finds the curly one the English headword stores.
+        assertThat(ids("bird's")).containsExactly(birdsNest.id)
+        assertThat(ids("bird’s")).containsExactly(birdsNest.id)
+    }
+
+    @Test
     fun searchResultsAreNewestFirstAndTreatWildcardsLiterally() = runTest {
         repo.save(tashi, folderId = null)
         tick()
