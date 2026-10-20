@@ -22,20 +22,20 @@ class DictTypographyTest {
     }
 
     @Test
-    fun `tibetanEntryHeadword is 46sp on an 82_8sp line at defaults`() {
+    fun `tibetanEntryHeadword is 48sp on an 86_4sp line at defaults`() {
         val style = defaults.tibetanEntryHeadword
 
-        assertSp(style.fontSize, 46f)
-        assertSp(style.lineHeight, 82.8f)
+        assertSp(style.fontSize, 48f)
+        assertSp(style.lineHeight, 86.4f)
         assertThat(style.fontFamily).isEqualTo(Jomolhari)
         assertThat(style.lineBreak).isEqualTo(LineBreak.Paragraph)
     }
 
     @Test
-    fun `screenTitle is Noto Sans 24sp semibold with -0_01em tracking`() {
+    fun `screenTitle is Noto Sans 26sp semibold with -0_01em tracking`() {
         val style = defaults.screenTitle
 
-        assertSp(style.fontSize, 24f)
+        assertSp(style.fontSize, 26f)
         assertThat(style.fontWeight).isEqualTo(FontWeight.SemiBold)
         assertThat(style.fontFamily).isEqualTo(NotoSans)
         assertThat(style.letterSpacing).isEqualTo(TextUnit(-0.01f, TextUnitType.Em))
@@ -46,11 +46,11 @@ class DictTypographyTest {
         val loose = DictTypography(textScale = 1f, lineSpacing = 2.3f)
         val tight = DictTypography(textScale = 1f, lineSpacing = 1.5f)
 
-        assertSp(loose.tibetanEntryHeadword.fontSize, 46f)
-        assertSp(loose.tibetanEntryHeadword.lineHeight, 46f * 1.8f * 2.3f / 1.9f)
-        assertSp(tight.tibetanEntryHeadword.lineHeight, 46f * 1.8f * 1.5f / 1.9f)
-        assertSp(loose.tibetanRow.lineHeight, 24f * 1.8f * 2.3f / 1.9f)
-        assertSp(tight.tibetanGloss.lineHeight, 18f * 1.6f * 1.5f / 1.9f)
+        assertSp(loose.tibetanEntryHeadword.fontSize, 48f)
+        assertSp(loose.tibetanEntryHeadword.lineHeight, 48f * 1.8f * 2.3f / 1.9f)
+        assertSp(tight.tibetanEntryHeadword.lineHeight, 48f * 1.8f * 1.5f / 1.9f)
+        assertSp(loose.tibetanRow.lineHeight, 26f * 1.8f * 2.3f / 1.9f)
+        assertSp(tight.tibetanGloss.lineHeight, 20f * 1.6f * 1.5f / 1.9f)
     }
 
     @Test
@@ -58,10 +58,10 @@ class DictTypographyTest {
         for (spacing in listOf(1.5f, 1.9f, 2.3f)) {
             val type = DictTypography(textScale = 1f, lineSpacing = spacing)
 
-            assertSp(type.body.lineHeight, 15f * 1.6f)
-            assertSp(type.bodySmall.lineHeight, 14f * 1.5f)
-            assertSp(type.headwordLatin.lineHeight, 16f * 1.5f)
-            assertSp(type.onboardingTitle.lineHeight, 26f * 1.25f)
+            assertSp(type.body.lineHeight, 17f * 1.6f)
+            assertSp(type.bodySmall.lineHeight, 16f * 1.5f)
+            assertSp(type.headwordLatin.lineHeight, 18f * 1.5f)
+            assertSp(type.onboardingTitle.lineHeight, 28f * 1.25f)
         }
     }
 
@@ -69,20 +69,20 @@ class DictTypographyTest {
     fun `textScale multiplies Latin and Tibetan sizes and line heights`() {
         val large = DictTypography(textScale = 1.3f, lineSpacing = 1.9f)
 
-        assertSp(large.body.fontSize, 15f * 1.3f)
-        assertSp(large.body.lineHeight, 15f * 1.6f * 1.3f)
-        assertSp(large.screenTitle.fontSize, 24f * 1.3f)
-        assertSp(large.tibetanEntryHeadword.fontSize, 46f * 1.3f)
-        assertSp(large.tibetanEntryHeadword.lineHeight, 46f * 1.8f * 1.3f)
+        assertSp(large.body.fontSize, 17f * 1.3f)
+        assertSp(large.body.lineHeight, 17f * 1.6f * 1.3f)
+        assertSp(large.screenTitle.fontSize, 26f * 1.3f)
+        assertSp(large.tibetanEntryHeadword.fontSize, 48f * 1.3f)
+        assertSp(large.tibetanEntryHeadword.lineHeight, 48f * 1.8f * 1.3f)
     }
 
     @Test
     fun `textScale and lineSpacing combine for Tibetan line heights`() {
         val type = DictTypography(textScale = 1.15f, lineSpacing = 1.5f)
 
-        assertSp(type.tibetanRow.fontSize, 24f * 1.15f)
-        assertSp(type.tibetanRow.lineHeight, 24f * 1.8f * 1.15f * (1.5f / 1.9f))
-        assertSp(type.body.lineHeight, 15f * 1.6f * 1.15f)
+        assertSp(type.tibetanRow.fontSize, 26f * 1.15f)
+        assertSp(type.tibetanRow.lineHeight, 26f * 1.8f * 1.15f * (1.5f / 1.9f))
+        assertSp(type.body.lineHeight, 17f * 1.6f * 1.15f)
     }
 
     @Test
@@ -163,63 +163,63 @@ class DictTypographyTest {
     private companion object {
         const val TOLERANCE = 0.001f
 
-        /** Noto Sans roles from the design handoff (§6.3), including the named variants. */
+        /** Noto Sans roles: the design handoff (§6.3) sizes + 2sp (owner request), including the named variants. */
         val LATIN_SPEC = mapOf(
-            "screenTitle" to Spec(24f, 600, trackingEm = -0.01f),
-            "onboardingTitle" to Spec(26f, 600, ratio = 1.25f),
-            "noResultsTitle" to Spec(17f, 600),
-            "fieldText" to Spec(17f),
-            "fieldTextHome" to Spec(16f),
-            "fieldPlaceholder" to Spec(16f),
-            "headwordLatin" to Spec(16f, 500, ratio = 1.5f),
-            "body" to Spec(15f, ratio = 1.6f),
-            "bodyWotdGloss" to Spec(15f, ratio = 1.5f),
-            "wylieEntry" to Spec(15f, italic = true),
-            "bodySmall" to Spec(14f, ratio = 1.5f),
-            "bodySmallResultGloss" to Spec(14f, ratio = 1.45f),
-            "bodySmallMedium" to Spec(14f, 500),
-            "buttonLarge" to Spec(15f, 600),
-            "button" to Spec(14f, 600),
-            "buttonOutlined" to Spec(14f, 500),
-            "label" to Spec(13f, 500),
-            "labelSemibold" to Spec(13f, 600),
-            "wylie" to Spec(13f, italic = true),
-            "secondary" to Spec(13f),
-            "caption" to Spec(12f),
-            "captionMedium" to Spec(12f, 500),
-            "sectionLabel" to Spec(12f, 600),
-            "overline" to Spec(11f, 600, trackingEm = 0.06f),
-            "overlineWotd" to Spec(11f, 600, trackingEm = 0.08f),
-            "navLabel" to Spec(11f),
-            "navLabelActive" to Spec(11f, 600),
-            "tiny" to Spec(11f),
-            "badge" to Spec(10f, 600, trackingEm = 0.06f),
-            "dayLabel" to Spec(10f),
-            "navGlossLatin" to Spec(9f),
+            "screenTitle" to Spec(26f, 600, trackingEm = -0.01f),
+            "onboardingTitle" to Spec(28f, 600, ratio = 1.25f),
+            "noResultsTitle" to Spec(19f, 600),
+            "fieldText" to Spec(19f),
+            "fieldTextHome" to Spec(18f),
+            "fieldPlaceholder" to Spec(18f),
+            "headwordLatin" to Spec(18f, 500, ratio = 1.5f),
+            "body" to Spec(17f, ratio = 1.6f),
+            "bodyWotdGloss" to Spec(17f, ratio = 1.5f),
+            "wylieEntry" to Spec(17f, italic = true),
+            "bodySmall" to Spec(16f, ratio = 1.5f),
+            "bodySmallResultGloss" to Spec(16f, ratio = 1.45f),
+            "bodySmallMedium" to Spec(16f, 500),
+            "buttonLarge" to Spec(17f, 600),
+            "button" to Spec(16f, 600),
+            "buttonOutlined" to Spec(16f, 500),
+            "label" to Spec(15f, 500),
+            "labelSemibold" to Spec(15f, 600),
+            "wylie" to Spec(15f, italic = true),
+            "secondary" to Spec(15f),
+            "caption" to Spec(14f),
+            "captionMedium" to Spec(14f, 500),
+            "sectionLabel" to Spec(14f, 600),
+            "overline" to Spec(13f, 600, trackingEm = 0.06f),
+            "overlineWotd" to Spec(13f, 600, trackingEm = 0.08f),
+            "navLabel" to Spec(13f),
+            "navLabelActive" to Spec(13f, 600),
+            "tiny" to Spec(13f),
+            "badge" to Spec(12f, 600, trackingEm = 0.06f),
+            "dayLabel" to Spec(12f),
+            "navGlossLatin" to Spec(11f),
         )
 
-        /** Jomolhari roles (size / line ratio) from the design handoff (§6.3), including the named variants. */
+        /** Jomolhari roles (size / line ratio): the design handoff (§6.3) sizes + 2sp (owner request). */
         val TIBETAN_SPEC = mapOf(
-            "tibetanEntryHeadword" to Spec(46f, ratio = 1.8f),
-            "tibetanWotd" to Spec(34f, ratio = 1.9f),
-            "tibetanSplash" to Spec(26f, ratio = 1.8f),
-            "tibetanGreeting" to Spec(26f, ratio = 1.7f),
-            "tibetanScreenTitle" to Spec(26f, ratio = 1.7f),
-            "tibetanRow" to Spec(24f, ratio = 1.8f),
-            "tibetanSaved" to Spec(22f, ratio = 1.8f),
-            "tibetanSample" to Spec(22f, ratio = 1.9f),
-            "tibetanPreviewSense" to Spec(21f, ratio = 1.9f),
-            "tibetanExample" to Spec(19f, ratio = 1.6f),
-            "tibetanGloss" to Spec(18f, ratio = 1.6f),
-            "tibetanChip" to Spec(17f, ratio = 1.5f),
-            "tibetanInline16" to Spec(16f, ratio = 1.5f),
-            "tibetanToast" to Spec(16f, ratio = 1.0f),
-            "tibetanInline15" to Spec(15f, ratio = 1.4f),
-            "tibetanSegment" to Spec(13f, ratio = 1.4f),
-            "tibetanInline14" to Spec(14f, ratio = 1.4f),
-            "tibetanNavPrimary" to Spec(13f, ratio = 1.3f),
-            "tibetanBadge" to Spec(11f, ratio = 1.2f, trackingEm = 0f),
-            "tibetanNavGloss" to Spec(10f, ratio = 1.2f),
+            "tibetanEntryHeadword" to Spec(48f, ratio = 1.8f),
+            "tibetanWotd" to Spec(36f, ratio = 1.9f),
+            "tibetanSplash" to Spec(28f, ratio = 1.8f),
+            "tibetanGreeting" to Spec(28f, ratio = 1.7f),
+            "tibetanScreenTitle" to Spec(28f, ratio = 1.7f),
+            "tibetanRow" to Spec(26f, ratio = 1.8f),
+            "tibetanSaved" to Spec(24f, ratio = 1.8f),
+            "tibetanSample" to Spec(24f, ratio = 1.9f),
+            "tibetanPreviewSense" to Spec(23f, ratio = 1.9f),
+            "tibetanExample" to Spec(21f, ratio = 1.6f),
+            "tibetanGloss" to Spec(20f, ratio = 1.6f),
+            "tibetanChip" to Spec(19f, ratio = 1.5f),
+            "tibetanInline16" to Spec(18f, ratio = 1.5f),
+            "tibetanToast" to Spec(18f, ratio = 1.0f),
+            "tibetanInline15" to Spec(17f, ratio = 1.4f),
+            "tibetanSegment" to Spec(15f, ratio = 1.4f),
+            "tibetanInline14" to Spec(16f, ratio = 1.4f),
+            "tibetanNavPrimary" to Spec(15f, ratio = 1.3f),
+            "tibetanBadge" to Spec(13f, ratio = 1.2f, trackingEm = 0f),
+            "tibetanNavGloss" to Spec(12f, ratio = 1.2f),
         )
     }
 }

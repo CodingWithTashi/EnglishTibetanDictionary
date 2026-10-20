@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextRange
@@ -275,7 +276,8 @@ class SearchScreenTest {
         compose.onNodeWithTag("search_try_alternate").assertTextEquals("Try EN →\u2004བོད instead")
 
         compose.onNodeWithTag("suggestion_row_11").performClick()
-        compose.onNodeWithTag("search_try_alternate").performClick()
+        // The no-results body scrolls; on the small test screen the button sits below the fold.
+        compose.onNodeWithTag("search_try_alternate").performScrollTo().performClick()
 
         assertThat(events)
             .containsExactly(SearchEvent.SuggestionTap(11, boEn.id), SearchEvent.TryAlternateDirection)

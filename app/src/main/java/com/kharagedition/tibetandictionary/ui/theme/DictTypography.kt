@@ -31,6 +31,9 @@ val NotoSans = FontFamily(
 private val NoFontPadding = PlatformTextStyle(includeFontPadding = false)
 private val CenterTrimNone = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
+/** Added to every role's design size: the owner asked for +2sp over the design's sizes, Latin and Tibetan. */
+private const val SIZE_BOOST_SP = 2f
+
 private val W4 = FontWeight.Normal
 private val W5 = FontWeight.Medium
 private val W6 = FontWeight.SemiBold
@@ -38,11 +41,13 @@ private val W6 = FontWeight.SemiBold
 /**
  * Every named text style of the design system, named by role (Noto Sans for Latin, Jomolhari for Tibetan).
  *
- * Sizes are in sp (the system font scale still applies) times [textScale], the app-wide Text size setting.
- * Latin line heights are `size × ratio × textScale`; Tibetan line heights are additionally multiplied by
- * `lineSpacing / 1.9` ([LineSpacing.DEFAULT]), the user's Tibetan line-spacing setting. Roles without a ratio
- * keep the font's natural line height. Upper-case roles (`overline`, `overlineWotd`) need the caller to
- * upper-case the text; accent-coloured variants take their colour from the caller.
+ * Each role below is declared at the design's size and rendered [SIZE_BOOST_SP] larger (the owner asked for
+ * +2sp over the design's sizes). Sizes are in sp (the system font scale still applies) times [textScale], the
+ * app-wide Text size setting. With `size` the rendered size, Latin line heights are `size × ratio × textScale`;
+ * Tibetan line heights are additionally multiplied by `lineSpacing / 1.9` ([LineSpacing.DEFAULT]), the user's
+ * Tibetan line-spacing setting. Roles without a ratio keep the font's natural line height. Upper-case roles
+ * (`overline`, `overlineWotd`) need the caller to upper-case the text; accent-coloured variants take their colour
+ * from the caller.
  */
 @Immutable
 class DictTypography(
@@ -51,56 +56,66 @@ class DictTypography(
 ) {
     private val tibetanLineFactor = lineSpacing / LineSpacing.DEFAULT
 
+    /**
+     * A role at [designSize] + [SIZE_BOOST_SP]; its line height (when [ratio] is given) is that size × [ratio] ×
+     * [textScale] × [lineFactor].
+     */
     private fun style(
         family: FontFamily,
-        size: Float,
+        designSize: Float,
         weight: FontWeight,
-        lineHeightSp: Float?,
+        ratio: Float?,
+        lineFactor: Float,
         letterSpacing: TextUnit,
         italic: Boolean,
         paragraph: Boolean,
-    ): TextStyle = TextStyle(
-        fontFamily = family,
-        fontSize = (size * textScale).sp,
-        fontWeight = weight,
-        fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-        lineHeight = lineHeightSp?.sp ?: TextUnit.Unspecified,
-        letterSpacing = letterSpacing,
-        platformStyle = NoFontPadding,
-        lineHeightStyle = CenterTrimNone,
-        lineBreak = if (paragraph) LineBreak.Paragraph else LineBreak.Simple,
-    )
+    ): TextStyle {
+        val size = designSize + SIZE_BOOST_SP
+        return TextStyle(
+            fontFamily = family,
+            fontSize = (size * textScale).sp,
+            fontWeight = weight,
+            fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+            lineHeight = ratio?.let { (size * it * textScale * lineFactor).sp } ?: TextUnit.Unspecified,
+            letterSpacing = letterSpacing,
+            platformStyle = NoFontPadding,
+            lineHeightStyle = CenterTrimNone,
+            lineBreak = if (paragraph) LineBreak.Paragraph else LineBreak.Simple,
+        )
+    }
 
     /** Noto Sans role: line height (when [ratio] is given) is `size × ratio × textScale`. */
     private fun latin(
-        size: Float,
+        designSize: Float,
         weight: FontWeight = W4,
         ratio: Float? = null,
         letterSpacing: TextUnit = TextUnit.Unspecified,
         italic: Boolean = false,
     ): TextStyle = style(
         family = NotoSans,
-        size = size,
+        designSize = designSize,
         weight = weight,
-        lineHeightSp = ratio?.let { size * it * textScale },
+        ratio = ratio,
+        lineFactor = 1f,
         letterSpacing = letterSpacing,
         italic = italic,
         paragraph = false,
     )
 
     /** Jomolhari role: line height is `size × ratio × textScale × (lineSpacing / 1.9)`. */
-    private fun tibetan(size: Float, ratio: Float, letterSpacing: TextUnit = TextUnit.Unspecified): TextStyle =
+    private fun tibetan(designSize: Float, ratio: Float, letterSpacing: TextUnit = TextUnit.Unspecified): TextStyle =
         style(
             family = Jomolhari,
-            size = size,
+            designSize = designSize,
             weight = W4,
-            lineHeightSp = size * ratio * textScale * tibetanLineFactor,
+            ratio = ratio,
+            lineFactor = tibetanLineFactor,
             letterSpacing = letterSpacing,
             italic = false,
             paragraph = true,
         )
 
-    // Latin (Noto Sans)
+    // Latin (Noto Sans), at the design's sizes (rendered SIZE_BOOST_SP larger)
     val screenTitle = latin(24f, W6, letterSpacing = (-0.01).em)
     val onboardingTitle = latin(26f, W6, ratio = 1.25f)
     val noResultsTitle = latin(17f, W6)
@@ -155,7 +170,7 @@ class DictTypography(
     val dayLabel = latin(10f)
     val navGlossLatin = latin(9f)
 
-    // Tibetan (Jomolhari)
+    // Tibetan (Jomolhari), at the design's sizes (rendered SIZE_BOOST_SP larger)
     val tibetanEntryHeadword = tibetan(46f, 1.8f)
     val tibetanWotd = tibetan(34f, 1.9f)
     val tibetanSplash = tibetan(26f, 1.8f)
@@ -168,7 +183,10 @@ class DictTypography(
     val tibetanRow = tibetan(24f, 1.8f)
     val tibetanSaved = tibetan(22f, 1.8f)
 
-    /** Reading sample on Profile (2f): its line height is the line-spacing setting itself (22 × 1.9 at default). */
+    /**
+     * Reading sample on Profile (2f): its line height is the line-spacing setting itself (rendered 24 × 1.9 at
+     * default).
+     */
     val tibetanSample = tibetan(22f, 1.9f)
     val tibetanPreviewSense = tibetan(21f, 1.9f)
     val tibetanExample = tibetan(19f, 1.6f)
