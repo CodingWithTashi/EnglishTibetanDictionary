@@ -150,7 +150,8 @@ After that it sets `PRAGMA user_version` to the schema version. The `INSERT` sta
 from `fields[].columnName`.
 
 Room's `setupQueries` (`room_master_table`) are not run, so the asset carries no `room_master_table`.
-The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one syllable.
+The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one syllable, and `matchinfo=fts3`
+(Room's `MatchInfo.FTS3`): nothing ranks by `matchinfo()`, so FTS4 keeps no `%_docsize` tables.
 
 ## Layout
 

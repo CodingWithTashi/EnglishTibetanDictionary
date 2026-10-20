@@ -10,11 +10,14 @@ import androidx.room.FtsOptions
  * [TibetanTokenChars]. Query it from the index side with
  * `FROM entries_fts CROSS JOIN entries ON entries.id = entries_fts.rowid WHERE entries_fts MATCH …`: `CROSS JOIN` keeps
  * the full-text index the outer loop, so the MATCH runs once instead of once per entry (see `EntryDao.ftsHeadword`).
+ *
+ * `matchinfo=fts3`: nothing ranks by `matchinfo()`, so the index keeps no `entries_fts_docsize` table.
  */
 @Fts4(
     contentEntity = EntryEntity::class,
     tokenizer = FtsOptions.TOKENIZER_UNICODE61,
     tokenizerArgs = [TibetanTokenChars.ARG],
+    matchInfo = FtsOptions.MatchInfo.FTS3,
 )
 @Entity(tableName = "entries_fts")
 data class EntryFtsEntity(

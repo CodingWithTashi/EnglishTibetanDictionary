@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "464c720bd88596c3dcbd0c4e859cc383",
+    "identityHash": "5de43fe65d3b516c650a95ad4947b5d4",
     "entities": [
       {
         "tableName": "directions",
@@ -590,7 +590,7 @@
       },
       {
         "tableName": "entries_fts",
-        "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`headword` TEXT NOT NULL, `wylie` TEXT, tokenize=unicode61 `tokenchars=༹༘༙༵༷༾༿ཱཱཱིིུུྲྀཷླྀཹེཻོཽཾཿ྄ཱྀྀྂྃ྆྇ྍྎྏྐྑྒྒྷྔྕྖྗྙྚྛྜྜྷྞྟྠྡྡྷྣྤྥྦྦྷྨྩྪྫྫྷྭྮྯྰྱྲླྴྵྶྷྸྐྵྺྻྼ࿆`, content=`entries`)",
+        "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`headword` TEXT NOT NULL, `wylie` TEXT, tokenize=unicode61 `tokenchars=༹༘༙༵༷༾༿ཱཱཱིིུུྲྀཷླྀཹེཻོཽཾཿ྄ཱྀྀྂྃ྆྇ྍྎྏྐྑྒྒྷྔྕྖྗྙྚྛྜྜྷྞྟྠྡྡྷྣྤྥྦྦྷྨྩྪྫྫྷྭྮྯྰྱྲླྴྵྶྷྸྐྵྺྻྼ࿆`, content=`entries`, matchinfo=fts3)",
         "fields": [
           {
             "fieldPath": "headword",
@@ -616,7 +616,7 @@
           ],
           "contentTable": "entries",
           "languageIdColumnName": "",
-          "matchInfo": "FTS4",
+          "matchInfo": "FTS3",
           "notIndexedColumns": [],
           "prefixSizes": [],
           "preferredOrder": "ASC"
@@ -630,7 +630,7 @@
       },
       {
         "tableName": "senses_fts",
-        "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`gloss` TEXT NOT NULL, tokenize=unicode61 `tokenchars=༹༘༙༵༷༾༿ཱཱཱིིུུྲྀཷླྀཹེཻོཽཾཿ྄ཱྀྀྂྃ྆྇ྍྎྏྐྑྒྒྷྔྕྖྗྙྚྛྜྜྷྞྟྠྡྡྷྣྤྥྦྦྷྨྩྪྫྫྷྭྮྯྰྱྲླྴྵྶྷྸྐྵྺྻྼ࿆`, content=`senses`)",
+        "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`gloss` TEXT NOT NULL, tokenize=unicode61 `tokenchars=༹༘༙༵༷༾༿ཱཱཱིིུུྲྀཷླྀཹེཻོཽཾཿ྄ཱྀྀྂྃ྆྇ྍྎྏྐྑྒྒྷྔྕྖྗྙྚྛྜྜྷྞྟྠྡྡྷྣྤྥྦྦྷྨྩྪྫྫྷྭྮྯྰྱྲླྴྵྶྷྸྐྵྺྻྼ࿆`, content=`senses`, matchinfo=fts3)",
         "fields": [
           {
             "fieldPath": "gloss",
@@ -651,7 +651,7 @@
           ],
           "contentTable": "senses",
           "languageIdColumnName": "",
-          "matchInfo": "FTS4",
+          "matchInfo": "FTS3",
           "notIndexedColumns": [],
           "prefixSizes": [],
           "preferredOrder": "ASC"
@@ -666,7 +666,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '464c720bd88596c3dcbd0c4e859cc383')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5de43fe65d3b516c650a95ad4947b5d4')"
     ]
   }
 }
