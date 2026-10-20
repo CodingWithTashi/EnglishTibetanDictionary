@@ -4,6 +4,22 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      The app shows no ads and does not use the Advertising ID. firebase-analytics merges these three in through
+      play-services-measurement; remove them so the release manifest matches the Play declarations. CI fails if
+      they come back (see .github/workflows/main.yml). INTERNET, ACCESS_NETWORK_STATE and WAKE_LOCK stay: Firebase
+      needs them to upload crash reports.
+    -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+
     <!-- Lets SpeechRecognizer.isRecognitionAvailable() see the device's recognition service (API 30+). -->
     <queries>
         <intent>
@@ -57,6 +73,14 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+        <!-- Analytics never collects the Advertising ID or sends ad-personalisation signals. -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
 
         <!-- Crashlytics collection is off in debug builds (see build.gradle.kts) -->
         <meta-data

@@ -35,6 +35,21 @@ jobs:
       - name: Build, unit test and lint (debug)
         run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon --stacktrace
 
+      - name: Check the release manifest for Advertising ID permissions
+        # firebase-analytics merges AD_ID and the AdServices permissions in; app/src/main/AndroidManifest.xml removes
+        # them. Fail if any of them reaches the merged release manifest.
+        run: |
+          ./gradlew :app:processReleaseManifest --no-daemon --stacktrace
+          manifest=app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
+          if [ ! -f "$manifest" ]; then
+            echo "::error::Merged release manifest not found at $manifest."
+            exit 1
+          fi
+          if grep -nE 'AD_ID|ADSERVICES' "$manifest"; then
+            echo "::error::The merged release manifest requests the Advertising ID or AdServices (lines above). Remove them in app/src/main/AndroidManifest.xml with tools:node=\"remove\"."
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

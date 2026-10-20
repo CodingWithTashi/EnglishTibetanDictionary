@@ -41,7 +41,15 @@ Requirements: JDK 17 and the Android SDK (compile SDK 36). The Firebase Gradle p
 ```
 
 `.github/workflows/main.yml` runs `assembleDebug testDebugUnitTest lintDebug` on every push and pull request
-to `master`.
+to `master`, and checks that the merged release manifest does not request the Advertising ID or the AdServices
+permissions (Firebase Analytics adds them; `AndroidManifest.xml` removes them). To run that check locally:
+
+```sh
+./gradlew :app:processReleaseManifest && \
+  ! grep -nE 'AD_ID|ADSERVICES' app/build/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml
+```
+
+It prints nothing and exits 0 when the manifest is clean.
 
 ## Rebuilding the dictionary asset
 
