@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kharagedition.tibetandictionary.core.di.ApplicationScope
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.init.AppInitializer
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
@@ -13,6 +14,7 @@ import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -45,7 +47,9 @@ sealed interface AppRootState {
 /**
  * What the activity shows at the root: the splash, the installing screen, or the app with the user's settings.
  * Start-up that finishes ([AppInitializer.ready]) while the installer still reports [InstallState.Checking] means
- * the installer threw before reporting anything; that shows the retry screen instead of keeping the splash up.
+ * the installer threw before reporting anything; that shows the retry screen instead of keeping the splash up. A
+ * retry runs in the process-wide [appScope], like the first install, so leaving the screen does not cut it off
+ * (which would show the "interrupted" screen on the next open).
  */
 @HiltViewModel
 class AppRootViewModel @Inject constructor(
@@ -53,6 +57,7 @@ class AppRootViewModel @Inject constructor(
     initializer: AppInitializer,
     prefsRepository: UserPreferencesRepository,
     private val errors: ErrorReporter,
+    @param:ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val installerDidNotStart = IllegalStateException("installer did not start")
@@ -74,7 +79,7 @@ class AppRootViewModel @Inject constructor(
 
     /** "Try again" on the install-failed screen. */
     fun retryInstall() {
-        viewModelScope.launch {
+        appScope.launch {
             try {
                 installer.ensureInstalled()
             } catch (e: CancellationException) {

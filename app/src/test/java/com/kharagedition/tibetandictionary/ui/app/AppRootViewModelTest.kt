@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.app
 
 import android.content.Context
+import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
@@ -17,6 +18,9 @@ import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -49,10 +53,13 @@ class AppRootViewModelTest {
     private fun initializer(installer: DictionaryInstaller) =
         AppInitializer(LegacyCleanup(context, prefs), installer, prefs, errors, TestScope(startup), startup)
 
+    /** The process-wide scope retries run in; it outlives every view model. */
+    private val appScope = CoroutineScope(SupervisorJob() + main.dispatcher)
+
     private fun viewModel(
         installer: DictionaryInstaller = this.installer,
         initializer: AppInitializer = initializer(installer),
-    ) = AppRootViewModel(installer, initializer, prefs, errors)
+    ) = AppRootViewModel(installer, initializer, prefs, errors, appScope)
 
     /** Runs start-up (cleanup, install, ready) to the end. */
     private fun AppInitializer.runStartup() {
@@ -149,6 +156,29 @@ class AppRootViewModelTest {
             assertThat(installer.ensureInstalledCalls).isEqualTo(1)
             assertThat(awaitItem()).isInstanceOf(AppRootState.Ready::class.java)
         }
+    }
+
+    @Test
+    fun `a retry keeps running after its screen is gone`() = runTest {
+        val copying = CompletableDeferred<Unit>()
+        val slow = object : DictionaryInstaller by installer {
+            override suspend fun ensureInstalled() {
+                copying.await()
+                installer.ensureInstalled()
+            }
+        }
+        installer.state.value = InstallState.Failed(IOException("disk full"))
+        installer.outcome = InstallState.Ready(totalEntries = 10)
+        val vm = viewModel(slow)
+        val store = ViewModelStore().apply { put("root", vm) }
+
+        vm.retryInstall()
+        // The activity finishes mid-copy: its view models are cleared.
+        store.clear()
+        copying.complete(Unit)
+
+        assertThat(installer.ensureInstalledCalls).isEqualTo(1)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(totalEntries = 10))
     }
 
     @Test
