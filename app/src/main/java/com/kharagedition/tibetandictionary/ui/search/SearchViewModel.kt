@@ -402,6 +402,8 @@ class SearchViewModel @AssistedInject constructor(
         return SearchUiState(
             query = field,
             script = shown?.script ?: DetectScript.detect(field.text),
+            // Ordered by the stored default, which nothing on Search changes (taps and detection only select), so
+            // the segments stay in place for the whole visit.
             slots = DirectionSlots.compute(directions, defaultId, selected?.id),
             selectedDirection = selected,
             autoSelected = !selection.pinned && shown?.autoSelected == true,

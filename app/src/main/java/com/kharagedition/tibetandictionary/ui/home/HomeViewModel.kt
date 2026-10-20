@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 
 /**
@@ -59,7 +60,9 @@ import kotlinx.coroutines.launch
  * that part of the page is left out (a failing word of the day hides the card), so Home never crashes.
  *
  * The greeting, the streak and today's word are for the time and day Home was last shown ([HomeEvent.Shown]), so a
- * Home left open overnight moves on when it comes back. Switcher taps change the default direction. The heart
+ * Home left open overnight moves on when it comes back. Switcher taps change the default direction and move the
+ * selection there, while the segments keep the order they had when the visit began (the default first, see
+ * [DirectionSlots.compute]): the new default leads from the next visit. The heart
  * saves today's word to the last-used folder (unfiled when that folder is gone) or removes it through
  * [SavedWordActions]: the toast names the folder ("Saved {headword} to {folder}"), and a removal offers Undo, which
  * puts the row back as it was. Choosing a folder lives on the Entry screen.
@@ -105,6 +108,21 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Bumped each time Home is shown ([HomeEvent.Shown]): a new visit re-reads the default the switcher follows. */
+    private val visit = MutableStateFlow(0)
+
+    /**
+     * The default direction the switcher's segments are ordered by: the one stored when this visit began (view-model
+     * start, then each [HomeEvent.Shown]). A tap stores a new default and the thumb slides to it; the segments stay
+     * where they are until the next visit, so they never jump under the user's finger.
+     */
+    private val layoutDefaultId: Flow<String> = visit.flatMapLatest {
+        userPrefs.take(1).map { it.defaultDirectionId }
+    }
+
+    /** The stored preferences, with the default the switcher is laid out by on this visit. */
+    private val directionPrefs: Flow<Pair<UserPrefs, String>> = combine(userPrefs, layoutDefaultId, ::Pair)
+
     /** The greeting row: the time of day and the streak. */
     private val greetingRow: Flow<Pair<TimeOfDay, Int?>> = combine(greeting, streak, ::Pair)
 
@@ -130,17 +148,17 @@ class HomeViewModel @Inject constructor(
 
     val uiState: StateFlow<HomeUiState> = combine(
         capabilities,
-        userPrefs,
+        directionPrefs,
         greetingRow,
         wotd,
         recents,
-    ) { caps, userPrefs, (timeOfDay, streakDays), todaysWord, recentChips ->
+    ) { caps, (userPrefs, layoutDefaultId), (timeOfDay, streakDays), todaysWord, recentChips ->
         val directions = caps?.directions.orEmpty()
         val selected = DirectionSlots.defaultDirection(directions, userPrefs.defaultDirectionId)
         HomeUiState(
             greeting = timeOfDay,
             streakDays = streakDays,
-            slots = DirectionSlots.compute(directions, userPrefs.defaultDirectionId, selected?.id),
+            slots = DirectionSlots.compute(directions, layoutDefaultId, selected?.id),
             selectedDirection = selected,
             wotd = todaysWord?.toUi(),
             recents = recentChips,
@@ -159,6 +177,7 @@ class HomeViewModel @Inject constructor(
             HomeEvent.Shown -> {
                 greeting.value = Greeting.timeOfDay(clock)
                 today.value = clock.today()
+                visit.value++
             }
             HomeEvent.OpenSearch -> send(HomeEffect.NavigateSearch(query = null, voice = false))
             HomeEvent.VoiceSearch -> send(HomeEffect.NavigateSearch(query = null, voice = true))
