@@ -21,7 +21,7 @@ import com.kharagedition.tibetandictionary.data.search.ScriptDetector
  * The search pipeline behind [DictionaryRepositoryImpl.search]. Stateless; callers switch to the IO dispatcher.
  *
  * 1. **Normalise and detect:** [QueryNormalizer], then [ScriptDetector]. A blank query or a hidden/unknown direction
- *    gives an empty result.
+ *    gives an empty result. A Latin-source direction is searched with its headwords' apostrophe ([inSourceForm]).
  * 2. **Mode** from the direction row's `source_script` and the query's script (no per-direction code):
  *
  *    | source | query   | prefix step                       | gloss step            |
@@ -68,12 +68,13 @@ internal class SearchEngine(
     suspend fun search(query: String, directionId: String, limit: Int, offset: Int): SearchResult {
         require(limit > 0) { "limit must be positive: $limit" }
         require(offset >= 0) { "offset must not be negative: $offset" }
-        val q = QueryNormalizer.normalize(query)
-        val script = ScriptDetector.detect(q)
+        val normalized = QueryNormalizer.normalize(query)
+        val script = ScriptDetector.detect(normalized)
         val empty = SearchResult(query, directionId, script, emptyList(), hasMore = false, suggestions = emptyList())
-        if (q.isEmpty()) return empty
+        if (normalized.isEmpty()) return empty
         val direction = directionDao.get(directionId)?.takeIf { it.entryCount > 0 } ?: return empty
         val sourceScript = scriptOf(direction.sourceScript) ?: return empty
+        val q = inSourceForm(normalized, sourceScript)
         val mode = Mode.of(direction, sourceScript, script)
         // Tokens from the normalised query; whether the last one is finished from the text as typed ("go " → "go").
         val fts = FtsQueryBuilder.parse(q, typed = query)
@@ -141,8 +142,9 @@ internal class SearchEngine(
         // (b) The same query in those other directions.
         for (other in others) {
             if (found.size >= MAX_SUGGESTIONS) break
-            prefixRows(other.id, PrefixField.HEADWORD, q, MAX_SUGGESTIONS, 0)
-                .forEach { add(prefixHit(it, PrefixField.HEADWORD, q), other.id) }
+            val otherQ = inSourceForm(q, script)
+            prefixRows(other.id, PrefixField.HEADWORD, otherQ, MAX_SUGGESTIONS, 0)
+                .forEach { add(prefixHit(it, PrefixField.HEADWORD, otherQ), other.id) }
         }
 
         // (c) Glosses containing any of the words. With one word in a gloss mode, step 4 already ran this query.
@@ -305,6 +307,18 @@ internal class SearchEngine(
         const val MAX_SUGGESTIONS = 5
     }
 }
+
+/** The apostrophe of the English source's headwords ("bird’s nest"); it never writes the ASCII `'` there. */
+internal const val LATIN_SOURCE_APOSTROPHE = '\u2019'
+
+/**
+ * The normalised query [q] with its apostrophes as the headwords of a direction whose source script is
+ * [sourceScript] write them. [QueryNormalizer] folds every apostrophe to the ASCII `'` of Wylie, which Tibetan-source
+ * directions search; a Latin-source direction is searched with [LATIN_SOURCE_APOSTROPHE], so "bird's" and "bird’s"
+ * both find "bird’s nest".
+ */
+internal fun inSourceForm(q: String, sourceScript: Script): String =
+    if (sourceScript == Script.LATIN) q.replace('\'', LATIN_SOURCE_APOSTROPHE) else q
 
 /**
  * Whether a full-text step may run for the parsed query [fts].

@@ -43,6 +43,16 @@ class QueryNormalizerTest {
     }
 
     @Test
+    fun typographicApostrophesFoldToTheWylieApostrophe() {
+        assertThat(normalize("\u2019jam dpal")).isEqualTo("'jam dpal")
+        assertThat(normalize("\u2018jam dpal")).isEqualTo("'jam dpal")
+        assertThat(normalize("\u02BCjam dpal")).isEqualTo("'jam dpal")
+        assertThat(normalize("Bird\u2019s Nest")).isEqualTo("bird's nest")
+        // Already ASCII: unchanged.
+        assertThat(normalize("'jam dpal")).isEqualTo("'jam dpal")
+    }
+
+    @Test
     fun latinIsLowercased() {
         assertThat(normalize("Bkra")).isEqualTo("bkra")
         assertThat(normalize("LEAD Astray")).isEqualTo("lead astray")

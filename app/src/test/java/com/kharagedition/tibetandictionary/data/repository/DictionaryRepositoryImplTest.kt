@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.data.repository
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.kharagedition.tibetandictionary.data.MiniDictionary.BA
 import com.kharagedition.tibetandictionary.data.MiniDictionary.BAL
 import com.kharagedition.tibetandictionary.data.MiniDictionary.BOBO_KAWA
@@ -312,6 +313,36 @@ class DictionaryRepositoryImplTest {
         // The same in Wylie. Gloss hits come after these: see fullTextBlockFollowsAFullPrefixPage.
         assertThat(latin.ids()).containsExactly(TASHI, TASHI_DELEK, PAL_TASHI).inOrder()
         assertThat(latin.fields().toSet()).containsExactly(MatchField.WYLIE)
+    }
+
+    @Test
+    fun smartApostrophesFindWylieAndEnglishHeadwords() = runTest {
+        val repo = miniRepository()
+        val jampal = 1_000_100L // འཇམ་དཔལ་ 'jam dpal: Wylie writes the a-chung with the ASCII apostrophe
+        val birdsNest = 3_000_100L // the English source writes U+2019 in its headwords
+        db.testWriteDao().insertEntries(
+            listOf(
+                entry(jampal, BO_EN, "འཇམ་དཔལ་", 100, wylie = "'jam dpal", glossPreview = "Manjushri"),
+                entry(birdsNest, EN_BO, "bird\u2019s nest", 100, glossPreview = "བྱ་ཚང་།"),
+            ),
+        )
+        db.testWriteDao().insertSenses(
+            listOf(
+                sense(201, jampal, senseNo = 1, gloss = "Manjushri"),
+                sense(202, birdsNest, senseNo = 1, gloss = "བྱ་ཚང་།"),
+            ),
+        )
+
+        // A smart-punctuation keyboard types U+2019, U+2018 or U+02BC for the a-chung.
+        for (apostrophe in listOf("\u2019", "\u2018", "\u02BC", "'")) {
+            val wylie = repo.search("${apostrophe}jam dpal", BO_EN)
+            assertWithMessage(apostrophe).that(wylie.ids().first()).isEqualTo(jampal)
+            assertWithMessage(apostrophe).that(wylie.hit(jampal).field).isEqualTo(MatchField.WYLIE)
+
+            val english = repo.search("bird${apostrophe}s", EN_BO)
+            assertWithMessage(apostrophe).that(english.ids()).containsExactly(birdsNest)
+            assertWithMessage(apostrophe).that(english.hit(birdsNest).headwordHighlight).isEqualTo(0 until 6)
+        }
     }
 
     @Test
