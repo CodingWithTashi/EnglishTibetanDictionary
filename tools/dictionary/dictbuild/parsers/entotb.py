@@ -22,7 +22,15 @@ from dictbuild.parsers.common import (
     starts_with_particle,
     tidy,
 )
-from dictbuild.parsers.labels_en import MID_HEADER, SENSE_HEADER, START_HEADER, VERB_CODES, pos_codes, take_labels
+from dictbuild.parsers.labels_en import (
+    MID_HEADER,
+    SENSE_HEADER,
+    START_HEADER,
+    VERB_CODES,
+    label_keys,
+    pos_codes,
+    take_labels,
+)
 from dictbuild.source import SourceRow
 from dictbuild.text import clean_definition, is_tibetan, normalise_english_headword
 
@@ -51,8 +59,11 @@ PLURAL_CODE = "pl"
 # "adj. 1 ཀཿ …": a bare "1" opening a block before Tibetan text is its first sense number.
 _BARE_FIRST_NUMBER = re.compile(r"^1(?=\s+[\u0f00-\u0fff])")
 # A header right before a "see"/"also called" phrase belongs to a cross-reference ("cox n. ལ་ལྟོས།",
-# "escape n. 3. ལ་ལྟོས།"); it does not open a block.
+# "escape n. 3. ལ་ལྟོས།", "mimesis n. 2. zool. ལ་ལྟོས།" = see sense 2, zoology, of mimesis); it does not
+# open a block. The same test keeps a lead or inflection with the "see" sense that names it
+# ("pl. roundel 2. ལ་ལྟོས།" = see sense 2 of roundel).
 _CROSS_REFERENCE_TAIL = re.compile(r"\s*(?:[0-9]{1,2}\.\s*)?(?:[ཀཁགངཅ]\u0f7f\s*)?")
+_CROSS_REFERENCE_LABEL = re.compile(r"(?P<token>[A-Za-z]+\.)\s*")
 
 # A sense number right before a header makes it a sense-level part of speech ("2. pl. …"), not a block.
 _SENSE_NUMBER_BEFORE = re.compile(r"[0-9]{1,2}\.\s*$")
@@ -102,9 +113,11 @@ def parse_entotb_row(row: SourceRow) -> ParsedRow:
     headword, homonym, group_key = normalise_english_headword(row.word)
     parsed = ParsedRow(source_id=row.source_id, headword=headword, group_key=group_key, homonym=homonym)
     text = clean_definition(row.definition)
-    prefix_notes, text = _take_parentheticals(text)
+    prefix_labels: list[str] = []
+    prefix_notes, text = _take_parentheticals(text, prefix_labels)  # "(stat.) *…", "(us. sl.) …"
     builder = _SenseBuilder(parsed)
     builder.hold_notes(prefix_notes)
+    builder.hold_block((), prefix_labels)
     for block in _split_blocks(text):
         _parse_block(block, builder)
     builder.finish()
@@ -134,19 +147,27 @@ def _parse_block(block: _Block, builder: _SenseBuilder) -> None:
     if not block.body:
         return
     if not has_tibetan(block.body):
+        labels, rest = take_labels(block.body)
+        if builder.previous is None and labels and not rest.strip(_LEAD_TRIM):
+            # "n. biol. pl. -ci *…", "L. adj. …", "(koolwahr) Fr. n. …": before the first sense, a header
+            # with only labels opens the next block, which takes its part of speech and labels. Later
+            # ("adj. 1. … n. math v.t. …") it is a header without a gloss, kept as a note below.
+            builder.hold_block(block.pos, labels)
+            return
         if block.pos and builder.previous is not None:
             # "… pl. aides": a header followed only by English words annotates the previous sense.
             builder.previous.notes.append(f"{block.header} {block.body}")
         else:
             builder.hold_lead(block.body)  # "fem. masseuse n. …", "n. cox n. ལ་ལྟོས།"
         return
+    held_pos, held_labels = builder.take_held_block()
     labels, body = take_labels(block.body)
     more_labels, body = take_labels(body.lstrip(_LEAD_TRIM))  # "n. us .sl. 1.", "com ,law 1."
-    labels = _merge(labels, more_labels)
+    labels = _merge(held_labels, labels, more_labels)
     notes, body = _take_parentheticals(body, labels)
     _record_unknown_abbreviation(body, builder.row)
     builder.hold_notes(notes)
-    pos = block.pos
+    pos = tuple(_merge(list(held_pos), list(block.pos)))
     body = _BARE_FIRST_NUMBER.sub("1.", body)
     if PLURAL_CODE in pos or VERB_CODES.intersection(pos):
         forms, body = _take_inflections(body)
@@ -200,6 +221,8 @@ class _SenseBuilder:
         self._numbered = False
         self._held_notes: list[str] = []
         self._held_leads: list[str] = []
+        self._held_pos: tuple[str, ...] = ()
+        self._held_labels: list[str] = []
 
     @property
     def previous(self) -> ParsedSense | None:
@@ -210,6 +233,16 @@ class _SenseBuilder:
 
     def hold_notes(self, notes: list[str]) -> None:
         self._held_notes.extend(note for note in notes if note)
+
+    def hold_block(self, pos: tuple[str, ...], labels: list[str]) -> None:
+        """Hold the part of speech and labels of a block that has nothing else for the next block."""
+        self._held_pos = tuple(_merge(list(self._held_pos), list(pos)))
+        self._held_labels = _merge(self._held_labels, labels)
+
+    def take_held_block(self) -> tuple[tuple[str, ...], list[str]]:
+        held = self._held_pos, self._held_labels
+        self._held_pos, self._held_labels = (), []
+        return held
 
     def hold_lead(self, text: str) -> None:
         """Hold an English lead for the next sense, or drop it when it is only a header leftover."""
@@ -271,8 +304,9 @@ class _SenseBuilder:
     ) -> None:
         if self._held_leads:
             lead = " ".join(self._held_leads)
-            if starts_with_particle(gloss):
-                gloss = f"{lead} {gloss}"  # "arbiter ལ་ལྟོས།" (see arbiter), "charwoman ཡང་ཟེར།"
+            if _is_cross_reference(gloss, 0):
+                # "arbiter ལ་ལྟོས།" (see arbiter), "charwoman ཡང་ཟེར།", "mimesis 2. ལ་ལྟོས།" (see its sense 2)
+                gloss = f"{lead} {gloss}"
             else:
                 notes = [lead, *notes]
                 self.row.warnings.append("lead_kept_as_note")
@@ -308,15 +342,24 @@ def _take_inflections(text: str) -> tuple[str, str]:
     forms, rest = _clean_lead(text[:end]), text[end:].lstrip()
     if not _LEAD_WORD.search(forms) or len(_LATIN_WORD.findall(forms)) > _MAX_INFLECTION_WORDS:
         return "", text
-    if starts_with_particle(rest):
-        return "", text
+    if _is_cross_reference(rest, 0):
+        return "", text  # "pl. roundel 2. ལ་ལྟོས།": see sense 2 of "roundel", not the plural "roundel"
     return forms, rest
 
 
 def _is_cross_reference(text: str, position: int) -> bool:
-    """Whether a "see"/"also called" phrase follows `position`, after an optional sense number."""
+    """Whether a "see"/"also called" phrase follows `position`, after an optional sense number,
+    sub-sense marker and dotted label ("2. zool. ལ་ལྟོས།")."""
     tail = _CROSS_REFERENCE_TAIL.match(text, position)
-    return tail is not None and starts_with_particle(text[tail.end() :])
+    rest = text[tail.end() :] if tail else text[position:]
+    if starts_with_particle(rest):
+        return True
+    label = _CROSS_REFERENCE_LABEL.match(rest)
+    return (
+        label is not None
+        and label_keys(label.group("token")) is not None
+        and starts_with_particle(rest[label.end() :])
+    )
 
 
 def _record_unknown_abbreviation(text: str, row: ParsedRow) -> None:
@@ -419,8 +462,13 @@ def _starts_latin_word(text: str, index: int) -> bool:
 
 
 def _is_example(text: str, run: tuple[int, int]) -> bool:
+    """Two or more words not bound to the Tibetan after them, and not only labels: "3 compt. sc.
+    *ལས་གཞི།" and "… med,anat 2.…" (the next sense's labels) are no example phrases."""
     phrase = text[run[0] : run[1]]
-    return len(_LATIN_WORD.findall(phrase)) >= _MIN_EXAMPLE_WORDS and not starts_with_particle(text[run[1] :])
+    if len(_LATIN_WORD.findall(phrase)) < _MIN_EXAMPLE_WORDS or starts_with_particle(text[run[1] :]):
+        return False
+    labels, rest = take_labels(phrase.strip())
+    return not labels or bool(tidy(rest))
 
 
 def _depth(text: str, position: int) -> int:

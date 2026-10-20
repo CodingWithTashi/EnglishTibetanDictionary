@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 
 from dictbuild.model import EntryDraft, ParsedSense, RelatedCandidate
+from dictbuild.related import HeadwordIndex
 from dictbuild.wotd import assign_ranks, is_eligible
+from dictbuild.wylie import PyewtsConverter, WylieConverter
 
 
 def entry(
@@ -102,3 +106,75 @@ def test_ranks_do_not_depend_on_other_entries() -> None:
     order_small = sorted(small, key=small.__getitem__)
     order_large = [entry_id for entry_id in sorted(large, key=large.__getitem__) if entry_id in small]
     assert order_small == order_large
+
+
+# First glosses of bo-en entries without see-also links that are Tibetan written in Wylie (full build).
+WYLIE_GLOSSES = [
+    "'jam dbyangs", "red dbal man", "bsnyad pa", "bkag sdom dam po byed pa", "rnam rgyal rgya mtsho",
+    "tshad ma'i skyes bu", "dkyil 'khor", "shes rab snying po", "rdo rje 'chang", "gya gya gya",
+    "ris su bris dang 'bur du btod lugs su blug pa", "sman btsun chen mo", "dpal ldan dus kyi 'khor lo", "rdo rje",
+    "lug sha byed bshags", "rma rnams 'drub pa'i rtsi", "gteg byed kyi nya ga", "red sgrol ma",
+    "skabs thog thabs cha byung ba",
+    "chom rkun ma, rab rmong ba, ro lang ma, gtum mo, spos ma, sme sha chan, dur khrod ma",
+    "spros med, shin tu spros med)", "gza' dug, gnyan dug",
+    "tsun tsum pa ti, zla ba'i shug pa, chu bzang po, kun tu 'dres pa)",
+    "sngon 'gro gtor ma, bza' ba zas, gtung ba skom, spyod lam rgyun)",
+    "rang bzhin lhun gyis grub pa'i dkyil 'khor, rtsa ba byang chub sems kyi dkyil 'khor)",
+    "khro ba med pa, mtshang bru med pa, rdeg pa med pa)", "shing rta, rkang thang, rta dmag)",
+    "chos sku, stong pa, 'chi kha bar do", "lha mo mkhar zhes pa ste, bod lho phyogs rtsa ri'i gnas kyi ming",
+    "'dul ba'i klu 'bum khra bo, gtsang ma'i glu 'bum dkar po)", "sur kar, stag pa, spen dkar, nya sbrid)",
+    "bsnos spag 'dam, mnan pa rkang pas brdzis, zan brdzis",
+    "mo rlung, ma ning, srog rlung, rtsol rlung, tsha grang rlung, phyi rlung, nang rlung)",
+    "ri bong mkhris pa, 'phyi ba'i mkhris pa, nya mkhris",
+    "gzugs bzang, longs spyod che, shes rab phun tshogs, dbang phyug ldan, nad med, shin tu tshe ring ba)",
+    "gsungs mtshungs pa, chos mtshungs pa, sku mtshungs pa)", "lus kyis 'gro ba, yid ltar mgyogs pas)",
+]  # fmt: skip
+# English first glosses whose words are also well-formed Wylie (same build): they stay eligible.
+ENGLISH_GLOSSES = [
+    "rub", "pen", "sand", "he has", "mad dog", "tram car", "we two", "I am", "we can", "two legs", "yes i can",
+    "he, she", "dog, god", "pig, hog", "slug, snail", "pass, pass on",
+]  # fmt: skip
+# The en-bo headwords of the build that those English words are (or are plurals of).
+ENGLISH_INDEX = HeadwordIndex(
+    english={
+        word: 3_000_000 + number
+        for number, word in enumerate(
+            "rub pen sand he has mad dog tram car we two i am can leg yes she god pig hog slug snail pass on".split()
+        )
+    }
+)
+# Words of the Wylie glosses that are English headwords too: one Tibetan word is enough to reject.
+ENGLISH_INDEX_WITH_WYLIE_LOOKALIKES = HeadwordIndex(
+    english={word: 3_000_100 + number for number, word in enumerate("red man dam shes lug lugs lo".split())}
+)
+
+
+@pytest.fixture(scope="module")
+def pyewts() -> WylieConverter:
+    if importlib.util.find_spec("pyewts") is None:
+        pytest.skip("pyewts not installed")
+    return PyewtsConverter()
+
+
+@pytest.mark.parametrize("gloss", WYLIE_GLOSSES)
+def test_first_gloss_in_wylie_is_rejected_without_links(pyewts: WylieConverter, gloss: str) -> None:
+    assert is_eligible(entry(gloss=gloss))  # eligible but for the Wylie rule
+    assert not is_eligible(entry(gloss=gloss), pyewts, ENGLISH_INDEX_WITH_WYLIE_LOOKALIKES)
+    assert not is_eligible(entry(gloss=gloss), pyewts)
+
+
+@pytest.mark.parametrize("gloss", ENGLISH_GLOSSES)
+def test_english_first_gloss_that_is_also_wylie_stays_eligible(pyewts: WylieConverter, gloss: str) -> None:
+    assert is_eligible(entry(gloss=gloss), pyewts, ENGLISH_INDEX)
+
+
+@pytest.mark.parametrize("gloss", ["rub", "pen", "sand"])
+def test_short_english_is_not_a_wylie_term(pyewts: WylieConverter, gloss: str) -> None:
+    assert is_eligible(entry(gloss=gloss), pyewts)  # no index needed: one syllable without a Tibetan shape
+
+
+def test_ranks_leave_out_wylie_glosses(pyewts: WylieConverter) -> None:
+    entries = [entry(source_id=1, gloss="rdo rje"), entry(source_id=2, gloss="mad dog"), entry(source_id=3)]
+
+    assert sorted(assign_ranks(entries, seed=1, converter=pyewts, index=ENGLISH_INDEX)) == [1_000_002, 1_000_003]
+    assert sorted(assign_ranks(entries, seed=1)) == [1_000_001, 1_000_002, 1_000_003]

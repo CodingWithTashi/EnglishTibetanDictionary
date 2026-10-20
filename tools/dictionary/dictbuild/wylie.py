@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -32,6 +33,39 @@ def is_wylie_text(text: str) -> bool:
     """Whether `text` has Latin tokens and every one of them is a Wylie syllable ("pags", "bzo ba")."""
     tokens = LATIN_TOKEN.findall(text)
     return bool(tokens) and all(is_wylie_syllable(token) for token in tokens)
+
+
+# English function words; several are valid Wylie syllables too ("to", "the", "in").
+ENGLISH_STOPWORDS = frozenset(
+    {"a", "also", "an", "and", "as", "by", "etc", "for", "from", "in", "is", "of", "on", "or", "see", "that", "the",
+     "to", "which", "with"}
+)  # fmt: skip
+# Short English words are often valid Wylie ("cold", "spin", "old man"), so a Tibetan term written in
+# Wylie needs more than well-formed syllables: no "ai"/"au" vowel or da drag (not modern spelling: "gain",
+# "cold", "bend"), and two syllables, an apostrophe or an onset English never has ("mgo", "rta", "lha").
+NOT_MODERN_SPELLING = re.compile(r"ai|au|[nrl]d\.?$")
+_TIBETAN_ONSET = re.compile(r"g\.|[gdbm](?![aeiouAEIOU.yrlw])|[rl][kgcjtdnpbmz]|lh")
+
+
+def has_wylie_term_shape(words: Sequence[str]) -> bool:
+    """Whether `words` are shaped like a Tibetan term in Wylie ("kha sten", "mgo", "ra'i") rather than
+    English ("cold", "send", "old man"); see `is_wylie_term` for the conversion check."""
+    if not words or not all(
+        word.lower() not in ENGLISH_STOPWORDS and is_wylie_syllable(word) and not NOT_MODERN_SPELLING.search(word)
+        for word in words
+    ):
+        return False
+    return len(words) > 1 or "'" in words[0] or _TIBETAN_ONSET.match(words[0]) is not None
+
+
+def is_wylie_term(text: str, converter: WylieConverter) -> bool:
+    """Whether `text` is a Tibetan term in Wylie ("rdo rje", "dkyil 'khor"): the shape of
+    `has_wylie_term_shape` and a conversion without warnings. False without a converter."""
+    words = text.split()
+    if not converter.available or not has_wylie_term_shape(words):
+        return False
+    conversion = converter.to_unicode(" ".join(words))
+    return conversion is not None and conversion.ok
 
 
 class WylieUnavailableError(RuntimeError):

@@ -111,7 +111,7 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | `dictbuild/schema.py` | Load the Room schema export, run its DDL, set `user_version`, generate `INSERT`s |
 | `dictbuild/source.py` | Open the source read-only and read rows in `_id` order |
 | `dictbuild/text.py` | Shared text rules (see below) |
-| `dictbuild/wylie.py` | `WylieConverter` protocol: `PyewtsConverter`, `NullConverter`, `load_converter(require)` |
+| `dictbuild/wylie.py` | `WylieConverter` protocol: `PyewtsConverter`, `NullConverter`, `load_converter(require)`; the Wylie-term test (`is_wylie_term`) shared by `SA` lists and the word of the day |
 | `dictbuild/model.py` | Row dataclasses that mirror the schema columns, plus parser output records |
 | `dictbuild/parsers/common.py` | Split numbered senses and sub-senses; `tidy`; the binding-particle rule |
 | `dictbuild/parsers/labels_en.py` | English part-of-speech headers and the domain/register label whitelist |
@@ -193,7 +193,8 @@ All splitters return `(None, leading text)` first when there is text before the 
   - Senses are numbered per block, and `sense_no` continues across blocks.
   - Headers may be joined by `&`, `,`, `and` or stray dots: `n. & v.t.`, `adj. , n.`.
   - A header right before a "see" phrase (`cox n. ལ་ལྟོས།`, `escape n. 3. ལ་ལྟོས།`) is part of the
-    cross-reference and does not open a block.
+    cross-reference and does not open a block. A sense number, `ཀཿ` marker and one dotted label may come
+    between (`mimesis n. 2. zool. ལ་ལྟོས།`).
   - Spaced and misspelled headers are listed in `POS_CODES`: `v. t.`, `n.t.`, `b.t.`, `phep.`. They count only
     at the start of a definition.
 - Labels from the whitelist in `labels_en.py` are read in three places: at the start of a block, after
@@ -202,13 +203,20 @@ All splitters return `(None, leading text)` first when there is text before the 
     ignored.
   - A dotted label is taken even when an English phrase follows it (`sl. chuck out …`). An undotted
     one is not (`law and order` stays text).
+  - A one-letter capitalised label needs its dot: `L.` is Latin, but `(L)` and `(F)` are the letters.
+- Before the first sense, a block whose text is only labels (`n. biol. pl. -ci *…`, `L. adj. …`,
+  `(koolwahr) Fr. n. …`, `n. poet. n. …`) gives its labels and part of speech to the next block:
+  `diplococcus` is `n` with the label `biol`. Leading label parentheticals count the same way:
+  `(stat.) *…`, `(us. sl.) …`. After a sense, such a block is a header without a gloss and stays a note
+  (`adj. 1. … n. math v.t. …`).
 - An unknown dotted abbreviation in a label position stays in the gloss and goes into the report.
 - Every sense has a Tibetan gloss. English text with no Tibetan never becomes a sense; it is a *lead*:
   - It is the text before the first sense number or `ཀཿ` of a block (`n. revision n. 1.`), or a
     numbered item without Tibetan (`1. mat 2. ལ་ལྟོས།`, `2. Congress ཀཿ …`).
   - A lead is held for the next sense of the row. If that sense's gloss opens with a "see" particle,
-    the lead joins the gloss (`arbiter 1. ལ་ལྟོས།` → `arbiter ལ་ལྟོས།`). Otherwise it becomes a note,
-    with the warning `lead_kept_as_note`.
+    after an optional sense number, `ཀཿ` marker or dotted label, the lead joins the gloss
+    (`arbiter 1. ལ་ལྟོས།` → `arbiter ལ་ལྟོས།`). Otherwise it becomes a note, with the warning
+    `lead_kept_as_note`.
   - A lead with no word of two letters (`n. & .`, `adj. a, 1.`) is a header leftover. It is dropped,
     with the warning `header_leftover_dropped`.
   - A lead still held at the end of the row goes to the last sense.
@@ -217,7 +225,9 @@ All splitters return `(None, leading text)` first when there is text before the 
   - a Latin parenthetical such as `(to)` or `(fem. authoress)`;
   - verb inflections after a verb header, up to the first sense number, Tibetan, `*`, `=` or bracket
     holding Tibetan, at most six words: `v.i. ran, run 1.`, `v. gave, given . 1.`,
-    `v.t. -sook, -saken ཀཿ`. Forms bound to the Tibetan after them stay text (`v. get ཡི་འདས་ཚིག`);
+    `v.t. -sook, -saken ཀཿ`. Forms bound to the Tibetan after them stay text (`v. get ཡི་འདས་ཚིག`),
+    also after a sense number: `pl. roundel 2. ལ་ལྟོས།` and `v. decipher 2. ལ་ལྟོས།` keep the gloss
+    `roundel 2. ལ་ལྟོས།` (see sense 2 of roundel);
   - plurals after a `pl.` header, the same way. They become the note `pl. mice`, and the block loses
     the part of speech `pl`;
   - a block without Tibetan that has a part of speech (`pl. aides`), which becomes a note on the
@@ -231,6 +241,8 @@ All splitters return `(None, leading text)` first when there is text before the 
     a term with digits or other punctuation (`_HEADWORD_LIKE`).
 - An English phrase of two or more words becomes an example. The Tibetan that follows, up to the
   next example, is its translation. A lone `ལྟ་བུ།` means "for example": no translation.
+  - A run that is only labels is no phrase: `3 compt. sc. *ལས་གཞི།` and `… med,anat 2.…` stay in the
+    gloss.
   - A `(` between the phrase and its Tibetan opens the translation: `We played three games.
     (རྩེད་མོ།)རྩེ་སྟངས།` keeps the bracket in the translation.
   - So does a sense number that ends the phrase, which numbers its translations: `to black out 1.
@@ -260,9 +272,13 @@ All splitters return `(None, leading text)` first when there is text before the 
     `kha` with the gloss "pags".
   - An unresolved target is the whole Wylie run: it stops at the first English stopword or non-Wylie
     token, and is kept as Wylie.
-  - Later items count when they resolve as a whole, or when they look like Tibetan in Wylie (kept
-    unresolved: `SA kha sten, tshig sten`). Short English words are often valid Wylie too (`SA grang
-    ba, cold`, `spin, send`), so such an item must:
+  - A stopword that is also a modern Wylie syllable (`to`, `the`, `in`; not `and`) belongs to the run
+    when it is the item's last token: `SA phon to` names `ཕོན་ཏོ་`, never `ཕོན་` with the gloss "to".
+    In a later item it does not count toward the shape below (`gzhan la bsnyon to` is a target,
+    `go to` is gloss).
+  - Later items count when they resolve as a whole, or when they are a Wylie term (`is_wylie_term` in
+    `dictbuild/wylie.py`; kept unresolved: `SA kha sten, tshig sten`). Short English words are often
+    valid Wylie too (`SA grang ba, cold`, `spin, send`), so such an item must:
     - be only Wylie syllables that convert without warnings;
     - use no `ai`/`au` vowel and no da drag (`cold`, `bend`), which modern spelling does not have;
     - have two syllables, an apostrophe, or an onset English never has (`mgo`, `rta`, `lha`).
@@ -287,8 +303,11 @@ All splitters return `(None, leading text)` first when there is text before the 
     paluta is a mark, not a letter);
   - the first gloss is English, 3–100 characters, with no digit and no `/`, `[` or `(`;
   - when the entry has see-also links, the first gloss is not all Wylie syllables (left over from an
-    `SA` list: `pags`). Without links the rule does not apply, since short English words are often
-    valid Wylie too (`rub`, `pen`, `sand`);
+    `SA` list: `pags`). Without links this loose test does not apply, since short English words are
+    often valid Wylie too (`rub`, `pen`, `sand`);
+  - on any entry, the first gloss is not a Wylie term like a later `SA` item (`rdo rje`, `dkyil 'khor`,
+    `'jam dbyangs`), item by item for a list (`gza' dug, gnyan dug`), unless every word is an en-bo
+    headword or its plural (`mad dog`, `we two`, `two legs`). The current source has 37 such glosses;
   - the entry is not truncated.
 - Ranks follow SHA-256 of `"<seed>:<entry id>"`. They are reproducible, and one entry's rank never
   depends on which other entries qualify.

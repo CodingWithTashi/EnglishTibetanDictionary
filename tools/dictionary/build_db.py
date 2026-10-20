@@ -150,7 +150,9 @@ def build(
     stats = resolve_related(ordered, index, converter)
     ordered = _drop_empty_entries(ordered, stats, report)
     report.add_related(stats)
-    ranks = assign_ranks((draft for draft in ordered if draft.direction_id == WOTD_DIRECTION_ID), wotd_seed)
+    ranks = assign_ranks(
+        (draft for draft in ordered if draft.direction_id == WOTD_DIRECTION_ID), wotd_seed, converter, index
+    )
 
     content = assemble_rows(ordered, ranks)
     directions = direction_rows(content)

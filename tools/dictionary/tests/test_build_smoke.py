@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import tempfile
 from contextlib import closing
 from pathlib import Path
 
@@ -135,7 +136,10 @@ def test_missing_schema_is_reported_with_its_path(tmp_path: Path, capsys) -> Non
     assert str(tmp_path) in capsys.readouterr().err
 
 
-def test_out_of_range_build_exits_2_and_leaves_out_untouched(tmp_path: Path, schema_dir: Path, capsys) -> None:
+def test_out_of_range_build_exits_2_and_leaves_out_untouched(
+    tmp_path: Path, schema_dir: Path, capsys, monkeypatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))  # the out-of-range database lands in tmp_path
     source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
     out = tmp_path / "assets" / "dictionary.db"
     out.parent.mkdir()
@@ -155,6 +159,8 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(tmp_path: Path, sch
     assert code == build_db.EXIT_OUT_OF_RANGE == 2
     assert out.read_bytes() == b"shipped asset"
     assert sorted(path.name for path in out.parent.iterdir()) == ["dictionary.db"]
+    [inspection] = tmp_path.glob("dictionary-out-of-range-*")
+    assert sorted(path.name for path in inspection.iterdir()) == ["dictionary.db"]
     assert f"{out} was not replaced" in capsys.readouterr().err
     checks = json.loads(report.read_text(encoding="utf-8"))["range_checks"]
     assert {check["name"] for check in checks if not check["ok"]} >= {"entries bo-en", "senses bo-bo"}

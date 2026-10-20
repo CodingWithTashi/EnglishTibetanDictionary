@@ -182,6 +182,8 @@ def label_keys(token: str) -> list[str] | None:
     """Canonical keys of a label token (`"adm,law"` → `["adm", "law"]`), or None if any part is unknown."""
     stripped = re.sub(r"\s+", "", token.rstrip(".,"))
     if stripped in _CASED_LABEL_KEYS:
+        if len(stripped) == 1 and not token.rstrip(",").endswith("."):
+            return None  # "(F)", "(L)": the letter itself, not "F." (French) or "L." (Latin)
         return [_CASED_LABEL_KEYS[stripped]]
     whole = LABEL_KEYS.get(stripped.lower())
     if whole is not None:

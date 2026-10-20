@@ -575,6 +575,103 @@ def test_cross_reference_keeps_the_referenced_word_in_the_gloss() -> None:
     assert shape(matt.senses) == [(1, None, "adj", [], "mat ལ་ལྟོས། Matt, Matthew ཞེས་པའི་མིང་ཟུར།")]
 
 
+def test_cross_reference_to_a_numbered_sense_keeps_its_word_in_the_gloss() -> None:
+    rounders = parse(29033, "rounders", "pl. roundel 2. ལ་ལྟོས།")
+    decode = parse(9319, "decode", "v. decipher 2. ལ་ལྟོས།")
+    pleach = parse(25476, "pleach", "v.t. plash 2. ལ་ལྟོས།")
+    mimicry = parse(21659, "mimicry", "n. 1. mime n. ལ་ལྟོས། 2. mimesis n. 2. zool. ལ་ལྟོས།")
+
+    assert shape(rounders.senses) == [(1, None, "pl", [], "roundel 2. ལ་ལྟོས།")]  # not the plural "roundel"
+    assert shape(decode.senses) == [(1, None, "v", [], "decipher 2. ལ་ལྟོས།")]
+    assert shape(pleach.senses) == [(1, None, "vt", [], "plash 2. ལ་ལྟོས།")]
+    assert shape(mimicry.senses) == [
+        (1, None, "n", [], "mime n. ལ་ལྟོས།"),
+        (2, None, "n", [], "mimesis n. 2. zool. ལ་ལྟོས།"),
+    ]
+    rows = (rounders, decode, pleach, mimicry)
+    assert all(s.note is None for row in rows for s in row.senses)
+    assert all("lead_kept_as_note" not in row.warnings for row in rows)
+
+
+def test_a_run_of_labels_is_not_an_example() -> None:
+    data = parse(
+        9104,
+        "data",
+        "n. 1. གནས་བསྡུས་རེའུ་མིག 2. གནས་བསྡུས་དཔྱད་གཞི། 3. རེའུ་མིག གྲངས་ཐོ། 3 compt. sc. *ལས་གཞི།",
+    )
+    orbit = parse(
+        23545,
+        "orbit1",
+        '"astron phys 1.འཁོར་ལམ། ༡། འཐེན་ཤུགས་ཀྱིས་རྐྱེན་པས་ནམ་མཁའི་གཟའ་སྐར་དང༌། '
+        "བཅོས་མའི་རྒྱུ་སྐར་ལྟ་བུ་ཞིག་ཕུང་གཟུགས་གཞན་ཞིག་ལ་འཁོར་བའི་རྒྱུ་ལམ། med,anat 2.འཁོར་ལམ། ༢། "
+        "ཉིང་རྡུལ་གྱི་མཐའ་སྐོར་དུ་བསྐྱོད་པའི་གློག་རྡུལ་ལམ། ཡང་ན་རྡུལ་ཟེགས་གཞན་གྱི་བརྟན་པའི་ཀོན་ཊམ་གནས་བབ་ཅིག astrol "
+        "3.མིག་འབོར་རུས་པ། ༣། མིག་འབྲས་གནས་ཡུལ་གྱི་རུས་སྒྲོམ་ཀོང་ཀོང༌། 4.གོ་ལ། འཁོར་ལམ། "
+        '༤།ལུག་ཁྱིམ་གྱི་གནས་དང་པོ་ནས་བརྩིས་པའི་རྒྱུ་སྐར་གྱི་བགྲོད་ལམ་གྱི་གནས་བཅུ་གཉིས།"',
+    )
+
+    assert [(s.sense_no, s.note, s.gloss, s.examples) for s in data.senses[2:]] == [
+        (3, "*", "རེའུ་མིག གྲངས་ཐོ། 3 compt. sc. ལས་གཞི།", [])
+    ]
+    assert all(not s.examples for s in orbit.senses)
+    assert orbit.senses[0].gloss.endswith("ལ་འཁོར་བའི་རྒྱུ་ལམ། med,anat")
+
+
+def test_header_with_only_labels_before_the_first_sense_labels_the_next_block() -> None:
+    diplococcus = parse(10149, "diplococcus", "n. biol. pl. -ci *ཕུང་གྲུབ་ཟུང་ལྡན།")
+    exoskeleton = parse(12659, "exoskeleton", "n. biol. adj. *ཕྱི་ཡི་རུས་བཀྲ།")
+    flagelum = parse(13704, "flagelum", "n. biol. pl. - la སྐྱེ་ལྡན་ཕྲ་རིགས་ཀྱི་རྟ་རྔ་འདྲ་བའི་ཡན་ལག")
+    couloir = parse(8332, "couloir", "(koolwahr) Fr. n. རི་ཤུར་(གཟར་པོ།)བྲག་ཤུར།")
+    mead = parse(21180, "mead2", "n. poet. n. ནེའུ་གསེང་། སྤང་ལྗོངས།")
+    infinitive = parse(17848, "infinitive verb", "gram. n. བྱ་བྱེད་ལས་གསུམ་ཐ་མི་དད་པའི་བྱ་ཚིག")
+    sericin = parse(
+        30354,
+        "sericin",
+        "n. biochem. n. *དར་དྲེག= ལས་གནོན་མ་བྱས་པའི་དར་གྱི་ཐག་ཧྲན་རྗེན་པའི་སྟེང་ཆགས་པའི་ཚི་འདྲ་བའི་རྫས།",
+    )
+    floruit = parse(13892, "floruit", "L. n. 1. གསོན་པའི་དུས། འཚོ་རིང་། 2. གྲགས་པ་ཆེ་བའི་རིང་།")
+
+    def first(row: ParsedRow) -> tuple:
+        return row.senses[0].part_of_speech, row.senses[0].labels, row.senses[0].note
+
+    assert first(diplococcus) == ("n", ["biol"], "pl. -ci; *")
+    assert first(exoskeleton) == ("n,adj", ["biol"], "*")
+    assert first(flagelum) == ("n", ["biol"], "pl. - la")
+    assert first(couloir) == ("n", ["fr"], "koolwahr")
+    assert first(mead) == ("n", ["poet"], None)
+    assert first(infinitive) == ("n", ["gram"], None)
+    assert first(sericin) == ("n", ["biochem"], "*")
+    assert [(s.part_of_speech, s.labels) for s in floruit.senses] == [("n", ["lat"]), ("n", ["lat"])]
+    rows = (diplococcus, exoskeleton, flagelum, couloir, mead, infinitive, sericin, floruit)
+    assert all(len(row.senses) == 1 for row in rows[:-1])
+    assert all("lead_kept_as_note" not in row.warnings and "header_leftover_dropped" not in row.warnings for row in rows)
+
+
+def test_leading_label_parentheticals_are_labels() -> None:
+    histograms = parse(16423, "histograms", "(stat.) *སྐྱེད་རིས།")
+    tangle_foot = parse(33759, "tangle foot", "(us. sl.) མྱོས་བྱེད་ཀྱི་བཏུང་བ། n. འཛིངས་རྙོག ཟིང་ཆ། རྙོག་ཟིང་།")
+    letter_f = parse(12919, "f", "(F) ཨིན་ཇི་དང་རོ་མན་གྱི་གསལ་བྱེད་ཡི་གེ་དྲུག་པ། = ཨེཕ།")
+
+    assert [(s.labels, s.note) for s in histograms.senses] == [(["stat"], "*")]
+    assert [(s.part_of_speech, s.labels, s.note) for s in tangle_foot.senses] == [
+        (None, ["us", "sl"], None),
+        ("n", [], None),
+    ]
+    assert [(s.labels, s.note) for s in letter_f.senses] == [([], "F")]  # the letter, not "F." (French)
+
+
+def test_header_with_only_labels_after_a_sense_stays_a_note() -> None:
+    coordinate = parse(
+        8094,
+        "co-ordinate",
+        "adj. 1. གལ་གནད་མཉམ་པའི། གནས་རིམ་གཅིག་པའི། རིམ་པ་འདྲ་མཉམ་གྱི། n. math v.t. 1. གནས་རིམ་སྙོམ་པ། "
+        "2. ཆ་སྙོམ་བཟོ་བ། 3. མཐུན་སྦྱོར་བྱེད་པ། འབྲེལ་མཐུན་བཟོ་བ། 4. འབྲེལ་མཐུད་བྱེད་པ།",
+    )
+
+    assert pos_per_sense(coordinate.senses) == ["adj", "vt", "vt", "vt", "vt"]  # the noun has no gloss
+    assert [s.note for s in coordinate.senses] == ["n. math", None, None, None, None]
+    assert all(not s.labels for s in coordinate.senses)
+
+
 def test_bracket_before_a_translation_opens_the_translation() -> None:
     row = parse(14835, "game", "n. 1. རྩེ་འཁོར། We played three games. (རྩེད་མོ།)རྩེ་སྟངས།")
 

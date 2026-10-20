@@ -260,6 +260,22 @@ def test_sa_prefix_never_cuts_the_wylie_run(pyewts: WylieConverter) -> None:
 
 
 @requires_pyewts
+def test_sa_final_stopword_that_is_wylie_belongs_to_the_run(pyewts: WylieConverter) -> None:
+    index = HeadwordIndex(tibetan={"bo-en": {"ཕོན་": 1_030_539, "མི་སྲིད་པ་": 1_046_710}})
+
+    ponto = parse(29450, "པོན་ཏོ་", "SA phon to", pyewts, index)
+    denier = parse(37596, "བསྙོན་ཅན་", '"SA mi srid pa, gzhan la bsnyon to"', pyewts, index)
+
+    assert ponto.senses == []  # not ཕོན་ with the gloss "to"
+    assert ponto.related == [RelatedCandidate("ཕོན་ཏོ་", "see_also", "phon to", None)]
+    assert denier.senses == []
+    assert denier.related == [
+        RelatedCandidate("མི་སྲིད་པ་", "see_also", "mi srid pa", 1_046_710),
+        RelatedCandidate("གཞན་ལ་བསྙོན་ཏོ་", "see_also", "gzhan la bsnyon to", None),
+    ]
+
+
+@requires_pyewts
 def test_sa_later_item_of_wylie_syllables_is_a_target(pyewts: WylieConverter) -> None:
     index = HeadwordIndex(tibetan={"bo-en": {"ཁ་སྟེན་": 5}})
 
@@ -280,6 +296,7 @@ def test_sa_later_item_of_wylie_syllables_is_a_target(pyewts: WylieConverter) ->
         ("SA bkal ba, spin, send, forward things", "spin, send, forward things"),  # 52141
         ("SA rgas pa, old man", "old man"),  # da drag ("old") is not modern spelling
         ("SA rgas pa, strong wind", "strong wind"),  # "str" does not convert cleanly
+        ("SA grang ba, go to", "go to"),  # a final stopword joins the run but never makes its shape
     ],
 )
 def test_sa_later_english_item_is_gloss(pyewts: WylieConverter, definition: str, gloss: str) -> None:

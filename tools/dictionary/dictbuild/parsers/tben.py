@@ -15,7 +15,14 @@ from dictbuild.parsers.common import split_numbered, tidy
 from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
 from dictbuild.text import clean_definition, is_truncated, normalise_tibetan_headword, tibetan_ratio
-from dictbuild.wylie import LATIN_TOKEN, WylieConverter, is_wylie_syllable
+from dictbuild.wylie import (
+    ENGLISH_STOPWORDS,
+    LATIN_TOKEN,
+    NOT_MODERN_SPELLING,
+    WylieConverter,
+    has_wylie_term_shape,
+    is_wylie_syllable,
+)
 
 # Rule "`{TAG}` anywhere → source_tag" ("{C}", "{GD:515}", "{TGP-77}"), per sense, as written.
 _TAG = re.compile(r"\{(?P<tag>[^{}]*)\}")
@@ -41,17 +48,11 @@ _SEE_ALSO = re.compile(r"(?<![^\s,;(])SA\s+")
 _SEE_ALSO_END = re.compile(r"[;){]|(?<![^\s,;(])SA\s")
 _TOKEN = re.compile(r"\S+")
 MAX_SEE_ALSO_TOKENS = 12
-# An unresolved target stops before the first English stopword or non-Wylie token.
-_ENGLISH_STOPWORDS = frozenset(
-    {"a", "also", "an", "and", "as", "by", "etc", "for", "from", "in", "is", "of", "on", "or", "see", "that", "the",
-     "to", "which", "with"}
-)  # fmt: skip
-# A later SA item made only of Wylie syllables is an unresolved target ("SA kha sten, tshig sten"). Short
-# English words are often valid Wylie too ("SA grang ba, cold", "spin, send", "old man"), so the item must
-# also convert cleanly, use no "ai"/"au" vowel or da drag (not modern spelling: "gain", "cold", "bend"),
-# and have two syllables, an apostrophe or an onset English never has ("mgo", "rta", "lha").
-_NOT_MODERN_SPELLING = re.compile(r"ai|au|[nrl]d\.?$")
-_TIBETAN_ONSET = re.compile(r"g\.|[gdbm](?![aeiouAEIOU.yrlw])|[rl][kgcjtdnpbmz]|lh")
+# An unresolved target stops before the first English stopword or non-Wylie token. A stopword that is
+# also a Wylie syllable ("to", "the") belongs to the run when it is the item's last token: "SA phon to"
+# names ཕོན་ཏོ་, not ཕོན་ with the gloss "to".
+# A later SA item that is a Tibetan term in Wylie (`is_wylie_term`) is an unresolved target ("SA kha sten,
+# tshig sten"); short English words are often valid Wylie too ("SA grang ba, cold", "spin, send", "old man").
 
 
 def parse_tben_row(row: SourceRow, converter: WylieConverter, index: HeadwordIndex) -> ParsedRow:
@@ -156,12 +157,12 @@ def _first_target(
         wylie = _wylie(tokens)
         return RelatedCandidate(wylie, RELATION_SEE_ALSO, wylie), tokens[-1].end()
     for count in range(min(len(tokens), MAX_SEE_ALSO_TOKENS), 0, -1):
-        if count < len(tokens) and _plausible_wylie(tokens[count].group()):
+        if count < len(tokens) and _continues_run(tokens, count):
             continue  # "SA kha pags" names ཁ་ལྤགས་: a prefix may not cut the Wylie run ("kha" + "pags")
         if (found := _resolve(tokens[:count], converter, index)) is not None:
             return found
     count = 1
-    while count < len(tokens) and _plausible_wylie(tokens[count].group()):
+    while count < len(tokens) and _continues_run(tokens, count):
         count += 1
     wylie = _wylie(tokens[:count])
     return RelatedCandidate(_unicode_headword(wylie, converter), RELATION_SEE_ALSO, wylie), tokens[count - 1].end()
@@ -180,9 +181,9 @@ def _wylie_item_target(tokens: list[re.Match[str]], converter: WylieConverter) -
     if not converter.available or len(tokens) > MAX_SEE_ALSO_TOKENS:
         return None
     words = [token.group() for token in tokens]
-    if not all(_plausible_wylie(word) and not _NOT_MODERN_SPELLING.search(word) for word in words):
-        return None
-    if len(words) == 1 and "'" not in words[0] and not _TIBETAN_ONSET.match(words[0]):
+    if len(words) > 1 and _final_stopword(tokens, len(tokens) - 1):
+        words = words[:-1]  # "gzhan la bsnyon to": the stopword ends the run but does not shape it
+    if not has_wylie_term_shape(words):
         return None
     wylie = _wylie(tokens)
     conversion = converter.to_unicode(wylie)
@@ -203,7 +204,23 @@ def _resolve(
 
 
 def _plausible_wylie(token: str) -> bool:
-    return token.lower() not in _ENGLISH_STOPWORDS and is_wylie_syllable(token)
+    return token.lower() not in ENGLISH_STOPWORDS and is_wylie_syllable(token)
+
+
+def _continues_run(tokens: list[re.Match[str]], position: int) -> bool:
+    """Whether the token at `position` continues the Wylie run of the tokens before it."""
+    return _plausible_wylie(tokens[position].group()) or _final_stopword(tokens, position)
+
+
+def _final_stopword(tokens: list[re.Match[str]], position: int) -> bool:
+    """The item's last token is a stopword that is also a modern Wylie syllable ("to", "the"; not "and")."""
+    token = tokens[position].group()
+    return (
+        position == len(tokens) - 1
+        and token.lower() in ENGLISH_STOPWORDS
+        and is_wylie_syllable(token)
+        and not NOT_MODERN_SPELLING.search(token)
+    )
 
 
 def _wylie(tokens: list[re.Match[str]]) -> str:
