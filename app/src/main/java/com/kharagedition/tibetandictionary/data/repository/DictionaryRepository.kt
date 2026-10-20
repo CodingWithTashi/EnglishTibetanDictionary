@@ -16,7 +16,14 @@ interface DictionaryRepository {
 
     suspend fun direction(id: String): Direction?
 
-    /** Exact → prefix → full-text headword → full-text gloss; did-you-mean [SearchResult.suggestions] when empty. */
+    /**
+     * Exact → prefix → full-text headword → full-text gloss; did-you-mean [SearchResult.suggestions] when empty.
+     *
+     * Paging: page 0 (`offset = 0`) may hold more than [limit] hits, because a block of full-text hits follows its
+     * [limit] prefix rows; later pages hold prefix rows only. Callers ask for page `n` with `offset = n × limit` (not
+     * the number of hits received so far), continue while [SearchResult.hasMore], and de-duplicate the appended hits
+     * by entry id.
+     */
     suspend fun search(query: String, directionId: String, limit: Int = 50, offset: Int = 0): SearchResult
 
     /** Entries to suggest before anything is typed; stable for a given [date]. */
