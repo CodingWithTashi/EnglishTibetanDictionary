@@ -19,6 +19,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,9 +28,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -70,9 +74,6 @@ class SavedViewModel @Inject constructor(
         ) : Sheet
     }
 
-    /** Today's word is the word of the day the tab was opened on. */
-    private val today = clock.today()
-
     private val query = MutableStateFlow("")
     private val selectedFolderId = MutableStateFlow<Long?>(null)
     private val sheet = MutableStateFlow<Sheet?>(null)
@@ -82,6 +83,9 @@ class SavedViewModel @Inject constructor(
 
     /** Serialises unsave, undo, saving today's word and refiling so quick taps cannot interleave. */
     private val saveLock = Mutex()
+
+    /** The running "Save today's word", so a second tap while it runs is ignored. */
+    private var saveWotdJob: Job? = null
 
     private val effectChannel = Channel<SavedEffect>(Channel.BUFFERED)
     val effects: Flow<SavedEffect> = effectChannel.receiveAsFlow()
@@ -100,14 +104,19 @@ class SavedViewModel @Inject constructor(
     private val visible: Flow<Pair<Filter, List<SavedEntry>>> =
         filter.flatMapLatest { filter -> rows(filter).map { filter to it } }
 
-    /** Today's word and whether it is saved; a failure to read it is recorded and leaves it out. */
+    /**
+     * Today's word (for the day the tab is shown) and whether it is saved. It is null until read, so the list never
+     * waits for the dictionary, and when reading fails (recorded).
+     */
     private val wotd: Flow<WordOfTheDayUi?> = combine(
-        wordOfTheDay.observe(today).catch { t ->
-            errors.record(t)
-            emit(null)
-        },
+        flow { emitAll(wordOfTheDay.observe(clock.today())) }
+            .onStart { emit(null) }
+            .catch { t ->
+                errors.record(t)
+                emit(null)
+            },
         saved.observeSavedIds(),
-    ) { entry, savedIds -> entry?.toWotdUi(today, isSaved = entry.summary.id in savedIds) }
+    ) { entry, savedIds -> entry?.toWotdUi(clock.today(), isSaved = entry.summary.id in savedIds) }
 
     private val typedAndSheet = combine(query, sheet) { typed, sheet -> typed to sheet }
 
@@ -151,7 +160,7 @@ class SavedViewModel @Inject constructor(
             is SavedEvent.Unsave -> launchGuarded { unsave(event.entryId) }
             is SavedEvent.UndoUnsave -> launchGuarded { undoUnsave(event.entryId, event.folderId) }
             is SavedEvent.OpenEntry -> viewModelScope.launch { openEntry(event.entryId) }
-            SavedEvent.SaveWotd -> launchGuarded { saveWotd() }
+            SavedEvent.SaveWotd -> if (saveWotdJob?.isActive != true) saveWotdJob = launchGuarded { saveWotd() }
             is SavedEvent.ChangeFolder -> launchGuarded { openPicker(event.entryId) }
             is SavedEvent.PickFolder -> withPicker { pickFolder(it.entryId, event.folderId) }
             SavedEvent.StartCreateFolder -> updatePicker { it.copy(creating = true, name = "", error = null) }
@@ -189,25 +198,36 @@ class SavedViewModel @Inject constructor(
         effectChannel.send(SavedEffect.Removed(entryId, row.folderId))
     }
 
+    /** Puts the removed row back as it was (note and save time kept), in [folderId]. */
     private suspend fun undoUnsave(entryId: Long, folderId: Long?) {
         saveLock.withLock {
             val row = removed.remove(entryId) ?: return
-            saved.save(row.toSummary(), folderId)
+            saved.restore(row.copy(folderId = folderId))
         }
     }
 
-    /** Review Focus 4: an entry a newer dictionary dropped (or that cannot be read) toasts instead of opening. */
+    /**
+     * Review Focus 4: an entry a newer dictionary dropped toasts instead of opening; a failed lookup is recorded and
+     * shows the generic error.
+     */
     private suspend fun openEntry(entryId: Long) {
-        val found = recorded { dictionary.summaries(listOf(entryId)).isNotEmpty() } ?: false
-        effectChannel.send(
-            if (found) SavedEffect.NavigateEntry(entryId) else SavedEffect.Toast(UiText(R.string.entry_missing)),
-        )
+        val found = recorded { dictionary.summaries(listOf(entryId)).isNotEmpty() }
+        val effect = when (found) {
+            true -> SavedEffect.NavigateEntry(entryId)
+            false -> SavedEffect.Toast(UiText(R.string.entry_missing))
+            null -> SavedEffect.Toast(UiText(R.string.entry_action_failed))
+        }
+        effectChannel.send(effect)
     }
 
-    /** Saves today's word to the last-used folder (none if it was deleted), as the entry screen does. */
+    /**
+     * Saves today's word to the last-used folder (none if it was deleted), as the entry screen does; nothing happens
+     * when it is already saved.
+     */
     private suspend fun saveWotd() {
-        val summary = wordOfTheDay.forDate(today)?.summary ?: return
+        val summary = wordOfTheDay.forDate(clock.today())?.summary ?: return
         val folder = saveLock.withLock {
+            if (saved.observeIsSaved(summary.id).first()) return
             val lastUsed = prefs.snapshot().lastUsedFolderId
             val folder = saved.observeFolders().first().firstOrNull { it.id == lastUsed }
             saved.save(summary, folder?.id)
@@ -282,11 +302,10 @@ class SavedViewModel @Inject constructor(
     }
 
     /** Launches a change to the saved words; a failure is recorded and shown as a generic error toast. */
-    private fun launchGuarded(block: suspend () -> Unit) {
+    private fun launchGuarded(block: suspend () -> Unit): Job =
         viewModelScope.launch {
             if (recorded { block() } == null) effectChannel.send(SavedEffect.Toast(UiText(R.string.entry_action_failed)))
         }
-    }
 
     /** What [block] returns, or null when it fails; any failure but cancellation is recorded. */
     private inline fun <T> recorded(block: () -> T): T? = try {

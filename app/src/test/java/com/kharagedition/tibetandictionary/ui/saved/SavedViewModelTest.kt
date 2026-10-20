@@ -11,6 +11,7 @@ import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
@@ -27,8 +28,10 @@ import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -58,6 +61,7 @@ class SavedViewModelTest {
     private fun TestScope.viewModel(
         saved: SavedRepository = this@SavedViewModelTest.saved,
         wordOfTheDay: WordOfTheDayRepository = this@SavedViewModelTest.wordOfTheDay,
+        dictionary: DictionaryRepository = this@SavedViewModelTest.dictionary,
     ): SavedViewModel {
         val vm = SavedViewModel(saved, dictionary, wordOfTheDay, prefs, clock, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
@@ -267,6 +271,18 @@ class SavedViewModelTest {
     }
 
     @Test
+    fun `a whitespace-only query does not filter`() = runTest {
+        saved.saved.value = eightWords
+        val vm = viewModel()
+
+        vm.onEvent(SavedEvent.QueryChanged("   "))
+
+        assertThat(vm.uiState.value.query).isEqualTo("   ")
+        assertThat(vm.uiState.value.ids()).hasSize(8)
+        assertThat(vm.uiState.value.noMatches).isFalse()
+    }
+
+    @Test
     fun `below eight saved words there is no search field and a typed query does not filter`() = runTest {
         saved.saved.value = eightWords
         val vm = viewModel()
@@ -281,8 +297,9 @@ class SavedViewModelTest {
     // Unsave and undo
 
     @Test
-    fun `Unsave removes the word and Undo restores it to its folder`() = runTest {
-        saved.saved.value = listOf(row(tashi, "2026-10-19T08:00:00Z", folderId = 2), row(SampleData.house, "2026-10-19T07:00:00Z"))
+    fun `Unsave removes the word and Undo restores it as it was, in its folder`() = runTest {
+        val original = row(tashi, "2026-10-12T08:00:00Z", folderId = 2).copy(note = "from the Lamrim class")
+        saved.saved.value = listOf(original, row(SampleData.house, "2026-10-19T07:00:00Z"))
         val vm = viewModel()
 
         vm.effects.test {
@@ -291,15 +308,12 @@ class SavedViewModelTest {
             assertThat(awaitItem()).isEqualTo(SavedEffect.Removed(tashi.id, folderId = 2))
             assertThat(vm.uiState.value.ids()).containsExactly(SampleData.house.id)
 
+            clock.instant = clock.instant.plusSeconds(60)
             vm.onEvent(SavedEvent.UndoUnsave(tashi.id, folderId = 2))
 
-            val restored = saved.saved.value.single { it.entryId == tashi.id }
-            assertThat(restored.folderId).isEqualTo(2)
-            assertThat(restored.headword).isEqualTo(tashi.headword)
-            assertThat(restored.wylie).isEqualTo(tashi.wylie)
-            assertThat(restored.glossPreview).isEqualTo(tashi.glossPreview)
-            assertThat(restored.directionId).isEqualTo(tashi.directionId)
-            assertThat(vm.uiState.value.ids()).contains(tashi.id)
+            // Same folder, note and savedAt: the word goes back to its "This week" section.
+            assertThat(saved.saved.value.single { it.entryId == tashi.id }).isEqualTo(original)
+            assertThat(vm.uiState.value.groups.map { it.period }).containsExactly(SavedPeriod.TODAY, SavedPeriod.THIS_WEEK).inOrder()
             expectNoEvents()
         }
     }
@@ -345,6 +359,23 @@ class SavedViewModelTest {
     }
 
     /** Review Focus 4: a saved word whose entry a newer dictionary dropped. */
+    @Test
+    fun `a failed entry lookup is recorded and shows the error toast`() = runTest {
+        saved.saved.value = listOf(row(tashi, "2026-10-19T08:00:00Z"))
+        val failing = object : DictionaryRepository by dictionary {
+            override suspend fun summaries(ids: List<Long>): List<EntrySummary> = throw IOException("db closed")
+        }
+        val vm = viewModel(dictionary = failing)
+
+        vm.effects.test {
+            vm.onEvent(SavedEvent.OpenEntry(tashi.id))
+
+            assertThat(awaitItem()).isEqualTo(SavedEffect.Toast(UiText(R.string.entry_action_failed)))
+            expectNoEvents()
+        }
+        assertThat(errors.recorded.single()).isInstanceOf(IOException::class.java)
+    }
+
     @Test
     fun missingEntryToast() = runTest {
         val gone = row(tashi, "2026-10-19T08:00:00Z").copy(entryId = 1_999_999, headword = "དཀར་པོ་", wylie = "dkar po")
@@ -408,6 +439,21 @@ class SavedViewModelTest {
     }
 
     @Test
+    fun `the list does not wait for today's word`() = runTest {
+        saved.saved.value = listOf(row(tashi, "2026-10-19T08:00:00Z"))
+        val slow = object : WordOfTheDayRepository {
+            override fun observe(date: LocalDate): Flow<Entry?> = flow { awaitCancellation() }
+            override suspend fun forDate(date: LocalDate): Entry? = null
+        }
+
+        val state = viewModel(wordOfTheDay = slow).uiState.value
+
+        assertThat(state.loading).isFalse()
+        assertThat(state.ids()).containsExactly(tashi.id)
+        assertThat(state.wotd).isNull()
+    }
+
+    @Test
     fun `a failing word of the day is recorded and the empty state shows without the button`() = runTest {
         val failing = object : WordOfTheDayRepository {
             override fun observe(date: LocalDate): Flow<Entry?> = flow { throw IOException("no data") }
@@ -440,6 +486,37 @@ class SavedViewModelTest {
         assertThat(saved.saved.value.single().folderId).isEqualTo(2)
         assertThat(vm.uiState.value.isEmpty).isFalse()
         assertThat(vm.uiState.value.wotd?.isSaved).isTrue()
+    }
+
+    @Test
+    fun `tapping Save today's word twice saves it once`() = runTest {
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(SavedEvent.SaveWotd)
+            val first = saved.saved.value.single()
+            clock.instant = clock.instant.plusSeconds(1)
+            vm.onEvent(SavedEvent.SaveWotd)
+
+            assertThat(awaitItem()).isInstanceOf(SavedEffect.Toast::class.java)
+            expectNoEvents()
+            assertThat(saved.saved.value).containsExactly(first)
+        }
+    }
+
+    @Test
+    fun `Save today's word saves the word of the current day`() = runTest {
+        val byDate = object : WordOfTheDayRepository {
+            override fun observe(date: LocalDate): Flow<Entry?> = flowOf(wordFor(date))
+            override suspend fun forDate(date: LocalDate): Entry? = wordFor(date)
+            fun wordFor(date: LocalDate) = if (date == LocalDate.parse("2026-10-19")) SampleData.tashiEntry else SampleData.nyingjeEntry
+        }
+        val vm = viewModel(wordOfTheDay = byDate)
+
+        clock.instant = Instant.parse("2026-10-20T09:00:00Z")
+        vm.onEvent(SavedEvent.SaveWotd)
+
+        assertThat(saved.saved.value.single().entryId).isEqualTo(SampleData.nyingje.id)
     }
 
     @Test

@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.Entry
+import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
@@ -39,8 +40,8 @@ import kotlinx.coroutines.sync.withLock
 /**
  * One dictionary entry (1h/1l): reads [entryId] once, follows whether it is saved and in which folder, and turns
  * user actions into repository calls and one-shot [effects]. Failures are recorded through [errors]: a failed read
- * shows the entry as missing, a failed save shows a generic error toast. [audioPlayer] is absent until a player is
- * bound.
+ * shows the entry as missing, a failed save shows a generic error toast. [audioPlayer] is present when core/audio
+ * binds `MediaPlayerAudioPlayer` (`AudioModule`); without a binding Play does nothing.
  */
 @HiltViewModel(assistedFactory = EntryViewModel.Factory::class)
 class EntryViewModel @AssistedInject constructor(
@@ -175,10 +176,11 @@ class EntryViewModel @AssistedInject constructor(
     private suspend fun toggleSave(loaded: Content.Loaded) {
         val summary = loaded.entry.summary
         saveLock.withLock {
-            if (saved.observeIsSaved(entryId).first()) {
-                val folderId = savedFolderId.first()
+            // The saved row as it is now, so Undo can put it back unchanged (folder, note and save time).
+            val row = saved.observeAll().first().firstOrNull { it.entryId == entryId }
+            if (row != null) {
                 saved.unsave(entryId)
-                val undo = { undoUnsave(loaded, folderId) }
+                val undo = { undoUnsave(row) }
                 effectChannel.send(EntryEffect.Toast(UiText(R.string.removed), R.string.undo, undo))
             } else {
                 // A last-used folder that has since been deleted falls back to no folder.
@@ -191,8 +193,8 @@ class EntryViewModel @AssistedInject constructor(
         }
     }
 
-    private fun undoUnsave(loaded: Content.Loaded, folderId: Long?) {
-        viewModelScope.launch { guarded { saveLock.withLock { saved.save(loaded.entry.summary, folderId) } } }
+    private fun undoUnsave(row: SavedEntry) {
+        viewModelScope.launch { guarded { saveLock.withLock { saved.restore(row) } } }
     }
 
     private suspend fun pickFolder(loaded: Content.Loaded, folderId: Long?) {

@@ -7,8 +7,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 /**
- * Lets [EntryViewModel] take an `Optional<AudioPlayer>`: no player is bound yet (T3.3 adds the MediaPlayer one),
- * so the graph compiles and Play does nothing until a `@Binds AudioPlayer` exists; then the optional is present.
+ * Lets [EntryViewModel] take an `Optional<AudioPlayer>`: the optional is present when core/audio binds
+ * `MediaPlayerAudioPlayer` (`AudioModule`); without that binding the graph still compiles and Play does nothing.
  */
 @Module
 @InstallIn(SingletonComponent::class)

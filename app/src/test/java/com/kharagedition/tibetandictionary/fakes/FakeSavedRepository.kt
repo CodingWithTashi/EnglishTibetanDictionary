@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.map
 /**
  * In-memory [SavedRepository] with user.db semantics:
  * - [saved] rows may be seeded in any order; every list is observed newest first by [SavedEntry.savedAt].
- * - `observeFolder(null)` returns unfiled entries; re-saving keeps the entry's note.
+ * - `observeFolder(null)` returns unfiled entries; re-saving keeps the entry's note; `restore` puts a removed row
+ *   back unchanged.
  * - Folder names are unique (trimmed, case-insensitive); a new folder goes after the highest position.
  * - Deleting a folder keeps its entries, with no folder.
  */
@@ -64,6 +65,11 @@ class FakeSavedRepository(
 
     override suspend fun unsave(entryId: Long) {
         saved.value = saved.value.filterNot { it.entryId == entryId }
+    }
+
+    /** Puts [entry] back exactly as it was (savedAt and note included), replacing any row for the same entry. */
+    override suspend fun restore(entry: SavedEntry) {
+        saved.value = listOf(entry) + saved.value.filterNot { it.entryId == entry.entryId }
     }
 
     override suspend fun setFolder(entryId: Long, folderId: Long?) {

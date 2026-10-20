@@ -352,8 +352,9 @@ class EntryViewModelTest {
     }
 
     @Test
-    fun `unsaving shows Removed and Undo restores the word in its folder`() = runTest {
-        saved.saved.value = listOf(SampleData.savedTashi.copy(folderId = 1))
+    fun `unsaving shows Removed and Undo restores the word as it was, in its folder`() = runTest {
+        val original = SampleData.savedTashi.copy(folderId = 1, note = "from the Lamrim class")
+        saved.saved.value = listOf(original)
         val vm = viewModel()
         assertThat(vm.uiState.value.isSaved).isTrue()
         assertThat(vm.uiState.value.savedFolderName).isEqualTo("Dharma")
@@ -367,8 +368,10 @@ class EntryViewModelTest {
             assertThat(saved.saved.value).isEmpty()
             assertThat(vm.uiState.value.isSaved).isFalse()
 
+            clock.instant = clock.instant.plusSeconds(60)
             checkNotNull(toast.onAction).invoke()
-            assertThat(saved.saved.value.single().folderId).isEqualTo(1L)
+            // Same folder, note and savedAt as before.
+            assertThat(saved.saved.value.single()).isEqualTo(original)
             assertThat(vm.uiState.value.isSaved).isTrue()
             expectNoEvents()
         }
