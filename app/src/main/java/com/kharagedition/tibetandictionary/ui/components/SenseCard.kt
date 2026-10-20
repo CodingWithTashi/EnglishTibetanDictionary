@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -30,9 +31,11 @@ private val NumberGap = 14.dp
 
 /**
  * One sense of an entry on a surface1 card (radius 16, padding 14×16): an accent 13/600 [number] in a 16dp
- * column (omitted when null), then 15/1.6 text with an inline "(n.)" [partOfSpeech] prefix and, when given, a
- * muted " — e.g. " and the [example] (Tibetan examples in Jomolhari 19/1.6), followed by its translation.
- * Tibetan definitions (bo→bo) draw in Jomolhari 18/1.6.
+ * column (omitted when null; with [reserveNumberColumn] the empty column is kept, so a later card of a numbered
+ * sense lines up with its first), then 15/1.6 text with an inline "(n.)" [partOfSpeech] prefix and, when given, a
+ * muted " — e.g. " (Jomolhari in bo) and the [example] (Tibetan examples in Jomolhari 19/1.6), followed by its
+ * translation. A blank [text] shows the example alone, without the dash. Tibetan definitions (bo→bo) draw in
+ * Jomolhari 18/1.6.
  */
 @Composable
 fun SenseCard(
@@ -41,17 +44,20 @@ fun SenseCard(
     text: String,
     example: ExampleUi?,
     modifier: Modifier = Modifier,
+    reserveNumberColumn: Boolean = false,
 ) {
     val colors = DictTheme.colors
     val dimens = DictTheme.dimens
     val type = DictTheme.type
     val exampleAbbr = stringResource(R.string.example_abbr)
     val styled = remember(partOfSpeech, text, example, exampleAbbr, type, colors) {
+        val hasText = text.isNotBlank()
         val annotated = buildAnnotatedString {
             if (partOfSpeech != null) appendMixed("($partOfSpeech) ", null, type.tibetanGloss)
-            appendMixed(text, null, type.tibetanGloss)
+            if (hasText) appendMixed(text, null, type.tibetanGloss)
             if (example != null) {
-                withStyle(SpanStyle(color = colors.muted)) { append(" — $exampleAbbr ") }
+                val label = if (hasText) " — $exampleAbbr " else "$exampleAbbr "
+                appendMixed(label, null, type.tibetanGloss, latinColor = colors.muted, tibetanColor = colors.muted)
                 if (example.textIsTibetan) {
                     withStyle(type.tibetanExample.toRunSpan()) { append(example.text) }
                 } else {
@@ -67,6 +73,7 @@ fun SenseCard(
         val involved = listOfNotNull(
             type.body,
             type.tibetanGloss.takeIf { TibetanScript.hasTibetan(text) || partOfSpeech?.let(TibetanScript::hasTibetan) == true },
+            type.tibetanGloss.takeIf { example != null && TibetanScript.hasTibetan(exampleAbbr) },
             type.tibetanExample.takeIf { example != null && TibetanScript.hasTibetan(example.text) },
             type.tibetanGloss.takeIf { example?.translation?.let(TibetanScript::hasTibetan) == true },
         )
@@ -90,6 +97,8 @@ fun SenseCard(
                 colors.accent,
                 style = type.labelSemibold.copy(lineHeight = styled.style.lineHeight),
             )
+        } else if (reserveNumberColumn) {
+            Spacer(Modifier.width(NumberColumn))
         }
         Text(styled.text, Modifier.weight(1f), colors.ink, style = styled.style)
     }
@@ -98,7 +107,7 @@ fun SenseCard(
 /** [SenseCard] for a [SenseUi]. */
 @Composable
 fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier) {
-    SenseCard(sense.number, sense.partOfSpeech, sense.text, sense.example, modifier)
+    SenseCard(sense.number, sense.partOfSpeech, sense.text, sense.example, modifier, sense.reserveNumberColumn)
 }
 
 @PreviewLightDark
@@ -109,6 +118,9 @@ private fun SenseCardPreview() {
         PreviewSamples.senses.forEach { SenseCard(it) }
         SenseCard(PreviewSamples.tibetanSense)
         SenseCard(1, null, "kindness, compassion", ExampleUi("He showed great compassion.", "སྙིང་རྗེ་ཆེན་པོ།", false))
+        // A later card of sense 1, then a card with no definition: its example alone.
+        SenseCard(null, null, "mercy", null, reserveNumberColumn = true)
+        SenseCard(2, "n.", "", ExampleUi("ཁང་པ་ཆེན་པོ།", "a big house", textIsTibetan = true))
     }
 }
 

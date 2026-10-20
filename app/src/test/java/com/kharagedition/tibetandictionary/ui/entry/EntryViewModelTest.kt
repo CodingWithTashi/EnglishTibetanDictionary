@@ -166,7 +166,8 @@ class EntryViewModelTest {
         assertThat(entry.label).isEqualTo("hon")
         assertThat(entry.senses).containsExactly(
             SenseUi(1, "vi.", "to dwell", null),
-            SenseUi(null, null, "to remain", ExampleUi("གནས་སྡོད།", null, textIsTibetan = true)),
+            // A later card of sense 1: no number, but the number column's indent.
+            SenseUi(null, null, "to remain", ExampleUi("གནས་སྡོད།", null, textIsTibetan = true), reserveNumberColumn = true),
             SenseUi(2, "n.", "a dwelling", null),
         ).inOrder()
     }

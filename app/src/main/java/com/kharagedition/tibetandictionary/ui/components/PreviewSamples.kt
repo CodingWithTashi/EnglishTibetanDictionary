@@ -135,7 +135,9 @@ internal object PreviewSamples {
 
     val senses = listOf(
         SenseUi(1, null, "auspicious, fortunate, favourable", null),
-        SenseUi(2, null, "good luck, good fortune, blessing", ExampleUi("བཀྲ་ཤིས་བདེ་ལེགས།", null, true)),
+        SenseUi(2, null, "good luck, good fortune", null),
+        // A later card of sense 2: no number, same indent.
+        SenseUi(null, null, "blessing", ExampleUi("བཀྲ་ཤིས་བདེ་ལེགས།", null, true), reserveNumberColumn = true),
         SenseUi(3, "n.", "a common personal name, \"Tashi\"", null),
     )
     val tibetanSense = SenseUi(null, null, "དགེ་ལེགས་དང་ལྡན་པ། ལེགས་པའི་ལྟས།", null)

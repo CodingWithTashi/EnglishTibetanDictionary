@@ -20,9 +20,10 @@ private val UNABBREVIATED_POS = setOf("prefix", "suffix")
  * its direction id; a target missing from it is opened as a search, and its badge shows a direction from
  * [directions] (the current one when unknown).
  *
- * Sub-senses become separate cards; a sense's number and part of speech go on its first card only. Numbers show
- * only when more than one sense remains, and parts of speech only when the entry has several. Glosses that are blank
- * with no example are dropped, so a redirect-only entry has no empty card.
+ * Sub-senses become separate cards; a sense's number and part of speech go on its first card only, and its later
+ * cards keep the number column's indent. Numbers show only when more than one sense remains, and parts of speech
+ * only when the entry has several. Glosses that are blank with no example are dropped, so a redirect-only entry has
+ * no empty card.
  */
 internal fun Entry.toUi(
     direction: Direction,
@@ -53,6 +54,7 @@ internal fun Entry.toUi(
                         ?.let(::abbreviatePartOfSpeech),
                     text = item.gloss,
                     example = item.examples.firstOrNull()?.toUi(),
+                    reserveNumberColumn = numbered && index > 0,
                 )
             }
         },

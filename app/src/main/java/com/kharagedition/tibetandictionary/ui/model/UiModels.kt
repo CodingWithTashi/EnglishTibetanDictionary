@@ -41,13 +41,18 @@ data class SearchResultUi(
     val showBadge: Boolean,
 )
 
-/** One numbered sense of an entry; [number] is null when the entry has a single sense. */
+/**
+ * One sense card of an entry. [number] is null when the entry has a single sense, and on the later cards of a
+ * numbered sense ([reserveNumberColumn], which keep the number column's indent); [text] may be blank when the card
+ * only has an [example].
+ */
 @Immutable
 data class SenseUi(
     val number: Int?,
     val partOfSpeech: String?,
     val text: String,
     val example: ExampleUi?,
+    val reserveNumberColumn: Boolean = false,
 )
 
 /** A usage example of a sense, with an optional translation. */
