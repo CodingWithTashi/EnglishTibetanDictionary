@@ -177,7 +177,10 @@ internal fun EntryHeader(entry: EntryUi, onPlayAudio: () -> Unit) {
 @Composable
 internal fun EntrySenses(entry: EntryUi) {
     Column(verticalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
-        entry.senses.forEachIndexed { index, sense -> SenseCard(sense, Modifier.testTag(senseTag(index))) }
+        val numberDigits = entry.senses.maxOfOrNull { it.number?.toString()?.length ?: 1 } ?: 1
+        entry.senses.forEachIndexed { index, sense ->
+            SenseCard(sense, Modifier.testTag(senseTag(index)), numberDigits)
+        }
         if (entry.isTruncated) {
             MixedText(
                 stringResource(R.string.entry_truncated),

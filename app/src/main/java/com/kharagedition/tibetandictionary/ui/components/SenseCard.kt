@@ -31,6 +31,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.ui.model.ExampleUi
@@ -39,8 +40,13 @@ import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import kotlin.math.ceil
 
-/** Width of the sense-number column, and the gap after it. */
+/**
+ * Width of the sense-number column: the design's 16dp, or [NUMBER_DIGIT_EM] of the number's font size per digit
+ * when that is wider (a Noto Sans digit is 0.572em), so the entry's longest number stays on one line at every text
+ * size. Then the gap after it.
+ */
 private val NumberColumn = 16.dp
+private const val NUMBER_DIGIT_EM = 0.6f
 private val NumberGap = 14.dp
 
 /** Space between the definition and the note under it. */
@@ -51,15 +57,15 @@ private const val LABEL_BADGE_ID = "sense_label_"
 internal const val LABEL_BADGE_TAG = "sense_label_badge"
 
 /**
- * One sense of an entry on a surface1 card (radius 16, padding 14×16): an accent 13/600 [number] in a 16dp
- * column (omitted when null; with [reserveNumberColumn] the empty column is kept, so a later card of a numbered
- * sense lines up with its first), then 15/1.6 text with an inline "(n.)" [partOfSpeech] prefix, each of the usage
- * [labels] as its own outline badge (10/600, muted, 1dp outline, radius 6) right after it, the definition, and every
- * one of [examples], each after a muted " — e.g. " (Jomolhari in bo; Tibetan examples in Jomolhari 19/1.6) and
- * followed by its translation. A blank [text] starts with the first example, without the dash. The [note] ("broke,
- * broken") goes on a muted 13sp line under the text. Tibetan definitions (bo→bo) draw in Jomolhari 18/1.6. The
- * badges are measured, so the card grows with the text size and font scale, and they wrap between labels like
- * words; screen readers read each label once, from the text.
+ * One sense of an entry on a surface1 card (radius 16, padding 14×16): an accent 13/600 [number] in a column of at
+ * least 16dp that fits [numberDigits] digits (omitted when null; with [reserveNumberColumn] the empty column is
+ * kept, so a later card of a numbered sense lines up with its first), then 15/1.6 text with an inline "(n.)"
+ * [partOfSpeech] prefix, each of the usage [labels] as its own outline badge (10/600, muted, 1dp outline, radius 6)
+ * right after it, the definition, and every one of [examples], each after a muted " — e.g. " (Jomolhari in bo;
+ * Tibetan examples in Jomolhari 19/1.6) and followed by its translation. A blank [text] starts with the first
+ * example, without the dash. The [note] ("broke, broken") goes on a muted 13sp line under the text. Tibetan
+ * definitions (bo→bo) draw in Jomolhari 18/1.6. The badges are measured, so the card grows with the text size and
+ * font scale, and they wrap between labels like words; screen readers read each label once, from the text.
  */
 @Composable
 fun SenseCard(
@@ -71,12 +77,16 @@ fun SenseCard(
     labels: List<String> = emptyList(),
     note: String? = null,
     reserveNumberColumn: Boolean = false,
+    numberDigits: Int = 1,
 ) {
     val colors = DictTheme.colors
     val dimens = DictTheme.dimens
     val type = DictTheme.type
     val exampleAbbr = stringResource(R.string.example_abbr)
     val badges = rememberLabelBadges(labels)
+    val numberStyle = type.labelSemibold
+    val numberWidth = with(LocalDensity.current) { (numberStyle.fontSize * (NUMBER_DIGIT_EM * numberDigits)).toDp() }
+    val numberColumn = max(NumberColumn, numberWidth)
     val styled = remember(partOfSpeech, labels, text, examples, exampleAbbr, type, colors) {
         val hasText = text.isNotBlank()
         val badgeRanges = mutableListOf<IntRange>()
@@ -130,12 +140,14 @@ fun SenseCard(
             // Same line height as the text, so the number sits on the first line.
             Text(
                 number.toString(),
-                Modifier.width(NumberColumn),
+                Modifier.width(numberColumn),
                 colors.accent,
-                style = type.labelSemibold.copy(lineHeight = styled.style.lineHeight),
+                style = numberStyle.copy(lineHeight = styled.style.lineHeight),
+                maxLines = 1,
+                softWrap = false,
             )
         } else if (reserveNumberColumn) {
-            Spacer(Modifier.width(NumberColumn))
+            Spacer(Modifier.width(numberColumn))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(NoteGap)) {
             Text(
@@ -189,9 +201,12 @@ private fun rememberLabelBadges(labels: List<String>): Map<String, InlineTextCon
     }
 }
 
-/** [SenseCard] for a [SenseUi]; its label keys are shown through [usageLabels]. */
+/**
+ * [SenseCard] for a [SenseUi]; its label keys are shown through [usageLabels]. [numberDigits] is the digit count of
+ * the entry's highest sense number, so every card of the entry shares one number column.
+ */
 @Composable
-fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier) {
+fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier, numberDigits: Int = 1) {
     SenseCard(
         number = sense.number,
         partOfSpeech = sense.partOfSpeech,
@@ -201,6 +216,7 @@ fun SenseCard(sense: SenseUi, modifier: Modifier = Modifier) {
         labels = sense.label?.let { usageLabels(it) }.orEmpty(),
         note = sense.note,
         reserveNumberColumn = sense.reserveNumberColumn,
+        numberDigits = numberDigits,
     )
 }
 

@@ -1,9 +1,13 @@
 package com.kharagedition.tibetandictionary.ui.components
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -11,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
@@ -22,6 +27,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 class BottomNavBarTest {
@@ -83,6 +89,44 @@ class BottomNavBarTest {
         compose.onNodeWithTag("nav_search").assertIsNotSelected()
     }
 
+    /** Line counts of every text in the bar, read from the laid-out texts. */
+    private fun lineCounts(): List<Int> =
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .map { node ->
+                val results = mutableListOf<TextLayoutResult>()
+                node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+                results.single().lineCount
+            }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `every label and gloss fits on one line with four tabs on a 320dp screen`() {
+        compose.setContent {
+            DictTheme(darkTheme = false, language = AppLanguage.EN) {
+                BottomNavBar(MainTab.entries, MainTab.SEARCH, {}, AppLanguage.EN, Modifier.testTag(BAR))
+            }
+        }
+
+        assertThat(lineCounts()).containsExactlyElementsIn(List(MainTab.entries.size * 2) { 1 })
+        compose.onNodeWithTag(BAR).assertHeightIsEqualTo(88.dp)
+    }
+
+    @Test
+    @Config(qualifiers = "bo")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `every Tibetan label and Latin gloss fits on one line with four tabs on a 320dp screen`() {
+        compose.setContent {
+            DictTheme(darkTheme = false) {
+                BottomNavBar(MainTab.entries, MainTab.SAVED, {}, DictTheme.language, Modifier.testTag(BAR))
+            }
+        }
+
+        assertThat(lineCounts()).containsExactlyElementsIn(List(MainTab.entries.size * 2) { 1 })
+        // Jomolhari 15 over Latin 11 needs about 83dp: the 88dp bar (72 in the design) holds it.
+        compose.onNodeWithTag(BAR).assertHeightIsEqualTo(88.dp)
+    }
+
     @Test
     fun `tapping a tab reports it`() {
         var picked: MainTab? = null
@@ -95,5 +139,9 @@ class BottomNavBarTest {
         compose.onNodeWithTag("nav_learn").performClick()
 
         assertThat(picked).isEqualTo(MainTab.LEARN)
+    }
+
+    private companion object {
+        const val BAR = "bar"
     }
 }

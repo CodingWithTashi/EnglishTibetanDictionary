@@ -75,11 +75,11 @@ private fun MainTab.glossRes(): Int = when (this) {
 }
 
 /**
- * The main bottom bar: at least 72dp of surface1 (plus the system navigation-bar inset) with one item per tab in
+ * The main bottom bar: at least 88dp of surface1 (plus the system navigation-bar inset) with one item per tab in
  * [tabs] (the caller drops tabs whose feature is off). The [selected] item shows a 56×28 accentContainer
  * indicator behind a stroke-2 icon (a filled heart for Saved). Labels come from `tab_*` and `tab_*_gloss`:
- * for [AppLanguage.EN] the Latin label (11, 600 active) sits over a Jomolhari 10/1.2 gloss; for
- * [AppLanguage.BO] the Tibetan label (Jomolhari 13/1.3) sits over a Latin 9 gloss. Whichever resource holds the
+ * for [AppLanguage.EN] the Latin label (13, 600 active) sits over a Jomolhari 12/1.2 gloss; for
+ * [AppLanguage.BO] the Tibetan label (Jomolhari 15/1.3) sits over a Latin 11 gloss. Whichever resource holds the
  * Tibetan text is used for the Tibetan line, so a bo translation that swaps the pair still renders correctly.
  * The bar is a toast anchor: toasts sit 12dp above it.
  *

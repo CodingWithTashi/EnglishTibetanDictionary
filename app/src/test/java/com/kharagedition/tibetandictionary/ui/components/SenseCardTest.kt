@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
@@ -208,6 +210,34 @@ class SenseCardTest {
         assertThat(later).isEqualTo(first)
         // The 16dp number column and the 14dp gap after it.
         assertThat((first - unnumbered).value).isWithin(0.5f).of(30.dp.value)
+    }
+
+    /** Layout of the sense number [number], read from the laid-out text. */
+    private fun numberLayout(number: String): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(number, useUnmergedTree = true).fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `a two-digit sense number fits its column on one line`() {
+        show { SenseCard(SenseUi(24, null, "a meaning"), numberDigits = 2) }
+
+        val layout = numberLayout("24")
+        assertThat(layout.lineCount).isEqualTo(1)
+        assertThat(layout.didOverflowWidth).isFalse()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `a two-digit sense number fits its column on one line at the largest settings`() {
+        showAtLargest { SenseCard(SenseUi(24, null, "a meaning"), numberDigits = 2) }
+
+        val layout = numberLayout("24")
+        assertThat(layout.lineCount).isEqualTo(1)
+        assertThat(layout.didOverflowWidth).isFalse()
     }
 
     @Test

@@ -2,14 +2,17 @@ package com.kharagedition.tibetandictionary.ui.entry
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -22,6 +25,7 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 class EntryScreenTest {
@@ -159,6 +163,24 @@ class EntryScreenTest {
         compose.onNodeWithTag("entry_related_search_1").performScrollTo().performClick()
 
         assertThat(events).containsExactly(EntryEvent.OpenRelated(related[0]), EntryEvent.OpenRelated(related[1])).inOrder()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text widths
+    fun `with ten or more senses every card shares a number column that holds two digits`() {
+        val senses = (1..12).map { SenseUi(it, null, "meaning $it") } +
+            SenseUi(null, null, "more of 12", reserveNumberColumn = true)
+        show(EntryUiState(loading = false, entry = tashi.copy(senses = senses)))
+
+        val lefts = listOf("meaning 1", "meaning 9", "meaning 12", "more of 12").map {
+            compose.onNodeWithText(it).performScrollTo().getUnclippedBoundsInRoot().left
+        }
+        assertThat(lefts.distinct()).hasSize(1)
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText("12", useUnmergedTree = true).fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        assertThat(results.single().lineCount).isEqualTo(1)
+        assertThat(results.single().didOverflowWidth).isFalse()
     }
 
     @Test

@@ -56,7 +56,11 @@ class DictDimens private constructor(val isTibetan: Boolean) {
     val iconSmall: Dp = 20.dp
 
     // Bottom navigation
-    val navBar: Dp = 72.dp
+    /**
+     * 88, not the design's 72: with the +2sp labels the bar's content measures about 81dp (en) and 83dp (bo, Jomolhari
+     * 15 over Latin 11), so 88 is the next 8pt step that holds both at the same height.
+     */
+    val navBar: Dp = 88.dp
     val navIndicatorWidth: Dp = 56.dp
     val navIndicatorHeight: Dp = 28.dp
 
