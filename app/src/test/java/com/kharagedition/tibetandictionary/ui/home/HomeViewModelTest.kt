@@ -262,6 +262,26 @@ class HomeViewModelTest {
 
         assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo(enBo.id)
         assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        // The new default takes the first segment; the others follow in canonical order.
+        assertThat(vm.state.slots.fixed.first().id).isEqualTo("en-bo")
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+    }
+
+    @Test
+    fun `the stored default direction is the first segment`() = runTest {
+        prefs.setDefaultDirectionId(boBo.id)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(boBo)
+        assertThat(vm.state.slots.fixed).containsExactly(boBo, boEn, enBo).inOrder()
+
+        // Changed elsewhere (Profile → Default direction): Home follows the stored default.
+        prefs.setDefaultDirectionId(enBo.id)
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
     }
 
     @Test

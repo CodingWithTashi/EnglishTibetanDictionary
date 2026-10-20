@@ -200,6 +200,32 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `the default direction leads the switcher and detection only moves the selection`() = runTest {
+        prefs.setDefaultDirectionId(enBo.id)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+
+        vm.type("བཀྲ")
+        advanceUntilIdle()
+
+        // The thumb moves to the detected direction's segment; the segments keep their order.
+        assertThat(vm.state.selectedDirection).isEqualTo(boEn)
+        assertThat(vm.state.autoSelected).isTrue()
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+
+        // A tapped segment is not stored as the default here, so it does not reorder the switcher either.
+        vm.onEvent(SearchEvent.SelectDirection(boBo.id))
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(boBo)
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo(enBo.id)
+    }
+
+    @Test
     fun `a tapped segment pins its direction until the query is cleared`() = runTest {
         val vm = viewModel()
         vm.type("bkra")

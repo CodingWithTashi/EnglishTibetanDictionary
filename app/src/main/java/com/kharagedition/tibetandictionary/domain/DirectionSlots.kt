@@ -18,14 +18,16 @@ data class DirectionSlots(
         private const val SEGMENTS = 3
 
         /**
-         * Slots for [all] directions:
+         * Slots for [all] directions. The default direction always takes the first segment, so the direction the
+         * user looks up most (onboarding step 1, Profile → Default direction) is where the switcher starts.
          * - **Visible**: only directions with entries (`entryCount > 0`), in canonical order (by `position`).
-         * - **Up to three**: all of them are [fixed]; no overflow.
+         * - **Up to three**: all of them are [fixed]: the default direction first, then the others in canonical
+         *   order (default en-bo → en-bo, bo-en, bo-bo); no overflow.
          * - **More than three**: [fixed] = the default direction, then its reverse (source and target swapped),
          *   or, when it has none, the next direction after it in canonical order (wrapping round); every other
          *   direction goes to [overflow] in canonical order.
          * - **Default**: [defaultDirection], so a stored default that is gone or empty falls back to the first
-         *   visible direction.
+         *   visible direction, which then takes the first segment.
          * - **More label**: the direction [selectedId] when it is in [overflow], else null.
          * - **None visible**: empty slots.
          */
@@ -33,7 +35,9 @@ data class DirectionSlots(
             val default = defaultDirection(all, defaultId)
                 ?: return DirectionSlots(fixed = emptyList(), overflow = emptyList())
             val visible = visible(all)
-            if (visible.size <= SEGMENTS) return DirectionSlots(fixed = visible, overflow = emptyList())
+            if (visible.size <= SEGMENTS) {
+                return DirectionSlots(fixed = listOf(default) + (visible - default), overflow = emptyList())
+            }
 
             val index = visible.indexOf(default)
             val partner = visible.firstOrNull { it.isReverseOf(default) } ?: visible[(index + 1) % visible.size]
