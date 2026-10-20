@@ -9,9 +9,9 @@ import com.kharagedition.tibetandictionary.ui.model.LearnStatsUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 
-/** A recent search on Home's chip row: tapping it searches [query] again. [directionId] is where it was searched. */
+/** A recent search on Home's chip row: tapping it searches [query] again, in the current direction. */
 @Immutable
-data class RecentChipUi(val query: String, val directionId: String)
+data class RecentChipUi(val query: String)
 
 /**
  * The Home page of the Search tab (1a/2a). [streakDays] is the run of active days, null until the activity log
@@ -44,6 +44,12 @@ data class HomeUiState(
 
 /** User actions on Home. */
 sealed interface HomeEvent {
+    /**
+     * Home was shown (also back from another tab, a pushed screen or the background): the greeting, the streak and
+     * today's word move on to the current time and day.
+     */
+    data object Shown : HomeEvent
+
     /** The search field: opens the Search route. */
     data object OpenSearch : HomeEvent
 

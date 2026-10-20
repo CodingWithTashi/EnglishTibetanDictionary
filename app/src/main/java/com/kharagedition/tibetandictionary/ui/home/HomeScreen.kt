@@ -33,6 +33,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.startActivitySafely
@@ -77,6 +79,8 @@ private const val SCREEN_TAG = "home_screen"
 fun HomeScreen(onOpenSearch: (query: String?, voice: Boolean) -> Unit, onOpenEntry: (Long) -> Unit) {
     val viewModel = hiltViewModel<HomeViewModel>()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Each time Home is shown (also back from another tab, a pushed screen or the background): the day may have moved on.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onEvent(HomeEvent.Shown) }
     HomeEffects(viewModel.effects, onOpenSearch, onOpenEntry)
     HomeContent(state, viewModel::onEvent)
 }
@@ -236,8 +240,8 @@ private fun LearnStatsCard(stats: LearnStatsUi, onEvent: (HomeEvent) -> Unit) {
     )
 }
 
-/** Preview states built from the component samples. */
-private object HomeSamples {
+/** Preview states built from the component samples (also the Search tab in `MainScaffold`'s preview). */
+internal object HomeSamples {
     private val s = PreviewSamples
 
     /** Only what Home always has: no streak, word of the day, recents or mic. */
@@ -248,10 +252,10 @@ private object HomeSamples {
         streakDays = 12,
         wotd = s.wotd,
         recents = listOf(
-            RecentChipUi("སྙིང་རྗེ།", s.boEn.id),
-            RecentChipUi("compassion", s.enBo.id),
-            RecentChipUi("ཤེས་རབ།", s.boEn.id),
-            RecentChipUi("bde ba", s.boEn.id),
+            RecentChipUi("སྙིང་རྗེ།"),
+            RecentChipUi("compassion"),
+            RecentChipUi("ཤེས་རབ།"),
+            RecentChipUi("bde ba"),
         ),
         micAvailable = true,
     )

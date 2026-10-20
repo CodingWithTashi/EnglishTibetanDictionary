@@ -23,6 +23,7 @@ import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepositor
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.Greeting
 import com.kharagedition.tibetandictionary.domain.StreakCalculator
+import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
@@ -38,6 +39,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -56,7 +58,8 @@ import kotlinx.coroutines.launch
  * today's word, recent searches. Every source is read defensively: a failure is reported through [errors] and
  * that part of the page is left out (a failing word of the day hides the card), so Home never crashes.
  *
- * Switcher taps change the default direction. The heart saves today's word to the last-used folder (unfiled
+ * The greeting, the streak and today's word are for the time and day Home was last shown ([HomeEvent.Shown]), so a
+ * Home left open overnight moves on when it comes back. Switcher taps change the default direction. The heart saves today's word to the last-used folder (unfiled
  * when that folder is gone) or removes it through [SavedWordActions], with a plain toast; choosing a folder lives
  * on the Entry screen.
  */
@@ -88,26 +91,38 @@ class HomeViewModel @Inject constructor(
     private val capabilities: Flow<DictionaryCapabilities?> = safely(fallback = null) { dictionary.capabilities }
     private val userPrefs: Flow<UserPrefs> = safely(fallback = UserPrefs()) { prefs.prefs }
 
-    /** Consecutive active days ending today or yesterday; null when the activity log cannot be read. */
-    private val streak: Flow<Int?> = safely(fallback = null) {
-        activity.observeActiveDays(STREAK_LOOKBACK_DAYS).map { days -> StreakCalculator.streak(days.toSet(), clock.today()) }
+    /** The day Home shows: when it was last shown. */
+    private val today = MutableStateFlow(clock.today())
+
+    /** The time of day Home greets for: when it was last shown. */
+    private val greeting = MutableStateFlow(Greeting.timeOfDay(clock))
+
+    /** Consecutive active days ending [today] or the day before; null when the activity log cannot be read. */
+    private val streak: Flow<Int?> = today.flatMapLatest { date ->
+        safely(fallback = null) {
+            activity.observeActiveDays(STREAK_LOOKBACK_DAYS).map { days -> StreakCalculator.streak(days.toSet(), date) }
+        }
     }
+
+    /** The greeting row: the time of day and the streak. */
+    private val greetingRow: Flow<Pair<TimeOfDay, Int?>> = combine(greeting, streak, ::Pair)
 
     /** One chip per query, newest first: the same query searched in two directions searches the same way. */
     private val recents: Flow<List<RecentChipUi>> = safely(fallback = emptyList()) {
         recentSearches.observe(RECENT_LIMIT).map { rows ->
-            rows.distinctBy { it.query }.map { RecentChipUi(query = it.query, directionId = it.directionId) }
+            rows.distinctBy { it.query }.map { RecentChipUi(it.query) }
         }
     }
 
-    /** Today's word (for the day the screen started observing) while Home is shown; null when there is none. */
-    private val wotd: StateFlow<Wotd?> = safely(fallback = null) {
-        val date = clock.today()
-        wordOfTheDay.observe(date).flatMapLatest { entry ->
-            if (entry == null) {
-                flowOf(null)
-            } else {
-                saved.observeIsSaved(entry.summary.id).map { isSaved -> Wotd(entry, date, isSaved) }
+    /** The word for [today] while Home is shown; null when there is none. */
+    private val wotd: StateFlow<Wotd?> = today.flatMapLatest { date ->
+        safely(fallback = null) {
+            wordOfTheDay.observe(date).flatMapLatest { entry ->
+                if (entry == null) {
+                    flowOf(null)
+                } else {
+                    saved.observeIsSaved(entry.summary.id).map { isSaved -> Wotd(entry, date, isSaved) }
+                }
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
@@ -115,18 +130,18 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         capabilities,
         userPrefs,
-        streak,
+        greetingRow,
         wotd,
         recents,
-    ) { caps, userPrefs, streakDays, today, recentChips ->
+    ) { caps, userPrefs, (timeOfDay, streakDays), todaysWord, recentChips ->
         val directions = caps?.directions.orEmpty()
         val selected = DirectionSlots.defaultDirection(directions, userPrefs.defaultDirectionId)
         HomeUiState(
-            greeting = Greeting.timeOfDay(clock),
+            greeting = timeOfDay,
             streakDays = streakDays,
             slots = DirectionSlots.compute(directions, userPrefs.defaultDirectionId, selected?.id),
             selectedDirection = selected,
-            wotd = today?.toUi(userPrefs.appLanguage),
+            wotd = todaysWord?.toUi(userPrefs.appLanguage),
             recents = recentChips,
             // Learn (Features.LEARN) has no stats source in release 1.
             stats = null,
@@ -135,11 +150,15 @@ class HomeViewModel @Inject constructor(
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
-        HomeUiState(greeting = Greeting.timeOfDay(clock), micAvailable = micAvailable),
+        HomeUiState(greeting = greeting.value, micAvailable = micAvailable),
     )
 
     fun onEvent(event: HomeEvent) {
         when (event) {
+            HomeEvent.Shown -> {
+                greeting.value = Greeting.timeOfDay(clock)
+                today.value = clock.today()
+            }
             HomeEvent.OpenSearch -> send(HomeEffect.NavigateSearch(query = null, voice = false))
             HomeEvent.VoiceSearch -> send(HomeEffect.NavigateSearch(query = null, voice = true))
             is HomeEvent.RecentTap -> send(HomeEffect.NavigateSearch(event.query, voice = false))
@@ -159,8 +178,8 @@ class HomeViewModel @Inject constructor(
         val player = player ?: return
         try {
             player.play(AudioSource.Asset("$AUDIO_ASSET_DIR/$file"))
-        } catch (e: Exception) {
-            errors.record(e)
+        } catch (t: Throwable) {
+            errors.record(t)
         }
     }
 

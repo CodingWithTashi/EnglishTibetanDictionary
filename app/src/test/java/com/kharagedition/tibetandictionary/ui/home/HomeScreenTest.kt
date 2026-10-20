@@ -59,7 +59,7 @@ class HomeScreenTest {
     private val full = bare.copy(
         streakDays = 12,
         wotd = wotd,
-        recents = listOf(RecentChipUi("སྙིང་རྗེ", boEn.id), RecentChipUi("compassion", enBo.id)),
+        recents = listOf(RecentChipUi("སྙིང་རྗེ"), RecentChipUi("compassion")),
         micAvailable = true,
     )
 

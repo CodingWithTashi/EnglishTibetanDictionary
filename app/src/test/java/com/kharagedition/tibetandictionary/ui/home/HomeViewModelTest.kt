@@ -140,8 +140,8 @@ class HomeViewModelTest {
             )
             // Newest first.
             assertThat(recents).containsExactly(
-                RecentChipUi("house", enBo.id),
-                RecentChipUi("bkra shis", boEn.id),
+                RecentChipUi("house"),
+                RecentChipUi("bkra shis"),
             ).inOrder()
             assertThat(micAvailable).isTrue()
         }
@@ -154,6 +154,36 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertThat(vm.state.greeting).isEqualTo(TimeOfDay.EVENING)
+    }
+
+    @Test
+    fun `Shown moves the greeting, streak and word of the day on to the current time and day`() = runTest {
+        activeOn(0, 1, 2)
+        val asked = mutableListOf<LocalDate>()
+        val recording = object : WordOfTheDayRepository by wordOfTheDay {
+            override fun observe(date: LocalDate): Flow<Entry?> = wordOfTheDay.observe(date).also { asked += date }
+        }
+        val vm = viewModel(wotdRepository = recording)
+        advanceUntilIdle()
+        assertThat(vm.state.greeting).isEqualTo(TimeOfDay.MORNING)
+        assertThat(vm.state.streakDays).isEqualTo(3)
+        assertThat(vm.state.wotd?.date).isEqualTo("19 Oct")
+
+        // Home stayed open two days; nothing moves until it is shown again.
+        clock.instant = Instant.parse("2026-10-21T20:30:00Z")
+        vm.onEvent(HomeEvent.Shown)
+        advanceUntilIdle()
+
+        assertThat(vm.state.greeting).isEqualTo(TimeOfDay.EVENING)
+        // The run ended on the 19th, two days ago.
+        assertThat(vm.state.streakDays).isEqualTo(0)
+        assertThat(vm.state.wotd?.date).isEqualTo("21 Oct")
+        assertThat(asked).containsExactly(today, LocalDate.parse("2026-10-21")).inOrder()
+
+        // Shown again on the same day reads nothing again.
+        vm.onEvent(HomeEvent.Shown)
+        advanceUntilIdle()
+        assertThat(asked).hasSize(2)
     }
 
     @Test
@@ -409,7 +439,7 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertThat(vm.state.wotd).isNull()
-        assertThat(vm.state.recents).containsExactly(RecentChipUi("house", enBo.id))
+        assertThat(vm.state.recents).containsExactly(RecentChipUi("house"))
         assertThat(errors.recorded.map { it.message }).containsExactly("wotd read failed")
     }
 

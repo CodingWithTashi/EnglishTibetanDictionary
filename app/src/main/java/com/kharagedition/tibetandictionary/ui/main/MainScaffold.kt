@@ -16,6 +16,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.navigation.MainTab
 import com.kharagedition.tibetandictionary.ui.components.BottomNavBar
+import com.kharagedition.tibetandictionary.ui.home.HomeContent
+import com.kharagedition.tibetandictionary.ui.home.HomeSamples
 import com.kharagedition.tibetandictionary.ui.home.HomeScreen
 import com.kharagedition.tibetandictionary.ui.learn.LearnScreen
 import com.kharagedition.tibetandictionary.ui.preview.DictPreview
@@ -80,7 +82,7 @@ internal fun MainScaffoldContent(
 private fun MainScaffoldPreview() {
     DictPreview(dark = isSystemInDarkTheme()) {
         MainScaffoldContent(tab = MainTab.SEARCH, tabs = visibleTabs(), onSelectTab = {}) {
-            HomeScreen(onOpenSearch = { _, _ -> }, onOpenEntry = {})
+            HomeContent(HomeSamples.full, onEvent = {})
         }
     }
 }
