@@ -13,6 +13,7 @@ import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Entry
+import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
@@ -25,6 +26,7 @@ import com.kharagedition.tibetandictionary.domain.Greeting
 import com.kharagedition.tibetandictionary.domain.StreakCalculator
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions.Companion.savedMessage
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,7 +63,8 @@ import kotlinx.coroutines.launch
  * The greeting, the streak and today's word are for the time and day Home was last shown ([HomeEvent.Shown]), so a
  * Home left open overnight moves on when it comes back. Switcher taps change the default direction. The heart
  * saves today's word to the last-used folder (unfiled when that folder is gone) or removes it through
- * [SavedWordActions], with a plain toast; choosing a folder lives on the Entry screen.
+ * [SavedWordActions]: the toast names the folder ("Saved {headword} to {folder}"), and a removal offers Undo, which
+ * puts the row back as it was. Choosing a folder lives on the Entry screen.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -184,19 +187,25 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Saves today's word, or removes it when it is saved; either way with a toast. A second tap while the first is
-     * still saving or removing does nothing.
+     * Saves today's word, or removes it when it is saved; either way with a toast, the removal's with Undo. A second
+     * tap while the first is still saving or removing does nothing.
      */
     private fun toggleSave() {
         val summary = wotd.value?.entry?.summary ?: return
         launchSafely {
-            when (saveActions.toggle(summary)) {
+            when (val result = saveActions.toggle(summary)) {
                 null -> Unit
-                is SavedWordActions.Toggle.Removed -> send(HomeEffect.Toast(UiText(R.string.removed)))
+                is SavedWordActions.Toggle.Removed ->
+                    send(HomeEffect.Toast(UiText(R.string.removed), R.string.undo) { undoUnsave(result.row) })
                 is SavedWordActions.Toggle.Saved ->
-                    send(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(summary.headword))))
+                    send(HomeEffect.Toast(savedMessage(summary.headword, result.folder?.name)))
             }
         }
+    }
+
+    /** Undo: puts the removed [row] back unchanged (folder, note and save time). */
+    private fun undoUnsave(row: SavedEntry) {
+        launchSafely { saveActions.restore(row) }
     }
 
     private fun send(effect: HomeEffect) {

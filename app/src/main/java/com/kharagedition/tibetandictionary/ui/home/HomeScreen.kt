@@ -105,7 +105,13 @@ private fun HomeEffects(
                 is HomeEffect.NavigateSearch -> openSearch(effect.query, effect.voice)
                 is HomeEffect.NavigateEntry -> openEntry(effect.entryId)
                 is HomeEffect.Share -> context.shareText(effect.text)
-                is HomeEffect.Toast -> toastScope.launch { toaster.show(effect.message.resolve(resources)) }
+                is HomeEffect.Toast -> toastScope.launch {
+                    toaster.show(
+                        message = effect.message.resolve(resources),
+                        action = effect.action?.let(resources::getString),
+                        onAction = effect.onAction?.let { action -> suspend { action() } },
+                    )
+                }
             }
         }
     }

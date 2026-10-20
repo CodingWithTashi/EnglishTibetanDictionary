@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.home
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.data.model.Direction
@@ -84,6 +85,13 @@ sealed interface HomeEffect {
     /** Shares [text] through the system share sheet. */
     data class Share(val text: String) : HomeEffect
 
-    /** A toast; its copy is resolved by the screen, so it follows the per-app language. */
-    data class Toast(val message: UiText) : HomeEffect
+    /**
+     * A toast with [message] and an optional [action] label; tapping the action runs [onAction]. Copy is resolved by
+     * the screen, so it follows the per-app language.
+     */
+    data class Toast(
+        val message: UiText,
+        @param:StringRes val action: Int? = null,
+        val onAction: (() -> Unit)? = null,
+    ) : HomeEffect
 }

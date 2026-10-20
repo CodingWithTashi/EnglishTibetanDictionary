@@ -276,7 +276,7 @@ class HomeViewModelTest {
     // Word of the day actions
 
     @Test
-    fun `WotdToggleSave saves to the last used folder, then removes, with a toast each time`() = runTest {
+    fun `WotdToggleSave saves to the last used folder and names it, then removes with Undo`() = runTest {
         saved.folders.value = listOf(Folder(id = 5, name = "Dharma", position = 0, count = 0))
         prefs.setLastUsedFolderId(5)
         val vm = viewModel()
@@ -284,14 +284,50 @@ class HomeViewModelTest {
 
         vm.effects.test {
             vm.onEvent(HomeEvent.WotdToggleSave)
-            assertThat(awaitItem()).isEqualTo(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(tashi.headword))))
+            assertThat(awaitItem())
+                .isEqualTo(HomeEffect.Toast(UiText(R.string.saved_to_folder, listOf(tashi.headword, "Dharma"))))
             assertThat(saved.saved.value.single().folderId).isEqualTo(5)
             assertThat(vm.state.wotd?.isSaved).isTrue()
 
             vm.onEvent(HomeEvent.WotdToggleSave)
-            assertThat(awaitItem()).isEqualTo(HomeEffect.Toast(UiText(R.string.removed)))
+            val removed = awaitItem() as HomeEffect.Toast
+            assertThat(removed.message).isEqualTo(UiText(R.string.removed))
+            assertThat(removed.action).isEqualTo(R.string.undo)
             assertThat(saved.saved.value).isEmpty()
             assertThat(vm.state.wotd?.isSaved).isFalse()
+        }
+    }
+
+    @Test
+    fun `Undo after removing today's word puts it back in its folder with its save time`() = runTest {
+        saved.folders.value = listOf(Folder(id = 5, name = "Dharma", position = 0, count = 0))
+        prefs.setLastUsedFolderId(5)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.effects.test {
+            vm.onEvent(HomeEvent.WotdToggleSave)
+            awaitItem()
+            val original = saved.saved.value.single()
+
+            vm.onEvent(HomeEvent.WotdToggleSave)
+            val removed = awaitItem() as HomeEffect.Toast
+            checkNotNull(removed.onAction).invoke()
+            advanceUntilIdle()
+
+            assertThat(saved.saved.value).containsExactly(original)
+            assertThat(vm.state.wotd?.isSaved).isTrue()
+        }
+    }
+
+    @Test
+    fun `a save with no folder says Saved and the headword`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.effects.test {
+            vm.onEvent(HomeEvent.WotdToggleSave)
+            assertThat(awaitItem()).isEqualTo(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(tashi.headword))))
         }
     }
 
