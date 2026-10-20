@@ -115,6 +115,12 @@ private fun drawnLabel(label: String): String = buildString(label.length + 3) {
 }
 
 /**
+ * [directionLabelText] spaced as [DirectionLabel] draws it, for a label set inside other text ("Try EN → བོད
+ * instead", 1k). The gap is a ⅓-em space, so it reads as nothing more than a pause.
+ */
+fun directionLabelDrawnText(direction: Direction): String = drawnLabel(directionLabelText(direction))
+
+/**
  * [directionLabelText] with "བོད" in Jomolhari ([tibetanStyle]) and the rest in [latinStyle]. At large text
  * sizes it wraps after the arrow, never inside a token; accessibility services read the plain label.
  */

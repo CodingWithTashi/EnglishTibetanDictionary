@@ -53,7 +53,7 @@ import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.components.TipBox
 import com.kharagedition.tibetandictionary.ui.components.WylieOverlap
 import com.kharagedition.tibetandictionary.ui.components.bottomDivider
-import com.kharagedition.tibetandictionary.ui.components.directionLabelText
+import com.kharagedition.tibetandictionary.ui.components.directionLabelDrawnText
 import com.kharagedition.tibetandictionary.ui.components.pullUp
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
@@ -321,7 +321,7 @@ private fun NoResultsBody(state: SearchUiState, onEvent: (SearchEvent) -> Unit, 
         }
         state.alternateDirection?.let { alternate ->
             OutlinedButton(
-                stringResource(R.string.try_direction_instead, directionLabelText(alternate)),
+                stringResource(R.string.try_direction_instead, directionLabelDrawnText(alternate)),
                 { onEvent(SearchEvent.TryAlternateDirection) },
                 Modifier
                     .padding(top = dimens.sectionGap)

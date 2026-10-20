@@ -271,7 +271,8 @@ class SearchScreenTest {
         compose.onNodeWithText("No match for “bkrashi”").assertExists()
         compose.onNodeWithText("Wylie syllables are separated by spaces. Did you mean:").assertExists()
         compose.onNodeWithText("bkra shis · auspicious").assertExists()
-        compose.onNodeWithTag("search_try_alternate").assertTextEquals("Try EN →བོད instead")
+        // The label keeps the ⅓-em gap between the arrow and the Tibetan token that 1k draws.
+        compose.onNodeWithTag("search_try_alternate").assertTextEquals("Try EN →\u2004བོད instead")
 
         compose.onNodeWithTag("suggestion_row_11").performClick()
         compose.onNodeWithTag("search_try_alternate").performClick()
