@@ -44,8 +44,10 @@ import kotlinx.coroutines.withContext
  *
  * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. The expected length
  * is [AssetSource.length] (known when the asset is stored uncompressed), else the size the data build recorded
- * ([AssetSizeProvider]; the asset ships compressed). It also checks that the copy is complete. With neither, only 0
- * and then 1 are reported.
+ * ([AssetSizeProvider]; the asset ships compressed). With neither, only 0 and then 1 are reported. Only the
+ * descriptor's length is exact, so only it fails a copy of another size. A copy that differs from the recorded size
+ * is reported to [ErrorReporter] and kept: the SQLite header check (page count × page size within the file) still
+ * catches a truncated copy, and a stale resource must not block the install.
  *
  * The state never stays at [InstallState.Copying]: every failure, including cancelling the caller (a retry in a
  * finishing activity's `viewModelScope`), ends in [InstallState.Failed], which shows the retry screen. A retry keeps
@@ -116,7 +118,9 @@ class DictionaryInstallerImpl @Inject constructor(
         if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create $dir")
         val temp = File(dir, target.name + TEMP_SUFFIX)
         try {
-            val length = assetSource.length()?.takeIf { it > 0 } ?: recordedAssetSize.expectedBytes()?.takeIf { it > 0 }
+            val exactLength = assetSource.length()?.takeIf { it > 0 }
+            val recordedLength = recordedAssetSize.expectedBytes()?.takeIf { it > 0 }
+            val progressLength = exactLength ?: recordedLength
             assetSource.open().use { input ->
                 _state.value = InstallState.Copying(0f)
                 FileOutputStream(temp).use { output ->
@@ -129,16 +133,20 @@ class DictionaryInstallerImpl @Inject constructor(
                         if (read < 0) break
                         output.write(buffer, 0, read)
                         copied += read
-                        if (length != null && copied - reported >= PROGRESS_STEP_BYTES) {
+                        if (progressLength != null && copied - reported >= PROGRESS_STEP_BYTES) {
                             reported = copied
-                            _state.value = InstallState.Copying((copied.toFloat() / length).coerceAtMost(1f))
+                            _state.value = InstallState.Copying((copied.toFloat() / progressLength).coerceAtMost(1f))
                         }
                     }
                     output.fd.sync()
                 }
             }
             _state.value = InstallState.Copying(1f)
-            verifyHeader(temp, expectedLength = length)
+            verifyHeader(temp, expectedLength = exactLength)
+            if (exactLength == null && recordedLength != null && temp.length() != recordedLength) {
+                val copied = temp.length()
+                errors.record(IOException("dictionary_asset_bytes is $recordedLength but the asset has $copied bytes"))
+            }
             if (!temp.renameTo(target)) throw IOException("Could not rename ${temp.name} to ${target.name}")
         } finally {
             // No-op after a successful rename; otherwise removes the partial copy so a retry starts clean.
@@ -146,7 +154,10 @@ class DictionaryInstallerImpl @Inject constructor(
         }
     }
 
-    /** Fails unless [file] is an SQLite database of [DictionaryDatabase.VERSION] that was copied in full. */
+    /**
+     * Fails unless [file] is an SQLite database of [DictionaryDatabase.VERSION] that was copied in full: it has
+     * [expectedLength] bytes (an exact length, or null) and holds the header's page count × page size.
+     */
     private fun verifyHeader(file: File, expectedLength: Long?) {
         val header = readHeader(file) ?: throw IOException("Copied dictionary is not an SQLite database")
         if (header.userVersion != DictionaryDatabase.VERSION) {

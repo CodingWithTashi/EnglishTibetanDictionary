@@ -144,17 +144,39 @@ class DictionaryInstallerImplTest {
     }
 
     @Test
-    fun recordedSizeMismatchFails() = runTest {
-        val asset = FakeAssetSource(goodAsset, knownLength = false)
-        val recorded = AssetSizeProvider { goodAsset.length() - 1 }
+    fun aRecordedSizeThatIsOffIsReportedButTheInstallSucceeds() = runTest {
+        // A stale dictionary_asset_bytes only skews the progress; the SQLite header check guards the copy.
+        for (recordedBytes in listOf(goodAsset.length() - 3, goodAsset.length() + 5)) {
+            closeOpenDbs()
+            context.deleteDatabase(DictionaryDatabase.DB_NAME)
+            errors.recorded.clear()
+            val asset = FakeAssetSource(goodAsset, knownLength = false)
+            val installer = installer(asset, StandardTestDispatcher(testScheduler), AssetSizeProvider { recordedBytes })
+
+            installer.ensureInstalled()
+
+            assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+            assertThat(target.length()).isEqualTo(goodAsset.length())
+            assertThat(errors.recorded.map { it.message }).containsExactly(
+                "dictionary_asset_bytes is $recordedBytes but the asset has ${goodAsset.length()} bytes",
+            )
+        }
+    }
+
+    @Test
+    fun aTruncatedCopyFailsOnTheHeaderCheckWhenTheLengthIsOnlyRecorded() = runTest {
+        val truncated = tmp.newFile("truncated-recorded.db").apply {
+            writeBytes(goodAsset.readBytes().copyOf(goodAsset.length().toInt() / 2))
+        }
+        val asset = FakeAssetSource(truncated, knownLength = false)
+        val recorded = AssetSizeProvider { goodAsset.length() } // the build recorded the full size
         val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
 
         installer.ensureInstalled()
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
-        assertThat((state as InstallState.Failed).cause).hasMessageThat()
-            .isEqualTo("Copied ${goodAsset.length()} of ${goodAsset.length() - 1} bytes")
+        assertThat((state as InstallState.Failed).cause).hasMessageThat().startsWith("Copied dictionary is truncated")
         assertThat(target.exists()).isFalse()
         assertThat(tmpCopy.exists()).isFalse()
     }
