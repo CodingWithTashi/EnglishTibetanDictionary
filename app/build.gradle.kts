@@ -80,8 +80,9 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        // MockK's inline agent must self-attach inside the Gradle test worker JVM.
-        unitTests.all { it.jvmArgs("-Djdk.attach.allowAttachSelf=true") }
+        // MockK's inline agent must self-attach inside the Gradle test worker JVM;
+        // -Xshare:off silences the JVM's class-data-sharing warning that the attach prints.
+        unitTests.all { it.jvmArgs("-Djdk.attach.allowAttachSelf=true", "-Xshare:off") }
     }
 
     lint {
