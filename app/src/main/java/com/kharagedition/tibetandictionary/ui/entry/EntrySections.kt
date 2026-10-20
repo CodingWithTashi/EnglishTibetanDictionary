@@ -52,6 +52,7 @@ import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.appendMixed
 import com.kharagedition.tibetandictionary.ui.components.pullUp
 import com.kharagedition.tibetandictionary.ui.components.tallestLineHeight
+import com.kharagedition.tibetandictionary.ui.components.usageLabelText
 import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -121,7 +122,7 @@ internal fun EntryToolbar(entryShown: Boolean, isSaved: Boolean, onEvent: (Entry
 }
 
 /**
- * Tonal direction badge with the parts of speech ("adj. · n.") and shared label; the headword (Jomolhari 46/1.8,
+ * Tonal direction badge with the parts of speech ("adj. · n.") and the label every sense shares; the headword (Jomolhari 46/1.8,
  * or 24/600 Latin); then Wylie (15 italic), "· phonetic" (13) and a 36dp audio button, each only when present.
  */
 @Composable
@@ -134,7 +135,8 @@ internal fun EntryHeader(entry: EntryUi, onPlayAudio: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap),
         ) {
             DirectionBadge(entry.direction, tonal = true)
-            val caption = (entry.partsOfSpeech + listOfNotNull(entry.label)).joinToString(DOT_SEPARATOR)
+            val label = entry.label?.let { usageLabelText(it) }
+            val caption = (entry.partsOfSpeech + listOfNotNull(label)).joinToString(DOT_SEPARATOR)
             if (caption.isNotEmpty()) MixedText(caption, type.caption, type.tibetanInline14, color = colors.muted)
         }
         val heading = Modifier.semantics { heading() }

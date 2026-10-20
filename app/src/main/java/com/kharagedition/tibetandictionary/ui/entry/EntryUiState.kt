@@ -28,9 +28,10 @@ data class EntryUiState(
 )
 
 /**
- * One entry ready to draw. [partsOfSpeech] are display abbreviations ("adj.", "n."); [label] is the usage label
- * every sense shares (null when none); [senses] are flattened sub-senses, numbered only when the entry has more
- * than one sense, and then only on each sense's first card; [related] is empty when there is nothing to see also.
+ * One entry ready to draw. [partsOfSpeech] are display abbreviations ("adj.", "n."); [label] holds the canonical
+ * usage-label keys every sense shares, comma-joined (null when none; shown after the parts of speech through
+ * `usageLabelText`); [senses] are flattened sub-senses, numbered only when the entry has more than one sense, and
+ * then only on each sense's first card; [related] is empty when there is nothing to see also.
  */
 @Immutable
 data class EntryUi(

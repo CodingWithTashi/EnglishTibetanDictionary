@@ -118,7 +118,9 @@ These parts of the app stay hidden until the dictionary asset has data for them.
 |---|---|
 | Audio (speaker button on an entry and on the word of the day) | The entry has `entries.audio_file` set to a file name and that file is bundled under `app/src/main/assets/audio/` |
 | Part of speech ("n. · vt." under the headword; "(n.)" on a sense when an entry has more than one) | The entry or sense has `part_of_speech` |
-| Examples (under a sense) | The sense has rows in `examples` |
+| Examples (under a sense, every one of them) | The sense has rows in `examples` |
+| Usage labels (a small outline badge on a sense, such as "poet." or "astrol."; after the parts of speech when every sense has it) | The sense has `senses.label` |
+| Sense notes (a muted line under a sense, such as the inflections "ran, run") | The sense has a `senses.note` other than the source's bare "*" |
 | See also (chips at the end of an entry) | The entry has rows in `related_entries` |
 | Phonetic spelling (after the Wylie line) | The entry has `entries.phonetic` set |
 | More directions (for example Chinese → Tibetan) | The `directions` table has a row with `entry_count > 0` and its entries. Positions 0–2 are the three switcher slots; higher positions appear under "More". A direction with `entry_count = 0` is hidden everywhere |

@@ -178,4 +178,14 @@
     <plurals name="due_for_review">
         <item quantity="other">སྦྱོང་ནང་བསྐྱར་སྦྱོང་བྱ་རྒྱུ་ %1$s ཡོད།</item>
     </plurals>
+
+    <!-- Entry (usage labels): the source dictionary's own Tibetan labels -->
+    <string name="usage_label_poetic">མངོན་བརྗོད།</string>
+    <string name="usage_label_archaic">བརྡ་རྙིང་།</string>
+    <string name="usage_label_dialect">ཡུལ་སྐད།</string>
+    <string name="usage_label_sanskrit">ལེགས་སྦྱར།</string>
+    <string name="usage_label_chinese">རྒྱ་སྐད།</string>
+    <string name="usage_label_mongolian">སོག་སྐད།</string>
+    <string name="usage_label_definition">མཚན་ཉིད།</string>
+    <string name="usage_label_division">དབྱེ་བ།</string>
 </resources>

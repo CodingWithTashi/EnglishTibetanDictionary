@@ -196,7 +196,7 @@ private object EntrySamples {
         phonetic = null,
         partsOfSpeech = emptyList(),
         label = null,
-        senses = listOf(SenseUi(null, null, "སྙིང་རྗེ། ཐུགས་རྗེ།", null)),
+        senses = listOf(SenseUi(null, null, "སྙིང་རྗེ། ཐུགས་རྗེ།")),
         related = emptyList(),
         hasAudio = false,
         audioFile = null,

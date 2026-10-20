@@ -134,13 +134,21 @@ internal object PreviewSamples {
     )
 
     val senses = listOf(
-        SenseUi(1, null, "auspicious, fortunate, favourable", null),
-        SenseUi(2, null, "good luck, good fortune", null),
-        // A later card of sense 2: no number, same indent.
-        SenseUi(null, null, "blessing", ExampleUi("བཀྲ་ཤིས་བདེ་ལེགས།", null, true), reserveNumberColumn = true),
-        SenseUi(3, "n.", "a common personal name, \"Tashi\"", null),
+        SenseUi(1, null, "auspicious, fortunate, favourable"),
+        // A sense with its own usage label (an outline badge).
+        SenseUi(2, null, "good luck, good fortune", label = "poetic"),
+        // A later card of sense 2: no number, same indent, and every example of the gloss.
+        SenseUi(
+            null,
+            null,
+            "blessing",
+            listOf(ExampleUi("བཀྲ་ཤིས་བདེ་ལེགས།", null, true), ExampleUi("བཀྲ་ཤིས་ཤོག", "may it be auspicious", true)),
+            reserveNumberColumn = true,
+        ),
+        // A note on a muted line under the definition.
+        SenseUi(3, "n.", "a common personal name, \"Tashi\"", note = "also Trashi"),
     )
-    val tibetanSense = SenseUi(null, null, "དགེ་ལེགས་དང་ལྡན་པ། ལེགས་པའི་ལྟས།", null)
+    val tibetanSense = SenseUi(null, null, "དགེ་ལེགས་དང་ལྡན་པ། ལེགས་པའི་ལྟས།", label = "archaic")
 
     val related = listOf(
         RelatedUi(10, boBo, "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།", true),

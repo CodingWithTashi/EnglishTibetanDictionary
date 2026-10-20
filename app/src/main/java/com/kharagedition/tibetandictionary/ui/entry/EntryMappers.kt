@@ -8,6 +8,7 @@ import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.Example
 import com.kharagedition.tibetandictionary.data.model.RelatedEntry
 import com.kharagedition.tibetandictionary.data.model.Sense
+import com.kharagedition.tibetandictionary.ui.components.LABEL_KEY_SEPARATOR
 import com.kharagedition.tibetandictionary.ui.model.ExampleUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
@@ -20,10 +21,11 @@ private val UNABBREVIATED_POS = setOf("prefix", "suffix")
  * its direction id; a target missing from it is opened as a search, and its badge shows a direction from
  * [directions] (the current one when unknown).
  *
- * Sub-senses become separate cards; a sense's number and part of speech go on its first card only, and its later
- * cards keep the number column's indent. Numbers show only when more than one sense remains, and parts of speech
- * only when the entry has several. Glosses that are blank with no example are dropped, so a redirect-only entry has
- * no empty card.
+ * Sub-senses become separate cards; a sense's number, part of speech, label and note go on its first card only,
+ * and its later cards keep the number column's indent. Numbers show only when more than one sense remains, and
+ * parts of speech only when the entry has several. Labels every sense shares become the entry's [EntryUi.label];
+ * a sense shows only the labels it adds. Every example of a gloss is kept. Glosses that are blank with no example
+ * are dropped, so a redirect-only entry has no empty card.
  */
 internal fun Entry.toUi(
     direction: Direction,
@@ -36,6 +38,7 @@ internal fun Entry.toUi(
     val numbered = visibleSenses.size > 1
     val partsOfSpeech = summary.partOfSpeech.filter { it.isNotBlank() }
     val perSensePos = partsOfSpeech.size > 1
+    val sharedLabels = visibleSenses.sharedLabels()
     return EntryUi(
         id = summary.id,
         direction = direction,
@@ -44,17 +47,22 @@ internal fun Entry.toUi(
         wylie = summary.wylie?.takeIf { it.isNotBlank() },
         phonetic = summary.phonetic?.takeIf { it.isNotBlank() },
         partsOfSpeech = partsOfSpeech.map(::abbreviatePartOfSpeech),
-        label = visibleSenses.sharedLabel(),
+        label = sharedLabels.joinLabels(),
         senses = visibleSenses.flatMap { sense ->
+            val ownLabels = sense.labels.filter { it.isNotBlank() && it !in sharedLabels }.distinct().joinLabels()
+            val note = sense.note?.let(::displayNote)
             sense.items.mapIndexed { index, item ->
+                val first = index == 0
                 SenseUi(
-                    number = sense.number.takeIf { numbered && index == 0 },
+                    number = sense.number.takeIf { numbered && first },
                     partOfSpeech = sense.partOfSpeech
-                        ?.takeIf { perSensePos && index == 0 && it.isNotBlank() }
+                        ?.takeIf { perSensePos && first && it.isNotBlank() }
                         ?.let(::abbreviatePartOfSpeech),
                     text = item.gloss,
-                    example = item.examples.firstOrNull()?.toUi(),
-                    reserveNumberColumn = numbered && index > 0,
+                    examples = item.examples.map { it.toUi() },
+                    label = ownLabels.takeIf { first },
+                    note = note.takeIf { first },
+                    reserveNumberColumn = numbered && !first,
                 )
             }
         },
@@ -72,12 +80,25 @@ internal fun abbreviatePartOfSpeech(pos: String): String {
     return if (keep) value else "$value."
 }
 
-/** The labels every sense carries, in the first sense's order; null when they share none. */
-private fun List<Sense>.sharedLabel(): String? {
-    val first = firstOrNull() ?: return null
-    val shared = first.labels.filter { label -> label.isNotBlank() && all { label in it.labels } }.distinct()
-    return shared.takeIf { it.isNotEmpty() }?.joinToString(DOT_SEPARATOR)
+/** The label keys every sense carries, in the first sense's order; empty when they share none. */
+private fun List<Sense>.sharedLabels(): List<String> {
+    val first = firstOrNull() ?: return emptyList()
+    return first.labels.filter { label -> label.isNotBlank() && all { label in it.labels } }.distinct()
 }
+
+/** Label keys as the data joins them ("adm,law"); null when there are none. */
+private fun List<String>.joinLabels(): String? = takeIf { it.isNotEmpty() }?.joinToString(LABEL_KEY_SEPARATOR)
+
+/**
+ * A sense note as shown: its "; "-joined parts without the source's markers, which have no letter or digit (the
+ * en-bo table's bare "*"); null when nothing is left.
+ */
+internal fun displayNote(note: String): String? =
+    note.split(';')
+        .map { it.trim() }
+        .filter { part -> part.any(Char::isLetterOrDigit) }
+        .joinToString("; ")
+        .ifEmpty { null }
 
 private fun Example.toUi() = ExampleUi(text = text, translation = translation, textIsTibetan = isTibetanText(text))
 

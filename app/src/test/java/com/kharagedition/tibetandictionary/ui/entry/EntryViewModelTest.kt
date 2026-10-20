@@ -103,9 +103,9 @@ class EntryViewModelTest {
         assertThat(entry.label).isNull()
         assertThat(entry.isTruncated).isFalse()
         assertThat(entry.senses).containsExactly(
-            SenseUi(1, null, "auspicious, fortunate, favourable", null),
-            SenseUi(2, null, "good luck, good fortune, blessing", null),
-            SenseUi(3, null, "a common personal name, \"Tashi\"", null),
+            SenseUi(1, null, "auspicious, fortunate, favourable"),
+            SenseUi(2, null, "good luck, good fortune, blessing"),
+            SenseUi(3, null, "a common personal name, \"Tashi\""),
         ).inOrder()
     }
 
@@ -136,7 +136,7 @@ class EntryViewModelTest {
         assertThat(entry.partsOfSpeech).containsExactly("n.", "vt.").inOrder()
         assertThat(entry.senses.map { it.number }).containsExactly(1, 2, 3, 4, 5).inOrder()
         assertThat(entry.senses.map { it.partOfSpeech }).containsExactly("n.", "n.", "n.", "n.", "vt.").inOrder()
-        assertThat(entry.senses.first().example).isEqualTo(
+        assertThat(entry.senses.first().examples).containsExactly(
             ExampleUi("a two-storey house", "ཐོག་བརྩེགས་གཉིས་ཅན་གྱི་ཁང་པ།", textIsTibetan = false),
         )
     }
@@ -146,7 +146,7 @@ class EntryViewModelTest {
         val entry = viewModel(SampleData.tashiBoBo.id).entry()
 
         assertThat(entry.partsOfSpeech).containsExactly("n.")
-        assertThat(entry.senses).containsExactly(SenseUi(null, null, "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།", null))
+        assertThat(entry.senses).containsExactly(SenseUi(null, null, "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།"))
     }
 
     @Test
@@ -165,10 +165,86 @@ class EntryViewModelTest {
 
         assertThat(entry.label).isEqualTo("hon")
         assertThat(entry.senses).containsExactly(
-            SenseUi(1, "vi.", "to dwell", null),
+            SenseUi(1, "vi.", "to dwell"),
             // A later card of sense 1: no number, but the number column's indent.
-            SenseUi(null, null, "to remain", ExampleUi("གནས་སྡོད།", null, textIsTibetan = true), reserveNumberColumn = true),
-            SenseUi(2, "n.", "a dwelling", null),
+            SenseUi(null, null, "to remain", listOf(ExampleUi("གནས་སྡོད།", null, textIsTibetan = true)), reserveNumberColumn = true),
+            SenseUi(2, "n.", "a dwelling"),
+        ).inOrder()
+    }
+
+    @Test
+    fun `a label every sense shares stays on the entry and the cards show only their own labels`() = runTest {
+        add(
+            SampleData.houseEntry.copy(
+                senses = listOf(
+                    Sense(1, "n", listOf("adm"), null, emptyList(), listOf(item("ཁང་པ།"), item("མི་ཚང་།"))),
+                    Sense(2, "n", listOf("adm", "law"), null, emptyList(), listOf(item("ཁྲིམས་བཟོ་ལྷན་ཚོགས།"))),
+                    Sense(3, "vt", listOf("astrol", "adm"), null, emptyList(), listOf(item("ཁྱིམ།"))),
+                ),
+            ),
+        )
+
+        val entry = viewModel(SampleData.house.id).entry()
+
+        assertThat(entry.label).isEqualTo("adm")
+        // The badge goes on the sense's first card only.
+        assertThat(entry.senses.map { it.label }).containsExactly(null, null, "law", "astrol").inOrder()
+    }
+
+    @Test
+    fun `per-sense labels show when the senses do not all share them`() = runTest {
+        add(
+            SampleData.houseEntry.copy(
+                senses = listOf(
+                    Sense(1, null, listOf("definition"), null, emptyList(), listOf(item("That which supports a beam"))),
+                    Sense(2, null, emptyList(), null, emptyList(), listOf(item("pillar; column"))),
+                    Sense(3, null, listOf("poetic", "archaic"), null, emptyList(), listOf(item("a support"))),
+                ),
+            ),
+        )
+
+        val entry = viewModel(SampleData.house.id).entry()
+
+        assertThat(entry.label).isNull()
+        assertThat(entry.senses.map { it.label }).containsExactly("definition", null, "poetic,archaic").inOrder()
+    }
+
+    @Test
+    fun `a sense note shows on its first card without the source's star markers`() = runTest {
+        add(
+            SampleData.houseEntry.copy(
+                senses = listOf(
+                    Sense(1, "vi", emptyList(), "ran, run", emptyList(), listOf(item("རྒྱུག་པ།"), item("འཕྱོ་བ།"))),
+                    Sense(2, "vi", emptyList(), "*", emptyList(), listOf(item("འོས་ལངས་བྱེད་པ།"))),
+                    Sense(3, "vt", emptyList(), "A.C.; *", emptyList(), listOf(item("འཁོར་བ།"))),
+                ),
+            ),
+        )
+
+        val entry = viewModel(SampleData.house.id).entry()
+
+        assertThat(entry.senses.map { it.note }).containsExactly("ran, run", null, null, "A.C.").inOrder()
+    }
+
+    @Test
+    fun `every example of a gloss is kept in order`() = runTest {
+        val examples = listOf(
+            Example("ཁང་པ་ཆེན་པོ།", "a big house", null),
+            Example("ཁང་པ་གསར་པ།", null, null),
+            Example("a stone house", "རྡོ་ཁང་།", null),
+        )
+        add(
+            SampleData.houseEntry.copy(
+                senses = listOf(Sense(1, "n", emptyList(), null, emptyList(), listOf(item("ཁང་པ།").copy(examples = examples)))),
+            ),
+        )
+
+        val entry = viewModel(SampleData.house.id).entry()
+
+        assertThat(entry.senses.single().examples).containsExactly(
+            ExampleUi("ཁང་པ་ཆེན་པོ།", "a big house", textIsTibetan = true),
+            ExampleUi("ཁང་པ་གསར་པ།", null, textIsTibetan = true),
+            ExampleUi("a stone house", "རྡོ་ཁང་།", textIsTibetan = false),
         ).inOrder()
     }
 
@@ -249,9 +325,9 @@ class EntryViewModelTest {
         val entry = viewModel(SampleData.house.id).entry()
 
         assertThat(entry.senses).containsExactly(
-            SenseUi(1, "vi.", "to dwell", null),
+            SenseUi(1, "vi.", "to dwell"),
             // A blank gloss with an example keeps its card.
-            SenseUi(2, "n.", "", ExampleUi("ཁང་པ།", null, textIsTibetan = true)),
+            SenseUi(2, "n.", "", listOf(ExampleUi("ཁང་པ།", null, textIsTibetan = true))),
         ).inOrder()
     }
 

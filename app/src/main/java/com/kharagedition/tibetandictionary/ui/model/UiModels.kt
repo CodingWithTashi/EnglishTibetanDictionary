@@ -44,14 +44,19 @@ data class SearchResultUi(
 /**
  * One sense card of an entry. [number] is null when the entry has a single sense, and on the later cards of a
  * numbered sense ([reserveNumberColumn], which keep the number column's indent); [text] may be blank when the card
- * only has an [example].
+ * only has [examples] (every example of the gloss, in order). [label] holds the sense's canonical usage-label keys
+ * as the data writes them, comma-joined ("poetic", "adm,law"), when they are not already the entry's label; the
+ * card shows them as an outline badge (see `usageLabelText`). [note] is the sense's note ("broke, broken"), without
+ * the source's bare "*" markers. Label and note go on a sense's first card only.
  */
 @Immutable
 data class SenseUi(
     val number: Int?,
     val partOfSpeech: String?,
     val text: String,
-    val example: ExampleUi?,
+    val examples: List<ExampleUi> = emptyList(),
+    val label: String? = null,
+    val note: String? = null,
     val reserveNumberColumn: Boolean = false,
 )
 

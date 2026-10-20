@@ -15,6 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
+import com.kharagedition.tibetandictionary.ui.model.ExampleUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -45,8 +46,8 @@ class EntryScreenTest {
         partsOfSpeech = listOf("adj.", "n."),
         label = null,
         senses = listOf(
-            SenseUi(1, null, "auspicious, fortunate, favourable", null),
-            SenseUi(2, "n.", "a common personal name", null),
+            SenseUi(1, null, "auspicious, fortunate, favourable"),
+            SenseUi(2, "n.", "a common personal name"),
         ),
         related = related,
         hasAudio = true,
@@ -72,6 +73,24 @@ class EntryScreenTest {
         compose.onNodeWithText("adj. · n.").assertIsDisplayed()
         compose.onNodeWithText("auspicious, fortunate, favourable").assertExists()
         compose.onNodeWithText("This entry was shortened", substring = true).assertExists()
+    }
+
+    @Test
+    fun `the shared label follows the parts of speech and each card shows its label, examples and note`() {
+        val entry = tashi.copy(
+            label = "colloq",
+            senses = listOf(
+                SenseUi(1, "vi.", "to run", label = "poetic", note = "ran, run"),
+                SenseUi(2, "vt.", "to manage", listOf(ExampleUi("run a shop", null, false), ExampleUi("run a bath", null, false))),
+            ),
+            isTruncated = false,
+        )
+        show(EntryUiState(loading = false, entry = entry))
+
+        compose.onNodeWithText("adj. · n. · colloq.").assertIsDisplayed()
+        compose.onNodeWithText("(vi.) poet. to run").assertIsDisplayed()
+        compose.onNodeWithText("ran, run").assertIsDisplayed()
+        compose.onNodeWithText("(vt.) to manage — e.g. run a shop — e.g. run a bath").assertIsDisplayed()
     }
 
     @Test

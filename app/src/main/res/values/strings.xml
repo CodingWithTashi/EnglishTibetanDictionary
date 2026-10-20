@@ -210,4 +210,17 @@
         <item quantity="one">%1$s due for review in Learn</item>
         <item quantity="other">%1$s due for review in Learn</item>
     </plurals>
+
+    <!-- Entry (usage labels) -->
+    <!-- Usage labels from the dictionary data, drawn as a small outline badge on a sense or after the entry's parts of speech. Keep them short: abbreviations as in a printed dictionary. -->
+    <string name="usage_label_poetic">poet.</string>
+    <string name="usage_label_archaic">archaic</string>
+    <string name="usage_label_dialect">dialect</string>
+    <string name="usage_label_sanskrit">Skt.</string>
+    <string name="usage_label_chinese">Chin.</string>
+    <string name="usage_label_mongolian">Mong.</string>
+    <!-- A sense that is a formal definition (Tibetan "mtshan nyid") -->
+    <string name="usage_label_definition">def.</string>
+    <!-- A sense that lists the divisions of the term (Tibetan "dbye ba") -->
+    <string name="usage_label_division">div.</string>
 </resources>
