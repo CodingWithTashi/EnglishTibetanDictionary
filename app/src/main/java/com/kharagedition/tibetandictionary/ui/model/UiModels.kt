@@ -3,7 +3,10 @@ package com.kharagedition.tibetandictionary.ui.model
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.data.model.Direction
 
-/** Today's word for the Home card; [date] is already formatted for display. */
+/**
+ * Today's word for the Home card. [date] is formatted ("19 Oct") with Latin digits; the card shows them in the UI
+ * language's digits, as every other count and number on screen.
+ */
 @Immutable
 data class WordOfTheDayUi(
     val entryId: Long,

@@ -196,12 +196,13 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `the word of the day date uses Tibetan digits in the Tibetan UI`() = runTest {
+    fun `the word of the day date keeps Latin digits for the card to localise`() = runTest {
+        // The card shows it in the UI language's digits (CardsTest); the stored choice may differ from the UI's.
         prefs.prefs.value = prefs.prefs.value.copy(appLanguage = AppLanguage.BO)
         val vm = viewModel()
         advanceUntilIdle()
 
-        assertThat(vm.state.wotd?.date).isEqualTo("༡༩ Oct")
+        assertThat(vm.state.wotd?.date).isEqualTo("19 Oct")
     }
 
     @Test

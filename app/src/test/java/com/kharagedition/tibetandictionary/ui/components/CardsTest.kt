@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -19,12 +22,14 @@ import androidx.core.view.drawToBitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictColors
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.math.abs
 
@@ -109,6 +114,27 @@ class CardsTest {
         assertColor(pixelAt(blue, 9.5f), colors.surface1, "card below the blue flag")
         assertColor(pixelAt(blue + 3 * 15f, 5f), colors.flagGreen, "green flag")
         assertColor(pixelAt(blue + 4 * 15f, 5f), colors.flagYellow, "yellow flag")
+    }
+
+    @Test
+    fun `the word-of-the-day date is shown in the theme language's digits`() {
+        var language by mutableStateOf(AppLanguage.EN)
+        compose.setContent {
+            DictTheme(darkTheme = false, language = language) { WordOfTheDayCard(PreviewSamples.wotd, {}, {}, {}, {}) }
+        }
+        compose.onNodeWithText("16 Oct").assertExists()
+
+        language = AppLanguage.BO
+        compose.onNodeWithText("༡༦ Oct").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "bo")
+    fun `a system language of bo with no in-app choice shows the date in Tibetan digits`() {
+        // The app root's theme takes its language from the configuration, as here.
+        compose.setContent { DictTheme(darkTheme = false) { WordOfTheDayCard(PreviewSamples.wotd, {}, {}, {}, {}) } }
+
+        compose.onNodeWithText("༡༦ Oct").assertExists()
     }
 
     @Test

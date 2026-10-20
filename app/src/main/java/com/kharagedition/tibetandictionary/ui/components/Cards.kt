@@ -33,6 +33,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
@@ -69,7 +70,7 @@ private const val TIP_LINE_RATIO = 1.5f
 
 /**
  * The Home word-of-the-day card on surface1 (radius 16): a [FlagStrand] flush along the top, then the accent
- * "WORD OF THE DAY" overline with the date, the headword (Jomolhari 34/1.9), the Wylie (when known), the gloss
+ * "WORD OF THE DAY" overline with the date (in Tibetan digits in the Tibetan UI), the headword (Jomolhari 34/1.9), the Wylie (when known), the gloss
  * (15/1.5) and an action row: speaker (only when [WordOfTheDayUi.hasAudio]), heart (filled accent when saved),
  * share, and "Open".
  */
@@ -108,7 +109,8 @@ fun WordOfTheDayCard(
                     style = type.overlineWotd,
                     color = colors.accent,
                 )
-                MixedText(wotd.date, type.tiny, type.tibetanInline14, color = colors.muted)
+                val date = if (DictTheme.language.usesTibetanDigits) TibetanNumerals.toTibetan(wotd.date) else wotd.date
+                MixedText(date, type.tiny, type.tibetanInline14, color = colors.muted)
             }
             MixedText(
                 wotd.headword,

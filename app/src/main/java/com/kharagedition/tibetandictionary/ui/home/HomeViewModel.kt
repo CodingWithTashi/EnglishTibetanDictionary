@@ -7,9 +7,7 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.audio.AudioPlayer
 import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
-import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
-import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Entry
@@ -144,7 +142,7 @@ class HomeViewModel @Inject constructor(
             streakDays = streakDays,
             slots = DirectionSlots.compute(directions, userPrefs.defaultDirectionId, selected?.id),
             selectedDirection = selected,
-            wotd = todaysWord?.toUi(userPrefs.appLanguage),
+            wotd = todaysWord?.toUi(),
             recents = recentChips,
             // Learn (Features.LEARN) has no stats source in release 1.
             stats = null,
@@ -233,12 +231,12 @@ class HomeViewModel @Inject constructor(
             emit(fallback)
         }
 
-    private fun Wotd.toUi(language: AppLanguage): WordOfTheDayUi {
+    /** The card's model; its date keeps Latin digits, which the card shows in the UI language's digits. */
+    private fun Wotd.toUi(): WordOfTheDayUi {
         val summary = entry.summary
-        val day = date.format(WotdDate)
         return WordOfTheDayUi(
             entryId = summary.id,
-            date = if (language.usesTibetanDigits) TibetanNumerals.toTibetan(day) else day,
+            date = date.format(WotdDate),
             headword = summary.headword,
             wylie = summary.wylie?.takeIf { it.isNotBlank() },
             gloss = summary.glossPreview,
