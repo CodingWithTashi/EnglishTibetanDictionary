@@ -1,44 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tibetan Dictionary</string>
-    <string name="app_short_name">En-Tibetan Dictionary</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="search_hint">Search Word</string>
-    <!-- Preference Titles -->
-    <string name="messages_header">Messages</string>
-    <string name="sync_header">Sync</string>
+    <string name="app_name_tibetan" translatable="false">བོད་ཡིག་ཚིག་མཛོད།</string>
 
-    <!-- Messages Preferences -->
-    <string name="signature_title">Your signature</string>
-    <string name="reply_title">Default reply action</string>
+    <!-- Bottom navigation: English label with a Tibetan gloss; values-bo swaps which is primary. -->
+    <string name="tab_search">Search</string>
+    <string name="tab_saved">Saved</string>
+    <string name="tab_learn">Learn</string>
+    <string name="tab_profile">Profile</string>
+    <string name="tab_search_gloss">འཚོལ།</string>
+    <string name="tab_saved_gloss">ཉར་ཚགས།</string>
+    <string name="tab_learn_gloss">སྦྱོང་།</string>
+    <string name="tab_profile_gloss">སྒེར།</string>
 
-    <!-- Sync Preferences -->
-    <string name="sync_title">Sync email periodically</string>
-    <string name="attachment_title">Download incoming attachments</string>
-    <string name="attachment_summary_on">Automatically download attachments for incoming emails
-    </string>
-    <string name="attachment_summary_off">Only download attachments when manually requested</string>
-    <string name="settings">Settings</string>
-    <string name="about_us">About Us</string>
-    <string name="about_app">About App:</string>
-    <string name="share">Share</string>
-    <string name="rate">Rate</string>
-    <string name="download">Download</string>
-    <string name="support_contribution">Support/contribution:</string>
-    <string name="about_me">About me:</string>
-    <string name="uh_snap_msg">UH-SNAP!</string>
-    <string name="leaving_app_message">You are leaving already!</string>
-    <string name="leaving_msg">Yes, I\'m sorry</string>
-    <string name="dictionary">Dictionary</string>
-    <string name="favourite">Favourite</string>
+    <!-- Home -->
+    <string name="greeting_morning">Good morning · ཞོགས་པ་བདེ་ལེགས།</string>
+    <string name="greeting_afternoon">Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།</string>
+    <string name="greeting_evening">Good evening · དགོང་དྲོ་བདེ་ལེགས།</string>
+    <!-- %1$s: number of days, already formatted for the app language -->
+    <plurals name="streak_days">
+        <item quantity="one">%1$s-day streak</item>
+        <item quantity="other">%1$s-day streak</item>
+    </plurals>
+    <string name="wotd_overline">Word of the day</string>
+    <string name="wotd_open">Open</string>
+    <string name="recent">Recent</string>
+    <string name="clear">Clear</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Search a word · ཚིག་འཚོལ།</string>
+    <string name="search_placeholder_saved">Search saved words</string>
+    <!-- %1$s: number of results, already formatted for the app language -->
+    <plurals name="results_count">
+        <item quantity="one">%1$s result</item>
+        <item quantity="other">%1$s results</item>
+    </plurals>
+    <!-- %1$s: the query as typed -->
+    <string name="no_match_title">No match for “%1$s”</string>
+    <string name="no_match_hint_wylie">Wylie syllables are separated by spaces. Did you mean:</string>
+    <string name="no_match_hint_english">Check the spelling or try a shorter word. Did you mean:</string>
+    <string name="no_match_hint_tibetan">Possibly a spelling variant. Closest entries:</string>
+    <!-- %1$s: short direction label, e.g. "EN → བོད" -->
+    <string name="try_direction_instead">Try %1$s instead</string>
+    <string name="wylie_tip">Tip: type Wylie with spaces between syllables, e.g. bkra shis, and it matches བཀྲ་ཤིས།</string>
+
+    <!-- Entry -->
+    <string name="see_also">See also</string>
+    <string name="example_abbr">e.g.</string>
+    <string name="report_correction_prefix">Something wrong?</string>
+    <string name="report_correction">Report a correction</string>
+    <string name="entry_truncated">This entry is incomplete in the source dictionary.</string>
+    <string name="entry_missing">This entry is no longer in the dictionary.</string>
+
+    <!-- Saved -->
+    <string name="saved_title">Saved</string>
+    <string name="saved_gloss">ཉར་ཚགས།</string>
+    <!-- %1$s: number of saved words, already formatted for the app language -->
+    <plurals name="saved_count">
+        <item quantity="one">%1$s word</item>
+        <item quantity="other">%1$s words</item>
+    </plurals>
+    <!-- %1$s: headword, %2$s: folder name -->
+    <string name="saved_to_folder">Saved %1$s to %2$s</string>
+    <!-- %1$s: headword -->
+    <string name="saved_simple">Saved %1$s</string>
+    <string name="change">Change</string>
+    <string name="undo">Undo</string>
+    <string name="removed">Removed</string>
+    <string name="all_folder">All</string>
+    <string name="new_folder">New folder</string>
+    <string name="folder_picker_title">Save to folder</string>
+    <!-- Placeholder of the new-folder name field -->
+    <string name="new_folder_hint">Folder name</string>
+    <string name="saved_empty_title">Nothing saved yet</string>
+    <string name="saved_empty_body">Tap the heart on any entry to keep it here.</string>
+    <string name="saved_empty_body_learn">Saved words become your flashcards in Learn.</string>
+    <!-- %1$s: today's headword -->
+    <string name="save_todays_word">Save today\'s word %1$s</string>
+    <string name="no_matches">No matches</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_gloss">སྒེར།</string>
+    <string name="reading">Reading</string>
+    <string name="text_size_spacing">Text size &amp; spacing</string>
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+    <string name="default_direction">Default direction</string>
+    <string name="app_language">App language</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_bo" translatable="false">བོད་ཡིག</string>
+    <string name="wotd_notification">Word of the day notification</string>
     <string name="about">About</string>
-    <string name="setting">Setting</string>
-    <string name="generate_new">Generate New</string>
-    <string name="prayer">Prayer</string>
-    <string name="test">test</string>
-    <string name="search">Search</string>
-    <string name="home_desc">home desc</string>
-    <string name="support_developer">Support Developer/Remove ads</string>
-    <string name="send_message_feedback">Send message/feedback</string>
-    <string name="send_feature_request">Send Feature Request</string>
+    <string name="rate">Rate</string>
+    <string name="share_app">Share app</string>
+    <string name="more_apps">More apps</string>
+    <string name="support">Support &amp; donate</string>
+    <string name="privacy">Privacy</string>
+    <!-- %1$s: version name, %2$s: entry count, already formatted for the app language -->
+    <string name="version_line">Tibetan Dictionary %1$s · %2$s entries · offline</string>
+    <!-- version_line when the entry count is unknown. %1$s: version name -->
+    <string name="version_line_no_count">Tibetan Dictionary %1$s · offline</string>
+
+    <!-- Onboarding -->
+    <!-- "continue" is a reserved Java keyword, so the key carries a trailing underscore. -->
+    <string name="continue_">Continue</string>
+    <string name="skip">Skip</string>
+    <!-- Onboarding step position read by accessibility services. %1$s: current step, %2$s: number of steps, both already formatted for the app language -->
+    <string name="step_position">Step %1$s of %2$s</string>
+    <string name="onboarding_direction_title">Which way do you look up words most?</string>
+    <string name="onboarding_direction_body">Sets the default direction. You can switch any time with one tap.</string>
+    <string name="onboarding_textsize_title">Comfortable to read?</string>
+    <string name="onboarding_textsize_body">Tibetan is shown larger than English so stacked letters stay clear.</string>
+    <string name="onboarding_account_title">Keep your words on every device</string>
+    <string name="onboarding_account_body">Signing in only syncs saved words, history and settings. Everything works offline without it.</string>
+    <string name="continue_without_account">Continue without account</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_in_later_note">You can sign in later from Profile.</string>
+
+    <!-- Text size and spacing -->
+    <string name="text_size">Text size</string>
+    <string name="line_spacing">Line spacing</string>
+    <string name="text_size_small">Small</string>
+    <string name="text_size_default">Default</string>
+    <string name="text_size_large">Large</string>
+    <string name="text_size_largest">Largest</string>
+
+    <!-- First-launch install -->
+    <!-- %1$s: entry count, already formatted for the app language -->
+    <string name="installing_entries">Preparing %1$s entries · offline</string>
+    <!-- Shown instead of installing_entries while the entry count is not known yet -->
+    <string name="installing_dictionary">Preparing the dictionary · offline</string>
+    <string name="install_failed">Couldn\'t prepare the dictionary.</string>
+    <string name="install_failed_body">Make sure there is free storage space, then try again.</string>
+    <string name="try_again">Try again</string>
+
+    <!-- Actions and content descriptions -->
+    <string name="voice_search">Voice search</string>
+    <string name="play_audio">Play pronunciation</string>
+    <string name="save">Save</string>
+    <string name="saved_cd">Saved</string>
+    <string name="copy">Copy</string>
+    <string name="share">Share</string>
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="more">More</string>
+
+    <!-- Direction descriptions (onboarding cards, direction picker) -->
+    <string name="direction_desc_bo_en">Tibetan to English</string>
+    <string name="direction_desc_bo_bo">Tibetan definitions</string>
+    <string name="direction_desc_en_bo">English to Tibetan</string>
+
+    <!-- About -->
+    <string name="about_data">Dictionary data: Monlam Tibetan Dictionary by Lobsang Monlam (GPL-3)</string>
+    <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
+    <!-- About row and screen title: the full licence texts of the data and fonts -->
+    <string name="licences">Licences</string>
+    <!-- Licences screen headings; the licence names stay in English -->
+    <string name="licence_data">Dictionary data · GNU General Public License, version 3</string>
+    <string name="licence_font_jomolhari">Jomolhari font · SIL Open Font License 1.0</string>
+    <string name="licence_font_noto_sans">Noto Sans font · SIL Open Font License 1.1</string>
+    <!-- %1$s: Play Store link -->
+    <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
+
+    <!-- Entry (T3.1) -->
+    <!-- Body of the notice shown when an entry is not in the installed dictionary -->
+    <string name="entry_missing_body">It may have been removed in a dictionary update. Try searching for the word instead.</string>
+    <!-- Error under the new-folder field. %1$s: the folder name the user typed -->
+    <string name="folder_exists">A folder named “%1$s” already exists</string>
+    <!-- Confirms a copy on Android versions that do not show their own copy confirmation -->
+    <string name="copied">Copied</string>
+    <!-- Saving, removing or filing a word failed -->
+    <string name="entry_action_failed">Something went wrong. Please try again.</string>
+
+    <!-- Saved (T3.2) -->
+    <!-- Section headers of the saved list, by when a word was saved -->
+    <string name="saved_group_today">Today</string>
+    <string name="saved_group_week">This week</string>
+    <string name="saved_group_month">This month</string>
+    <string name="saved_group_earlier">Earlier</string>
+    <!-- Under "No matches" when the search or folder filter leaves no saved words -->
+    <string name="saved_no_matches_body">Try another word or folder.</string>
+    <!-- Content description of the filled heart on a saved row; tapping it removes the word -->
+    <string name="unsave">Remove from Saved</string>
+    <!-- A folder chip on the Saved tab, e.g. "All 42" or "Lamrim 7". %1$s: the folder name, or "All"; %2$s: its number of saved words, already in the app language's digits -->
+    <string name="saved_folder_chip" translatable="false">%1$s %2$s</string>
+
+    <!-- Installing (T5.2) -->
+    <!-- Replaces install_failed_body when preparing the dictionary was cancelled rather than failing -->
+    <string name="install_interrupted">Preparation was interrupted.</string>
+
+    <!-- Profile (T4.1) -->
+    <!-- Signed-out account card on Profile (shown once accounts ship) -->
+    <string name="profile_signed_out_title">Not signed in</string>
+    <string name="profile_signed_out_body">Sync saved words across devices</string>
+    <string name="sign_in">Sign in</string>
+    <!-- The developer's other apps, listed under "More apps" -->
+    <string name="other_app_prayer">Tibetan Prayer</string>
+    <string name="other_app_calendar">Tibetan Calendar</string>
+
+    <!-- Search (T2.2) -->
+    <!-- Under no_match_title when there is nothing to suggest -->
+    <string name="no_match_body">Check the spelling or try a shorter word.</string>
+
+    <!-- Home (T2.3) -->
+    <!-- Learn stats card title. %1$s: number of words, already formatted for the app language -->
+    <plurals name="learned_this_week">
+        <item quantity="one">%1$s word learned this week</item>
+        <item quantity="other">%1$s words learned this week</item>
+    </plurals>
+    <!-- Learn stats card sub-line. %1$s: number of words, already formatted for the app language -->
+    <plurals name="due_for_review">
+        <item quantity="one">%1$s due for review in Learn</item>
+        <item quantity="other">%1$s due for review in Learn</item>
+    </plurals>
+
+    <!-- Entry (usage labels) -->
+    <!-- Usage labels from the dictionary data, drawn as a small outline badge on a sense or after the entry's parts of speech. Keep them short: abbreviations as in a printed dictionary. -->
+    <string name="usage_label_poetic">poet.</string>
+    <string name="usage_label_archaic">archaic</string>
+    <string name="usage_label_dialect">dialect</string>
+    <string name="usage_label_sanskrit">Skt.</string>
+    <string name="usage_label_chinese">Chin.</string>
+    <string name="usage_label_mongolian">Mong.</string>
+    <!-- A sense that is a formal definition (Tibetan "mtshan nyid") -->
+    <string name="usage_label_definition">def.</string>
+    <!-- A sense that lists the divisions of the term (Tibetan "dbye ba") -->
+    <string name="usage_label_division">div.</string>
 </resources>

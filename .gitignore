@@ -14,3 +14,21 @@
 .cxx
 local.properties
 /app/release/app-release.aab
+.kotlin/
+
+# Release outputs written by Android Studio's "Generate Signed Bundle / APK"
+/app/release/
+
+# Firebase config: CI writes it from the GOOGLE_SERVICES_JSON secret
+google-services.json
+
+# Python tools (tools/dictionary, tools/icon)
+tools/dictionary/.venv/
+tools/icon/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Icon generator output that is not shipped (see tools/icon/README.md)
+tools/icon/previews/
+tools/icon/glyph_reference.json

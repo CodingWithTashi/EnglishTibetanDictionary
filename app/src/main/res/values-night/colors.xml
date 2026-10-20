@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark appearance: avoids an off-white flash on cold start. -->
+    <color name="splash_background">#1B1715</color>
+    <color name="window_background">#1B1715</color>
+</resources>
