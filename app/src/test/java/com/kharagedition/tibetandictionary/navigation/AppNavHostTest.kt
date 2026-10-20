@@ -130,7 +130,7 @@ class AppNavHostTest {
     fun `a new user starts on onboarding without the bottom bar`() {
         launch(onboarded = false)
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
     }
 
@@ -138,12 +138,13 @@ class AppNavHostTest {
     fun `back after finishing onboarding leaves the app instead of returning to onboarding`() {
         launch(onboarded = false)
 
-        tap("stub_finish")
+        tap("onboarding_continue")
+        tap("onboarding_continue")
         assertOnTabs()
 
         pressBack()
 
-        compose.onNodeWithText("Onboarding").assertDoesNotExist()
+        compose.onNodeWithTag("onboarding_screen").assertDoesNotExist()
         assertThat(activity.get().isFinishing).isTrue()
     }
 
@@ -154,7 +155,7 @@ class AppNavHostTest {
         bus.emit(DeepLink.OpenEntry(42))
         compose.waitForIdle()
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithText("Entry 42").assertDoesNotExist()
     }
 
@@ -199,7 +200,7 @@ class AppNavHostTest {
     fun `a cold-start entry link waits for onboarding`() {
         launch(onboarded = false, intent = linkIntent("app://entry/42"))
 
-        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithTag("onboarding_screen").assertExists()
         compose.onNodeWithText("Entry 42").assertDoesNotExist()
         assertThat(activity.get().intent.data).isNull()
     }
