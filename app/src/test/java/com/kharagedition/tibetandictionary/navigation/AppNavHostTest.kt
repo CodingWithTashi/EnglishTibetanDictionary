@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainActivity
@@ -232,13 +233,14 @@ class AppNavHostTest {
     fun `back from About returns to the Profile tab`() {
         launch(onboarded = true)
         tap("nav_profile")
-        tap("stub_open_about")
+        compose.onNodeWithTag("profile_link_about").performScrollTo().performClick()
+        compose.waitForIdle()
         compose.onNodeWithText("About").assertExists()
         compose.onNodeWithTag("nav_profile").assertDoesNotExist()
 
         pressBack()
 
-        compose.onNodeWithTag("stub_open_about").assertExists()
+        compose.onNodeWithTag("profile_screen").assertExists()
         compose.onNodeWithTag("nav_profile").assertIsSelected()
     }
 
