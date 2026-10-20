@@ -42,8 +42,10 @@ import kotlinx.coroutines.withContext
  * (Room 2.8 forbids reusing a closed database), so if Room's own open had already succeeded, this process keeps
  * reading the deleted file and only the next launch reads the new copy; that case means the asset itself is bad.
  *
- * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. When the asset's
- * length is unknown ([AssetSource.length] is null, an asset stored compressed) only 0 and then 1 are reported.
+ * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. The expected length
+ * is [AssetSource.length] (known when the asset is stored uncompressed), else the size the data build recorded
+ * ([AssetSizeProvider]; the asset ships compressed). It also checks that the copy is complete. With neither, only 0
+ * and then 1 are reported.
  *
  * The state never stays at [InstallState.Copying]: every failure, including cancelling the caller (a retry in a
  * finishing activity's `viewModelScope`), ends in [InstallState.Failed], which shows the retry screen. A retry keeps
@@ -54,6 +56,7 @@ import kotlinx.coroutines.withContext
 class DictionaryInstallerImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val assetSource: AssetSource,
+    private val recordedAssetSize: AssetSizeProvider,
     private val dbProvider: Provider<DictionaryDatabase>,
     @param:IoDispatcher private val io: CoroutineDispatcher,
     private val errors: ErrorReporter,
@@ -113,7 +116,7 @@ class DictionaryInstallerImpl @Inject constructor(
         if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create $dir")
         val temp = File(dir, target.name + TEMP_SUFFIX)
         try {
-            val length = assetSource.length()?.takeIf { it > 0 }
+            val length = assetSource.length()?.takeIf { it > 0 } ?: recordedAssetSize.expectedBytes()?.takeIf { it > 0 }
             assetSource.open().use { input ->
                 _state.value = InstallState.Copying(0f)
                 FileOutputStream(temp).use { output ->

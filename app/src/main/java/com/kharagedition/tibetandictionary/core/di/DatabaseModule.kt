@@ -3,7 +3,9 @@ package com.kharagedition.tibetandictionary.core.di
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.install.ApkAssetSource
+import com.kharagedition.tibetandictionary.data.install.AssetSizeProvider
 import com.kharagedition.tibetandictionary.data.install.AssetSource
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
@@ -43,6 +45,12 @@ object DatabaseModule {
     /** What the dictionary installer copies onto the device before Room opens it. */
     @Provides
     fun provideAssetSource(source: ApkAssetSource): AssetSource = source
+
+    /** The asset's size as the data build recorded it (`dictionary_stats.xml`); 0 there means unknown. */
+    @Provides
+    fun provideAssetSizeProvider(@ApplicationContext context: Context): AssetSizeProvider = AssetSizeProvider {
+        context.resources.getInteger(R.integer.dictionary_asset_bytes).toLong().takeIf { it > 0 }
+    }
 
     @Provides
     @Singleton

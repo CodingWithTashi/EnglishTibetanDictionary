@@ -88,7 +88,7 @@ class DictionaryInstallerImplTest {
     }
 
     @Test
-    fun unknownLengthReportsOnlyStartAndCompletion() = runTest {
+    fun unknownLengthWithoutARecordedSizeReportsOnlyStartAndCompletion() = runTest {
         val installer = installer(FakeAssetSource(goodAsset, knownLength = false), StandardTestDispatcher(testScheduler))
 
         installer.state.test(timeout = 10.seconds) {
@@ -101,6 +101,72 @@ class DictionaryInstallerImplTest {
                 InstallState.Ready(3),
             ).inOrder()
         }
+    }
+
+    @Test
+    fun aRecordedSizeOfZeroCountsAsUnknown() = runTest {
+        // dictionary_asset_bytes = 0 means "unknown": no intermediate progress, and the install still completes.
+        val asset = FakeAssetSource(goodAsset, knownLength = false)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler), AssetSizeProvider { 0L })
+
+        installer.state.test(timeout = 10.seconds) {
+            assertThat(awaitItem()).isEqualTo(InstallState.Checking)
+            launch { installer.ensureInstalled() }
+
+            assertThat(awaitSettled()).containsExactly(
+                InstallState.Copying(0f),
+                InstallState.Copying(1f),
+                InstallState.Ready(3),
+            ).inOrder()
+        }
+    }
+
+    @Test
+    fun unknownLengthUsesTheRecordedSizeForProgress() = runTest {
+        // The asset ships compressed, so openFd cannot size it; the build recorded its size in dictionary_stats.xml.
+        val asset = FakeAssetSource(goodAsset, knownLength = false)
+        val recorded = AssetSizeProvider { goodAsset.length() }
+        val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
+
+        installer.state.test(timeout = 10.seconds) {
+            assertThat(awaitItem()).isEqualTo(InstallState.Checking)
+            launch { installer.ensureInstalled() }
+
+            val states = awaitSettled()
+            val progress = states.filterIsInstance<InstallState.Copying>().map { it.progress }
+            assertThat(progress.first()).isEqualTo(0f)
+            assertThat(progress.last()).isEqualTo(1f)
+            assertThat(progress.size).isAtLeast(3)
+            assertThat(progress).isInStrictOrder()
+            assertThat(states.last()).isEqualTo(InstallState.Ready(3))
+        }
+        assertThat(errors.recorded).isEmpty()
+    }
+
+    @Test
+    fun recordedSizeMismatchFails() = runTest {
+        val asset = FakeAssetSource(goodAsset, knownLength = false)
+        val recorded = AssetSizeProvider { goodAsset.length() - 1 }
+        val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
+
+        installer.ensureInstalled()
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).cause).hasMessageThat()
+            .isEqualTo("Copied ${goodAsset.length()} of ${goodAsset.length() - 1} bytes")
+        assertThat(target.exists()).isFalse()
+        assertThat(tmpCopy.exists()).isFalse()
+    }
+
+    @Test
+    fun aKnownDescriptorLengthWinsOverTheRecordedSize() = runTest {
+        val installer =
+            installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler), AssetSizeProvider { 1L })
+
+        installer.ensureInstalled()
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
     }
 
     @Test
@@ -351,6 +417,7 @@ class DictionaryInstallerImplTest {
     private fun installer(
         asset: AssetSource,
         io: CoroutineDispatcher,
+        recordedSize: AssetSizeProvider = AssetSizeProvider { null },
         beforeRoomOpens: () -> Unit = {},
     ): DictionaryInstallerImpl {
         // The production builder (createFromAsset + destructive fallback): there is no asset under Robolectric, so a
@@ -359,7 +426,7 @@ class DictionaryInstallerImplTest {
             beforeRoomOpens()
             DatabaseModule.provideDictionaryDatabase(context).also { openDbs += it }
         }
-        return DictionaryInstallerImpl(context, asset, Provider { db }, io, errors)
+        return DictionaryInstallerImpl(context, asset, recordedSize, Provider { db }, io, errors)
     }
 
     private fun closeOpenDbs() {
