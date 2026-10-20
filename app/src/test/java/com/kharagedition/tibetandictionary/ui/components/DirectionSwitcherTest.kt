@@ -1,8 +1,11 @@
 package com.kharagedition.tibetandictionary.ui.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -17,6 +20,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
@@ -27,6 +31,7 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(AndroidJUnit4::class)
 class DirectionSwitcherTest {
@@ -76,6 +81,29 @@ class DirectionSwitcherTest {
         compose.onNodeWithText("བོད→ EN").assertIsDisplayed()
         compose.onNodeWithText("བོད→བོད").assertIsDisplayed()
         compose.onNodeWithText("EN →བོད").assertIsDisplayed()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // real font metrics
+    fun `a Tibetan token stands a third of an em off the arrow, as the mockups space it`() {
+        compose.setContent {
+            DictTheme(darkTheme = false) {
+                Column {
+                    DirectionLabel(boBo, Modifier.testTag("drawn"))
+                    MixedText(
+                        directionLabelText(boBo),
+                        DictTheme.type.label,
+                        DictTheme.type.tibetanInline15,
+                        Modifier.testTag("touching"),
+                    )
+                }
+            }
+        }
+
+        val drawn = compose.onNodeWithTag("drawn").getBoundsInRoot().width
+        val touching = compose.onNodeWithTag("touching").getBoundsInRoot().width
+        // Two gaps of ⅓ em at the 13sp label size (≈ 8.7dp); the word joiner adds nothing.
+        assertThat((drawn - touching).value).isWithin(1.5f).of(2 * 13f / 3)
     }
 
     @Test

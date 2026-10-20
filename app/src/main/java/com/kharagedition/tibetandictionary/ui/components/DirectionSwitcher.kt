@@ -94,18 +94,23 @@ fun directionLabelText(direction: Direction): String = buildString {
     append(languageToken(direction.targetLang))
 }
 
-/** Zero-width space: a line-break opportunity that draws and reads as nothing. */
-private const val BREAK_OPPORTUNITY = '\u200B'
+/** Three-per-em space (⅓ em): the mockups' 3–5px flex gap between a Tibetan or Han token and the arrow. */
+private const val TOKEN_GAP = '\u2004'
+
+/** Word joiner: no line break at this point; draws and reads as nothing. */
+private const val NO_BREAK = '\u2060'
 
 /**
- * [label] with a break opportunity after an arrow that touches the next token. The arrow and Tibetan letters
- * share a line-break class, so "བོད→བོད" otherwise has nowhere to wrap and splits inside a syllable at large
- * text sizes.
+ * [label] as drawn: an arrow that touches a token gets a [TOKEN_GAP] on that side, as the mockups space the
+ * Jomolhari span from the arrow. The gap before an arrow is glued to it ([NO_BREAK]); the gap after one is the
+ * line-break opportunity, so at large text sizes the label wraps after the arrow and never inside a token (the
+ * arrow and Tibetan letters otherwise share a line-break class, and "བོད→བོད" would split inside a syllable).
  */
-private fun wrappable(label: String): String = buildString(label.length + 1) {
+private fun drawnLabel(label: String): String = buildString(label.length + 3) {
     label.forEachIndexed { i, c ->
+        if (c == '→' && label.getOrNull(i - 1)?.isWhitespace() == false) append(TOKEN_GAP).append(NO_BREAK)
         append(c)
-        if (c == '→' && label.getOrNull(i + 1)?.isWhitespace() == false) append(BREAK_OPPORTUNITY)
+        if (c == '→' && label.getOrNull(i + 1)?.isWhitespace() == false) append(TOKEN_GAP)
     }
 }
 
@@ -125,7 +130,7 @@ fun DirectionLabel(
     val label = directionLabelText(direction)
     Box(modifier.clearAndSetSemantics { text = AnnotatedString(label) }, contentAlignment = Alignment.Center) {
         MixedText(
-            wrappable(label),
+            drawnLabel(label),
             latinStyle,
             tibetanStyle,
             color = color,
