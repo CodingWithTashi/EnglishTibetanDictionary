@@ -5,6 +5,8 @@ prebuilt, read-only `app/src/main/assets/dictionary/dictionary.db`.
 
 ## Setup
 
+Python 3.10 or newer is required. The pipeline uses `dataclass(slots=True)`, and the tests run on 3.10 and 3.13.
+
 ```sh
 cd tools/dictionary
 python3 -m venv .venv
@@ -67,9 +69,18 @@ written on exit 2. `DictionaryAssetVersionTest` checks that they agree.
 
 `--built-at TIME` sets `meta.built_at` (ISO 8601, e.g. `2026-10-19T00:00:00Z`; a time without an offset is
 UTC; stored in UTC to the second). Without it the build uses `SOURCE_DATE_EPOCH` (seconds since 1970, the
-[reproducible-builds](https://reproducible-builds.org/specs/source-date-epoch/) convention) when that is set,
-else the current time. `built_at` is the only value that changes between builds of the same inputs, so with a
-fixed time a rebuild of unchanged data is byte-identical (and git sees no change to the asset).
+[reproducible-builds](https://reproducible-builds.org/specs/source-date-epoch/) convention) when that is set
+and not empty, else the current time. `built_at` is the only value that changes between builds of the same
+inputs, so with a fixed time a rebuild of unchanged data is byte-identical (and git sees no change to the
+asset), provided it also uses:
+
+- the same SQLite library, i.e. the one Python's `sqlite3` module links against
+  (`python -c "import sqlite3; print(sqlite3.sqlite_version)"`). The file header records the SQLite version,
+  and page layout can differ between versions. A build with SQLite 3.35.5 has the same size and rows as one
+  with 3.53.3, but about 12,000 bytes differ;
+- the same `pyewts` version (`requirements.txt` pins it), since it writes `entries.wylie`.
+
+The shipped asset was built with Python 3.13.7, SQLite 3.53.3 and pyewts 0.2.0.
 
 ### Shipping a data release
 

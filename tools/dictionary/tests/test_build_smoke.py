@@ -12,6 +12,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ElementTree
 from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -271,7 +272,8 @@ def test_built_at_comes_from_the_option_then_source_date_epoch(
     ("value", "expected"),
     [
         ("2026-10-19T00:00:00Z", "2026-10-19T00:00:00Z"),
-        ("2026-10-19T00:00:00.75+00:00", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T00:00:00.750Z", "2026-10-19T00:00:00Z"),
+        ("2026-10-19T00:00:00.750+00:00", "2026-10-19T00:00:00Z"),
         ("2026-10-19T08:00:00+08:00", "2026-10-19T00:00:00Z"),
         ("2026-10-19T00:00:00", "2026-10-19T00:00:00Z"),  # no offset: UTC
         ("2026-10-19", "2026-10-19T00:00:00Z"),
@@ -283,8 +285,12 @@ def test_resolve_built_at_normalises_to_utc_seconds(value: str, expected: str) -
 
 def test_resolve_built_at_defaults_to_source_date_epoch_then_now() -> None:
     assert build_db.resolve_built_at(None, {"SOURCE_DATE_EPOCH": "1792368000"}) == "2026-10-19T00:00:00Z"
-    now = build_db.resolve_built_at(None, {})
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", now)
+    for environ in ({}, {"SOURCE_DATE_EPOCH": ""}, {"SOURCE_DATE_EPOCH": "  "}):  # empty counts as unset
+        before = datetime.now(timezone.utc).replace(microsecond=0)
+        now = build_db.resolve_built_at(None, environ)
+        after = datetime.now(timezone.utc)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", now)
+        assert before <= datetime.strptime(now, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) <= after
 
 
 @pytest.mark.parametrize(

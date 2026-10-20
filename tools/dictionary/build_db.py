@@ -95,18 +95,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def resolve_built_at(value: str | None, environ: Mapping[str, str]) -> str:
     """`meta.built_at` in UTC to the second: `value` (ISO 8601; no offset means UTC), else the
-    `SOURCE_DATE_EPOCH` seconds in `environ`, else the current time.
+    `SOURCE_DATE_EPOCH` seconds in `environ` (empty counts as unset), else the current time.
 
     Raises ValueError when the time given cannot be parsed.
     """
     if value is not None:
+        # Python 3.10's fromisoformat does not accept the "Z" suffix (3.11+ does).
+        iso = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
         try:
-            moment = datetime.fromisoformat(value)
+            moment = datetime.fromisoformat(iso)
         except ValueError:
             raise ValueError(f"--built-at {value!r} is not an ISO 8601 time such as 2026-10-19T00:00:00Z") from None
         if moment.tzinfo is None:
             moment = moment.replace(tzinfo=timezone.utc)
-    elif (epoch := environ.get(SOURCE_DATE_EPOCH)) is not None:
+    elif epoch := environ.get(SOURCE_DATE_EPOCH, "").strip():
         try:
             moment = datetime.fromtimestamp(int(epoch), timezone.utc)
         except (ValueError, OverflowError, OSError):
