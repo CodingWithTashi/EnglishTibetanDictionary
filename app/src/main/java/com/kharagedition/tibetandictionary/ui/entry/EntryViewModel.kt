@@ -10,11 +10,13 @@ import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
-import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions.Companion.savedMessage
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -29,28 +31,25 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * One dictionary entry (1h/1l): reads [entryId] once, follows whether it is saved and in which folder, and turns
- * user actions into repository calls and one-shot [effects]. Failures are recorded through [errors]: a failed read
- * shows the entry as missing, a failed save shows a generic error toast. [audioPlayer] is present when core/audio
- * binds `MediaPlayerAudioPlayer` (`AudioModule`); without a binding Play does nothing.
+ * user actions into [SavedWordActions] calls and one-shot [effects]. Failures are recorded through [errors]: a
+ * failed read shows the entry as missing, a failed save shows a generic error toast. [audioPlayer] is present when
+ * core/audio binds `MediaPlayerAudioPlayer` (`AudioModule`); without a binding Play does nothing.
  */
 @HiltViewModel(assistedFactory = EntryViewModel.Factory::class)
 class EntryViewModel @AssistedInject constructor(
     @Assisted private val entryId: Long,
     private val dictionary: DictionaryRepository,
     private val saved: SavedRepository,
+    private val saveActions: SavedWordActions,
     private val activity: ActivityRepository,
-    private val prefs: UserPreferencesRepository,
     private val errors: ErrorReporter,
     audioPlayer: Optional<AudioPlayer>,
 ) : ViewModel() {
@@ -75,9 +74,6 @@ class EntryViewModel @AssistedInject constructor(
 
     private val content = MutableStateFlow<Content>(Content.Loading)
     private val picker = MutableStateFlow<PickerDraft?>(null)
-
-    /** Serialises save, unsave, undo and refiling so quick taps cannot interleave. */
-    private val saveLock = Mutex()
 
     private val effectChannel = Channel<EntryEffect>(Channel.BUFFERED)
     val effects: Flow<EntryEffect> = effectChannel.receiveAsFlow()
@@ -176,52 +172,40 @@ class EntryViewModel @AssistedInject constructor(
 
     private suspend fun toggleSave(loaded: Content.Loaded) {
         val summary = loaded.entry.summary
-        saveLock.withLock {
-            // The saved row as it is now, so Undo can put it back unchanged (folder, note and save time).
-            val row = saved.observeAll().first().firstOrNull { it.entryId == entryId }
-            if (row != null) {
-                saved.unsave(entryId)
-                val undo = { undoUnsave(row) }
+        when (val result = saveActions.toggle(summary)) {
+            // A second tap while the first is still saving or removing.
+            null -> Unit
+            is SavedWordActions.Toggle.Removed -> {
+                // Undo puts the row back unchanged (folder, note and save time).
+                val undo = { undoUnsave(result.row) }
                 effectChannel.send(EntryEffect.Toast(UiText(R.string.removed), R.string.undo, undo))
-            } else {
-                // A last-used folder that has since been deleted falls back to no folder.
-                val lastUsed = prefs.snapshot().lastUsedFolderId
-                val folder = saved.observeFolders().first().firstOrNull { it.id == lastUsed }
-                saved.save(summary, folder?.id)
-                val message = savedMessage(summary.headword, folder?.name)
+            }
+            is SavedWordActions.Toggle.Saved -> {
+                val message = savedMessage(summary.headword, result.folder?.name)
                 effectChannel.send(EntryEffect.Toast(message, R.string.change) { onEvent(EntryEvent.ChangeFolder) })
             }
         }
     }
 
     private fun undoUnsave(row: SavedEntry) {
-        viewModelScope.launch { guarded { saveLock.withLock { saved.restore(row) } } }
+        viewModelScope.launch { guarded { saveActions.restore(row) } }
     }
 
+    /** Files the word in [folderId], saving it there when it is not saved yet. */
     private suspend fun pickFolder(loaded: Content.Loaded, folderId: Long?) {
-        saveLock.withLock {
-            if (saved.observeIsSaved(entryId).first()) {
-                saved.setFolder(entryId, folderId)
-            } else {
-                saved.save(loaded.entry.summary, folderId)
-            }
-        }
-        prefs.setLastUsedFolderId(folderId)
+        val summary = loaded.entry.summary
+        val filed = saveActions.fileIn(entryId, folderId, unsaved = summary) ?: return
         picker.value = null
-        effectChannel.send(EntryEffect.Toast(savedMessage(loaded.entry.summary.headword, folderName(folderId))))
+        effectChannel.send(EntryEffect.Toast(savedMessage(summary.headword, filed.folderName)))
     }
 
     private suspend fun createFolder(loaded: Content.Loaded, name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return
-        val folderId = try {
-            saved.createFolder(trimmed)
-        } catch (e: IllegalArgumentException) {
-            // The repository rejects only duplicate names (trimmed, case-insensitive).
-            picker.update { it?.copy(error = UiText(R.string.folder_exists, listOf(trimmed))) }
-            return
+        when (val created = saveActions.createFolder(name)) {
+            // A blank name.
+            null -> Unit
+            is SavedWordActions.NewFolder.Rejected -> picker.update { it?.copy(error = created.error) }
+            is SavedWordActions.NewFolder.Created -> pickFolder(loaded, created.id)
         }
-        pickFolder(loaded, folderId)
     }
 
     private fun playAudio() {
@@ -230,16 +214,6 @@ class EntryViewModel @AssistedInject constructor(
         player.play(AudioSource.Asset(file))
         playedAudio = true
     }
-
-    private suspend fun folderName(folderId: Long?): String? =
-        folderId?.let { id -> saved.observeFolders().first().firstOrNull { it.id == id }?.name }
-
-    private fun savedMessage(headword: String, folderName: String?): UiText =
-        if (folderName != null) {
-            UiText(R.string.saved_to_folder, listOf(headword, folderName))
-        } else {
-            UiText(R.string.saved_simple, listOf(headword))
-        }
 
     private fun loaded(): Content.Loaded? = content.value as? Content.Loaded
 

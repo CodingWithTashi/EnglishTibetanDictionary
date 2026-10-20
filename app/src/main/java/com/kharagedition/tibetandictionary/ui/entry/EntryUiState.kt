@@ -3,7 +3,7 @@ package com.kharagedition.tibetandictionary.ui.entry
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.data.model.Direction
-import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
@@ -47,19 +47,6 @@ data class EntryUi(
     val hasAudio: Boolean,
     val audioFile: String?,
     val isTruncated: Boolean,
-)
-
-/**
- * State of the hoisted [com.kharagedition.tibetandictionary.ui.components.FolderPickerSheet]; [createError] is
- * resolved by the screen in the app language.
- */
-@Immutable
-data class FolderPickerUi(
-    val folders: List<FolderUi>,
-    val selectedId: Long?,
-    val creating: Boolean = false,
-    val newFolderName: String = "",
-    val createError: UiText? = null,
 )
 
 /** User actions on the entry screen. */

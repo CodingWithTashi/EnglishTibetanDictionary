@@ -21,8 +21,9 @@ import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import java.io.IOException
 import java.time.Instant
@@ -63,7 +64,7 @@ class SavedViewModelTest {
         wordOfTheDay: WordOfTheDayRepository = this@SavedViewModelTest.wordOfTheDay,
         dictionary: DictionaryRepository = this@SavedViewModelTest.dictionary,
     ): SavedViewModel {
-        val vm = SavedViewModel(saved, dictionary, wordOfTheDay, prefs, clock, errors)
+        val vm = SavedViewModel(saved, SavedWordActions(saved, prefs), dictionary, wordOfTheDay, clock, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }

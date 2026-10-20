@@ -36,7 +36,7 @@ import com.kharagedition.tibetandictionary.domain.SavedPeriod
 import com.kharagedition.tibetandictionary.ui.components.AppToastHost
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.Toaster
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi

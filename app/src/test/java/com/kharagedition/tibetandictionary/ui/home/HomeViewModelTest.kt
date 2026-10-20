@@ -30,12 +30,14 @@ import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Optional
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -88,6 +90,7 @@ class HomeViewModelTest {
             activity = activity,
             recentSearches = recents,
             saved = savedRepository,
+            saveActions = SavedWordActions(savedRepository, prefs),
             prefs = prefs,
             clock = clock,
             speech = { speechAvailable },
@@ -260,6 +263,31 @@ class HomeViewModelTest {
             assertThat(saved.saved.value).isEmpty()
             assertThat(vm.state.wotd?.isSaved).isFalse()
         }
+    }
+
+    @Test
+    fun `a double tap on the heart saves once`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val slowSave = object : SavedRepository by saved {
+            override suspend fun save(entry: EntrySummary, folderId: Long?) {
+                gate.await()
+                saved.save(entry, folderId)
+            }
+        }
+        val vm = viewModel(savedRepository = slowSave)
+        advanceUntilIdle()
+
+        vm.effects.test {
+            vm.onEvent(HomeEvent.WotdToggleSave)
+            vm.onEvent(HomeEvent.WotdToggleSave)
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertThat(awaitItem()).isEqualTo(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(tashi.headword))))
+            expectNoEvents()
+        }
+        assertThat(saved.saved.value.map { it.entryId }).containsExactly(tashi.id)
+        assertThat(vm.state.wotd?.isSaved).isTrue()
     }
 
     @Test

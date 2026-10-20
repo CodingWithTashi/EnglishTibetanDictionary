@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.search
 
+import com.kharagedition.tibetandictionary.core.text.DOT_SEPARATOR
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
@@ -56,7 +57,7 @@ internal fun Suggestion.toUi(): SuggestionUi = SuggestionUi(
 
 /** "wylie · gloss", leaving out whichever is missing. */
 internal fun EntrySummary.detail(): String =
-    listOfNotNull(wylie, glossPreview.takeIf { it.isNotBlank() }).joinToString(" · ")
+    listOfNotNull(wylie, glossPreview.takeIf { it.isNotBlank() }).joinToString(DOT_SEPARATOR)
 
 /** A recent-search row; the opened headword is shown only when it differs from the query. */
 internal fun RecentSearch.toRow(): RecentRowUi {

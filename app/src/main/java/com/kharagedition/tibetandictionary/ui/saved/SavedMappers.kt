@@ -1,11 +1,11 @@
 package com.kharagedition.tibetandictionary.ui.saved
 
 import androidx.compose.ui.text.AnnotatedString
+import com.kharagedition.tibetandictionary.core.text.DOT_SEPARATOR
+import com.kharagedition.tibetandictionary.core.text.isTibetanText
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.domain.SavedGroup
-import com.kharagedition.tibetandictionary.ui.entry.DOT_SEPARATOR
-import com.kharagedition.tibetandictionary.ui.entry.isTibetanText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter

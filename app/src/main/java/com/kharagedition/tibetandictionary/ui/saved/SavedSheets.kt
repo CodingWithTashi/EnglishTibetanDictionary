@@ -35,7 +35,7 @@ import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
 import com.kharagedition.tibetandictionary.ui.components.FolderPickerSheet
 import com.kharagedition.tibetandictionary.ui.components.MixedText
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 

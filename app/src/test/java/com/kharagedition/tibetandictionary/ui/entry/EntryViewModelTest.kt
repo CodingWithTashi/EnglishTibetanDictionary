@@ -28,10 +28,12 @@ import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.model.ExampleUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import java.io.IOException
 import java.util.Optional
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -70,7 +72,8 @@ class EntryViewModelTest {
         saved: SavedRepository = this@EntryViewModelTest.saved,
         activity: ActivityRepository = this@EntryViewModelTest.activity,
     ): EntryViewModel {
-        val vm = EntryViewModel(entryId, dictionary, saved, activity, prefs, errors, Optional.of(audio))
+        val actions = SavedWordActions(saved, prefs)
+        val vm = EntryViewModel(entryId, dictionary, saved, actions, activity, errors, Optional.of(audio))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -350,6 +353,31 @@ class EntryViewModelTest {
         }
         assertThat(errors.recorded).containsExactly(failure)
         assertThat(vm.uiState.value.isSaved).isFalse()
+    }
+
+    @Test
+    fun `a double tap on the heart saves once`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val slow = object : SavedRepository by saved {
+            override suspend fun save(entry: EntrySummary, folderId: Long?) {
+                gate.await()
+                saved.save(entry, folderId)
+            }
+        }
+        val vm = viewModel(saved = slow)
+
+        vm.effects.test {
+            vm.onEvent(EntryEvent.ToggleSave)
+            // The second tap lands while the first is still saving: it neither saves again nor removes the word.
+            vm.onEvent(EntryEvent.ToggleSave)
+            gate.complete(Unit)
+
+            val toast = awaitItem() as EntryEffect.Toast
+            assertThat(toast.message).isEqualTo(UiText(R.string.saved_simple, listOf("བཀྲ་ཤིས་")))
+            expectNoEvents()
+        }
+        assertThat(saved.saved.value.map { it.entryId }).containsExactly(tashi.id)
+        assertThat(vm.uiState.value.isSaved).isTrue()
     }
 
     @Test

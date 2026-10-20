@@ -35,6 +35,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.core.text.DOT_SEPARATOR
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.DictIconButton
@@ -52,6 +53,7 @@ import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.appendMixed
 import com.kharagedition.tibetandictionary.ui.components.pullUp
 import com.kharagedition.tibetandictionary.ui.components.tallestLineHeight
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme

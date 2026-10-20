@@ -1,6 +1,8 @@
 package com.kharagedition.tibetandictionary.ui.entry
 
+import com.kharagedition.tibetandictionary.core.text.DOT_SEPARATOR
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
+import com.kharagedition.tibetandictionary.core.text.isTibetanText
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.Example
@@ -12,9 +14,6 @@ import com.kharagedition.tibetandictionary.ui.model.SenseUi
 
 /** Parts of speech written out in full, so they take no abbreviation dot. */
 private val UNABBREVIATED_POS = setOf("prefix", "suffix")
-
-/** Joins the header's parts of speech and label ("adj. · n."), share-text senses and the Wylie line. */
-internal const val DOT_SEPARATOR = " · "
 
 /**
  * This entry ready to draw, in [direction]. [targetDirections] maps every see-also target id found in the data to
@@ -70,10 +69,6 @@ internal fun abbreviatePartOfSpeech(pos: String): String {
     val keep = value.isEmpty() || value.endsWith('.') || value in UNABBREVIATED_POS || TibetanScript.hasTibetan(value)
     return if (keep) value else "$value."
 }
-
-/** True for text written only in Tibetan script (spaces and punctuation aside). */
-internal fun isTibetanText(text: String): Boolean =
-    TibetanScript.hasTibetan(text) && text.none { it.isLetterOrDigit() && !TibetanScript.isTibetan(it) }
 
 /** The labels every sense carries, in the first sense's order; null when they share none. */
 private fun List<Sense>.sharedLabel(): String? {

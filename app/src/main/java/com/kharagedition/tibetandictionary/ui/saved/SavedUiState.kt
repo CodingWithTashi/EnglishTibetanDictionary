@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.AnnotatedString
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi

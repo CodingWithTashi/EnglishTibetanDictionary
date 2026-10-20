@@ -23,6 +23,7 @@ import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepositor
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.Greeting
 import com.kharagedition.tibetandictionary.domain.StreakCalculator
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +43,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -57,7 +57,8 @@ import kotlinx.coroutines.launch
  * that part of the page is left out (a failing word of the day hides the card), so Home never crashes.
  *
  * Switcher taps change the default direction. The heart saves today's word to the last-used folder (unfiled
- * when that folder is gone) or removes it, with a plain toast; choosing a folder lives on the Entry screen.
+ * when that folder is gone) or removes it through [SavedWordActions], with a plain toast; choosing a folder lives
+ * on the Entry screen.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -66,7 +67,8 @@ class HomeViewModel @Inject constructor(
     wordOfTheDay: WordOfTheDayRepository,
     activity: ActivityRepository,
     recentSearches: RecentSearchesRepository,
-    private val saved: SavedRepository,
+    saved: SavedRepository,
+    private val saveActions: SavedWordActions,
     private val prefs: UserPreferencesRepository,
     private val clock: AppClock,
     speech: SpeechAvailability,
@@ -162,25 +164,20 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Saves today's word as the heart showed it unsaved, or removes it; either way with a toast. */
+    /**
+     * Saves today's word, or removes it when it is saved; either way with a toast. A second tap while the first is
+     * still saving or removing does nothing.
+     */
     private fun toggleSave() {
-        val current = wotd.value ?: return
-        val summary = current.entry.summary
+        val summary = wotd.value?.entry?.summary ?: return
         launchSafely {
-            if (current.isSaved) {
-                saved.unsave(summary.id)
-                send(HomeEffect.Toast(UiText(R.string.removed)))
-            } else {
-                saved.save(summary, lastUsedFolderId())
-                send(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(summary.headword))))
+            when (saveActions.toggle(summary)) {
+                null -> Unit
+                is SavedWordActions.Toggle.Removed -> send(HomeEffect.Toast(UiText(R.string.removed)))
+                is SavedWordActions.Toggle.Saved ->
+                    send(HomeEffect.Toast(UiText(R.string.saved_simple, listOf(summary.headword))))
             }
         }
-    }
-
-    /** The folder the last word was saved to, while it still exists; otherwise the word is saved unfiled. */
-    private suspend fun lastUsedFolderId(): Long? {
-        val id = prefs.snapshot().lastUsedFolderId ?: return null
-        return id.takeIf { saved.observeFolders().first().any { folder -> folder.id == id } }
     }
 
     private fun send(effect: HomeEffect) {

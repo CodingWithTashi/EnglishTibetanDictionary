@@ -6,13 +6,14 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
-import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.domain.SavedGrouping
-import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
+import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
+import com.kharagedition.tibetandictionary.ui.model.SavedWordActions.Companion.savedMessage
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,22 +39,20 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * The Saved tab (1i/3c): every saved word, filtered by folder and by the search-within query, in sections by when
  * it was saved; today's word for the empty state. Rows come from the snapshots in user.db, so a word whose entry a
- * newer dictionary dropped still shows, and opening it explains instead of navigating. Changes run one at a time;
- * a failure is recorded through [errors] and shown as a generic error toast.
+ * newer dictionary dropped still shows, and opening it explains instead of navigating. Changes go through
+ * [SavedWordActions] (one at a time); a failure is recorded through [errors] and shown as a generic error toast.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SavedViewModel @Inject constructor(
     private val saved: SavedRepository,
+    private val saveActions: SavedWordActions,
     private val dictionary: DictionaryRepository,
     private val wordOfTheDay: WordOfTheDayRepository,
-    private val prefs: UserPreferencesRepository,
     private val clock: AppClock,
     private val errors: ErrorReporter,
 ) : ViewModel() {
@@ -80,12 +79,6 @@ class SavedViewModel @Inject constructor(
 
     /** Words removed while the tab is open, so Undo can save them again. */
     private val removed = mutableMapOf<Long, SavedEntry>()
-
-    /** Serialises unsave, undo, saving today's word and refiling so quick taps cannot interleave. */
-    private val saveLock = Mutex()
-
-    /** The running "Save today's word", so a second tap while it runs is ignored. */
-    private var saveWotdJob: Job? = null
 
     private val effectChannel = Channel<SavedEffect>(Channel.BUFFERED)
     val effects: Flow<SavedEffect> = effectChannel.receiveAsFlow()
@@ -160,7 +153,7 @@ class SavedViewModel @Inject constructor(
             is SavedEvent.Unsave -> launchGuarded { unsave(event.entryId) }
             is SavedEvent.UndoUnsave -> launchGuarded { undoUnsave(event.entryId, event.folderId) }
             is SavedEvent.OpenEntry -> viewModelScope.launch { openEntry(event.entryId) }
-            SavedEvent.SaveWotd -> if (saveWotdJob?.isActive != true) saveWotdJob = launchGuarded { saveWotd() }
+            SavedEvent.SaveWotd -> launchGuarded { saveWotd() }
             is SavedEvent.ChangeFolder -> launchGuarded { openPicker(event.entryId) }
             is SavedEvent.PickFolder -> withPicker { pickFolder(it.entryId, event.folderId) }
             SavedEvent.StartCreateFolder -> updatePicker { it.copy(creating = true, name = "", error = null) }
@@ -179,31 +172,26 @@ class SavedViewModel @Inject constructor(
     }
 
     private suspend fun addFolder(name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return
-        if (createFolder(trimmed) == null) {
-            sheet.update { if (it is Sheet.NewFolder) it.copy(error = folderExists(trimmed)) else it }
-        } else {
-            sheet.update { if (it is Sheet.NewFolder) null else it }
+        when (val created = saveActions.createFolder(name)) {
+            // A blank name.
+            null -> Unit
+            is SavedWordActions.NewFolder.Rejected ->
+                sheet.update { if (it is Sheet.NewFolder) it.copy(error = created.error) else it }
+            is SavedWordActions.NewFolder.Created -> sheet.update { if (it is Sheet.NewFolder) null else it }
         }
     }
 
     private suspend fun unsave(entryId: Long) {
-        val row = saveLock.withLock {
-            val row = saved.observeAll().first().firstOrNull { it.entryId == entryId } ?: return
-            saved.unsave(entryId)
-            removed[entryId] = row
-            row
-        }
+        // Null when the word is not saved (any more), or a first tap is still removing it.
+        val row = saveActions.unsave(entryId) ?: return
+        removed[entryId] = row
         effectChannel.send(SavedEffect.Removed(entryId, row.folderId))
     }
 
     /** Puts the removed row back as it was (note and save time kept), in [folderId]. */
     private suspend fun undoUnsave(entryId: Long, folderId: Long?) {
-        saveLock.withLock {
-            val row = removed.remove(entryId) ?: return
-            saved.restore(row.copy(folderId = folderId))
-        }
+        val row = removed.remove(entryId) ?: return
+        saveActions.restore(row.copy(folderId = folderId))
     }
 
     /**
@@ -222,20 +210,14 @@ class SavedViewModel @Inject constructor(
 
     /**
      * Saves today's word to the last-used folder (none if it was deleted), as the entry screen does; nothing happens
-     * when it is already saved.
+     * when it is already saved, or while a first tap is still saving it.
      */
     private suspend fun saveWotd() {
         val summary = wordOfTheDay.forDate(clock.today())?.summary ?: return
-        val folder = saveLock.withLock {
-            if (saved.observeIsSaved(summary.id).first()) return
-            val lastUsed = prefs.snapshot().lastUsedFolderId
-            val folder = saved.observeFolders().first().firstOrNull { it.id == lastUsed }
-            saved.save(summary, folder?.id)
-            folder
-        }
+        val result = saveActions.saveIfAbsent(summary) ?: return
         effectChannel.send(
             SavedEffect.Toast(
-                savedMessage(summary.headword, folder?.name),
+                savedMessage(summary.headword, result.folder?.name),
                 R.string.change,
                 SavedEvent.ChangeFolder(summary.id),
             ),
@@ -246,45 +228,22 @@ class SavedViewModel @Inject constructor(
         if (saved.observeIsSaved(entryId).first()) sheet.value = Sheet.Picker(entryId)
     }
 
+    /** Files the saved word [entryId] in [folderId]; a word no longer saved only closes the picker. */
     private suspend fun pickFolder(entryId: Long, folderId: Long?) {
-        val row = saveLock.withLock {
-            saved.observeAll().first().firstOrNull { it.entryId == entryId }?.also { saved.setFolder(entryId, folderId) }
-        }
+        val filed = saveActions.fileIn(entryId, folderId)
         sheet.update { if (it is Sheet.Picker) null else it }
-        if (row == null) return
-        prefs.setLastUsedFolderId(folderId)
-        effectChannel.send(SavedEffect.Toast(savedMessage(row.headword, folderName(folderId))))
+        if (filed == null) return
+        effectChannel.send(SavedEffect.Toast(savedMessage(filed.headword, filed.folderName)))
     }
 
     private suspend fun createFolderFor(entryId: Long, name: String) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return
-        val folderId = createFolder(trimmed)
-        if (folderId == null) {
-            updatePicker { it.copy(error = folderExists(trimmed)) }
-        } else {
-            pickFolder(entryId, folderId)
+        when (val created = saveActions.createFolder(name)) {
+            // A blank name.
+            null -> Unit
+            is SavedWordActions.NewFolder.Rejected -> updatePicker { it.copy(error = created.error) }
+            is SavedWordActions.NewFolder.Created -> pickFolder(entryId, created.id)
         }
     }
-
-    /** The new folder's id, or null when the repository rejects the name (a duplicate, trimmed, any case). */
-    private suspend fun createFolder(name: String): Long? = try {
-        saved.createFolder(name)
-    } catch (e: IllegalArgumentException) {
-        null
-    }
-
-    private suspend fun folderName(folderId: Long?): String? =
-        folderId?.let { id -> saved.observeFolders().first().firstOrNull { it.id == id }?.name }
-
-    private fun savedMessage(headword: String, folderName: String?): UiText =
-        if (folderName != null) {
-            UiText(R.string.saved_to_folder, listOf(headword, folderName))
-        } else {
-            UiText(R.string.saved_simple, listOf(headword))
-        }
-
-    private fun folderExists(name: String) = UiText(R.string.folder_exists, listOf(name))
 
     private fun Sheet.withName(name: String): Sheet = when (this) {
         is Sheet.NewFolder -> copy(name = name, error = null)
