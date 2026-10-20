@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.data.local.entry
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -167,10 +168,127 @@ class DictionaryInstallerImplTest {
             assertThat(awaitItem()).isEqualTo(failed)
             launch { installer.ensureInstalled() }
 
+            // A retry keeps Failed until the copy starts: no Checking in between (the shell would show it as
+            // "installer did not start").
             val states = awaitSettled()
-            assertThat(states.first()).isEqualTo(InstallState.Checking)
+            assertThat(states.first()).isEqualTo(InstallState.Copying(0f))
+            assertThat(states).doesNotContain(InstallState.Checking)
             assertThat(states.last()).isEqualTo(InstallState.Ready(3))
         }
+        assertThat(tmpCopy.exists()).isFalse()
+    }
+
+    @Test
+    fun midStreamReadFailureFailsThenRetrySucceeds() = runTest {
+        val asset = FakeAssetSource(goodAsset).apply { failAfterBytes = 1 } // throws on the read after the first chunk
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled()
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        val cause = (state as InstallState.Failed).cause
+        assertThat(cause).hasMessageThat().contains("asset read failed")
+        assertThat(errors.recorded).containsExactly(cause)
+        assertThat(tmpCopy.exists()).isFalse()
+        assertThat(target.exists()).isFalse()
+
+        asset.failAfterBytes = null
+        installer.ensureInstalled()
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(asset.openCount).isEqualTo(2)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class) // runCurrent
+    @Test
+    fun cancelledInstallBecomesFailedAndCleansUp() = runTest {
+        val asset = FakeAssetSource(goodAsset).apply { pauseAfterBytes = 1 } // waits on the read after the first chunk
+        val installer = installer(asset, Dispatchers.IO)
+
+        val job = launch { installer.ensureInstalled() }
+        runCurrent()
+        assertThat(asset.midStream.await(10, TimeUnit.SECONDS)).isTrue()
+        assertThat(installer.state.value).isInstanceOf(InstallState.Copying::class.java)
+        assertThat(tmpCopy.exists()).isTrue()
+
+        // E.g. a retry in the viewModelScope of an activity that finishes during the copy.
+        job.cancel()
+        asset.resume.countDown()
+        job.join()
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).cause).isInstanceOf(CancellationException::class.java)
+        assertThat(tmpCopy.exists()).isFalse()
+        assertThat(target.exists()).isFalse()
+        assertThat(errors.recorded).isEmpty()
+
+        // The retry screen's "Try again" then installs normally.
+        installer.ensureInstalled()
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+    }
+
+    @Test
+    fun strayCancellationExceptionIsAFailure() = runTest {
+        // Room can throw a java.util.concurrent.CancellationException while the caller is still active.
+        val stray = CancellationException("stray")
+        val installer = installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler)) { throw stray }
+
+        installer.ensureInstalled() // returns normally: the caller was not cancelled
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Failed(stray))
+        assertThat(errors.recorded).containsExactly(stray)
+    }
+
+    @Test
+    fun declaredLengthMismatchFails() = runTest {
+        val asset = FakeAssetSource(goodAsset).apply { declaredLength = goodAsset.length() + 1 }
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled()
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).cause).hasMessageThat()
+            .isEqualTo("Copied ${goodAsset.length()} of ${goodAsset.length() + 1} bytes")
+        assertThat(target.exists()).isFalse()
+        assertThat(tmpCopy.exists()).isFalse()
+    }
+
+    @Test
+    fun roomOpenFailureDeletesTheCopySoRetryRecopies() = runTest {
+        val boom = IOException("disk I/O error")
+        var failOpen = true
+        val asset = FakeAssetSource(goodAsset)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler)) { if (failOpen) throw boom }
+
+        installer.ensureInstalled()
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Failed(boom))
+        assertThat(errors.recorded).containsExactly(boom)
+        val leftovers = listOf("", "-journal", "-wal", "-shm", ".tmp").map { File(target.path + it) }
+        assertThat(leftovers.filter { it.exists() }).isEmpty()
+
+        failOpen = false
+        installer.ensureInstalled()
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(asset.openCount).isEqualTo(2)
+    }
+
+    @Test
+    fun blankDataVersionFailsAndDiscardsTheCopy() = runTest {
+        val asset = FakeAssetSource(buildFixtureAsset("blank-version.db", dataVersion = " "))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled()
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        val cause = (state as InstallState.Failed).cause
+        assertThat(cause).isInstanceOf(IllegalStateException::class.java)
+        assertThat(cause).hasMessageThat().contains("data_version")
+        assertThat(errors.recorded).containsExactly(cause)
+        assertThat(target.exists()).isFalse()
         assertThat(tmpCopy.exists()).isFalse()
     }
 
@@ -259,7 +377,8 @@ class DictionaryInstallerImplTest {
         }
     }
 
-    private fun buildFixtureAsset(): File {
+    /** Writes the fixture database with Room and returns a copy of it named [assetName]; null [dataVersion] omits it. */
+    private fun buildFixtureAsset(assetName: String = "asset.db", dataVersion: String? = "2026.10.1"): File {
         val name = "fixture.db"
         val db = Room.databaseBuilder(context, DictionaryDatabase::class.java, name)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
@@ -280,10 +399,12 @@ class DictionaryInstallerImplTest {
                     entry(3_000_001, "en-bo", "luck", sortOrder = 1),
                 ),
             )
-            write.insertMeta(listOf(MetaEntity("data_version", "2026.10.1"), MetaEntity("schema_version", "1")))
+            write.insertMeta(
+                listOfNotNull(dataVersion?.let { MetaEntity("data_version", it) }, MetaEntity("schema_version", "1")),
+            )
         }
         db.close()
-        val asset = File(tmp.root, "asset.db")
+        val asset = File(tmp.root, assetName)
         context.getDatabasePath(name).copyTo(asset)
         context.deleteDatabase(name)
         return asset

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -36,8 +37,18 @@ import kotlinx.coroutines.withContext
  * if the installer is ever bypassed. The installer must finish before anything else opens the database (start-up
  * runs it first): it deletes and replaces the file underneath.
  *
+ * Opening checks `meta.data_version` (§5.1): a missing or blank value is a broken build and fails the install. When
+ * opening or that check fails, the installed file is deleted so a retry copies the asset again. Room is not closed
+ * (Room 2.8 forbids reusing a closed database), so if Room's own open had already succeeded, this process keeps
+ * reading the deleted file and only the next launch reads the new copy; that case means the asset itself is bad.
+ *
  * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. When the asset's
  * length is unknown ([AssetSource.length] is null, an asset stored compressed) only 0 and then 1 are reported.
+ *
+ * The state never stays at [InstallState.Copying]: every failure, including cancelling the caller (a retry in a
+ * finishing activity's `viewModelScope`), ends in [InstallState.Failed], which shows the retry screen. A retry keeps
+ * the old [InstallState.Failed] until its first [InstallState.Copying], [InstallState.Ready] or [InstallState.Failed]
+ * instead of going back to [InstallState.Checking], which the shell reads as "installer did not start".
  */
 @Singleton
 class DictionaryInstallerImpl @Inject constructor(
@@ -53,12 +64,21 @@ class DictionaryInstallerImpl @Inject constructor(
 
     private val mutex = Mutex()
 
-    /** Concurrent callers queue on [mutex]; a caller that finds [InstallState.Ready] returns at once. */
+    /**
+     * Concurrent callers queue on [mutex]; a caller that finds [InstallState.Ready] returns at once. The state is not
+     * reset here: it is [InstallState.Checking] on the first call and [InstallState.Failed] on a retry.
+     */
     override suspend fun ensureInstalled() {
         mutex.withLock {
             if (_state.value is InstallState.Ready) return
-            _state.value = InstallState.Checking
-            _state.value = withContext(io) { install() }
+            try {
+                _state.value = withContext(io) { install() }
+            } catch (t: Throwable) {
+                // install() turns every failure into Failed, so this is the caller being cancelled. Leave Failed, not
+                // the last Copying, so the shell shows the retry screen, then let the cancellation propagate.
+                _state.value = InstallState.Failed(t)
+                throw t
+            }
         }
     }
 
@@ -68,11 +88,11 @@ class DictionaryInstallerImpl @Inject constructor(
             deleteDatabaseFiles(target)
             copyAsset(target)
         }
-        InstallState.Ready(openAndCount())
-    } catch (e: CancellationException) {
-        throw e
+        InstallState.Ready(openAndCount(target))
     } catch (t: Throwable) {
-        // Throwable, not Exception: the splash waits on this state, so nothing may leave it stuck in Copying.
+        // A real cancellation propagates; a CancellationException while still active (Room can throw a stray
+        // java.util.concurrent one) is an ordinary failure. Throwable, not Exception: the splash waits on this state.
+        if (t is CancellationException) currentCoroutineContext().ensureActive()
         errors.record(t)
         InstallState.Failed(t)
     }
@@ -140,9 +160,25 @@ class DictionaryInstallerImpl @Inject constructor(
         }
     }
 
-    /** Opens Room on the installed file and sums the visible directions' entry counts. */
-    private suspend fun openAndCount(): Int =
-        dbProvider.get().directionDao().observeVisible().first().sumOf { it.entryCount }
+    /**
+     * Opens Room on the installed [target], checks `meta.data_version` and sums the visible directions' entry counts.
+     * On failure (other than the caller being cancelled) it deletes [target] so a retry copies the asset again.
+     */
+    private suspend fun openAndCount(target: File): Int = try {
+        val db = dbProvider.get()
+        val dataVersion = db.metaDao().get(DATA_VERSION_KEY)
+        check(!dataVersion.isNullOrBlank()) { "dictionary.db has no meta.$DATA_VERSION_KEY" }
+        db.directionDao().observeVisible().first().sumOf { it.entryCount }
+    } catch (t: Throwable) {
+        if (t !is CancellationException || currentCoroutineContext().isActive) {
+            try {
+                deleteDatabaseFiles(target)
+            } catch (e: IOException) {
+                t.addSuppressed(e)
+            }
+        }
+        throw t
+    }
 
     /** The fields of the 100-byte SQLite header the installer checks; see https://sqlite.org/fileformat.html. */
     private class Header(val userVersion: Int, val databaseSize: Long?)
@@ -170,6 +206,7 @@ class DictionaryInstallerImpl @Inject constructor(
 
     private companion object {
         const val TEMP_SUFFIX = ".tmp"
+        const val DATA_VERSION_KEY = "data_version"
         val DATABASE_FILE_SUFFIXES = listOf("", "-journal", "-wal", "-shm")
         const val BUFFER_SIZE = 16 * 1024
         const val PROGRESS_STEP_BYTES = 64 * 1024
