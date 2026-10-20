@@ -235,7 +235,7 @@ class AppNavHostTest {
         tap("nav_profile")
         compose.onNodeWithTag("profile_link_about").performScrollTo().performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("About").assertExists()
+        compose.onNodeWithTag("about_screen").assertExists()
         compose.onNodeWithTag("nav_profile").assertDoesNotExist()
 
         pressBack()
