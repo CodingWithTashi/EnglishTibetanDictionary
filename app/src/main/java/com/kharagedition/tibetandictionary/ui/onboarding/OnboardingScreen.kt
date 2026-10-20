@@ -154,6 +154,7 @@ private fun OnboardingTopBar(state: OnboardingUiState, onEvent: (OnboardingEvent
                 onClick = { onEvent(OnboardingEvent.Skip) },
                 modifier = Modifier.testTag("onboarding_skip"),
                 size = ButtonSize.Small,
+                contentColor = DictTheme.colors.muted,
             )
         }
     }

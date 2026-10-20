@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
@@ -97,13 +98,14 @@ private fun DictButton(
     accentBorder: Boolean,
     leading: ImageVector?,
     trailing: ImageVector?,
+    textContent: Color = Color.Unspecified,
 ) {
     val colors = DictTheme.colors
     val (container, content) = when (variant) {
         ButtonVariant.Filled -> colors.accent to colors.onAccent
         ButtonVariant.Tonal -> colors.accentContainer to colors.onAccentContainer
         ButtonVariant.Outlined -> Color.Transparent to (if (accentBorder) colors.accent else colors.ink)
-        ButtonVariant.Text -> Color.Transparent to colors.accent
+        ButtonVariant.Text -> Color.Transparent to textContent.takeOrElse { colors.accent }
     }
     val semibold = variant == ButtonVariant.Filled || variant == ButtonVariant.Tonal || accentBorder
     val (latinStyle, tibetanStyle) = size.textStyles(semibold)
@@ -187,7 +189,10 @@ fun OutlinedButton(
     trailing: ImageVector? = null,
 ) = DictButton(text, onClick, ButtonVariant.Outlined, modifier, size, enabled, accentBorder, leading, trailing)
 
-/** Borderless accent label ("Open", "Clear"). */
+/**
+ * Borderless label ("Open", "Clear") in [contentColor], accent by default; a quiet action such as onboarding's Skip
+ * passes muted (2b/2c). Icons and the ripple take the same colour.
+ */
 @Composable
 fun TextButton(
     text: String,
@@ -197,7 +202,8 @@ fun TextButton(
     enabled: Boolean = true,
     leading: ImageVector? = null,
     trailing: ImageVector? = null,
-) = DictButton(text, onClick, ButtonVariant.Text, modifier, size, enabled, false, leading, trailing)
+    contentColor: Color = DictTheme.colors.accent,
+) = DictButton(text, onClick, ButtonVariant.Text, modifier, size, enabled, false, leading, trailing, contentColor)
 
 /**
  * Round icon button of [size] (48 / 40 / 36; the touch target is always at least 48) with an [iconSize] icon
@@ -252,6 +258,7 @@ private fun ButtonsPreview() {
             FilledButton("Sign in", {}, size = ButtonSize.Xs)
             FilledButton("Disabled", {}, size = ButtonSize.Xs, enabled = false)
             TextButton("Open", {}, size = ButtonSize.Xs)
+            TextButton("Skip", {}, size = ButtonSize.Small, contentColor = DictTheme.colors.muted)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             DictIconButton(DictIcons.Speaker, "Play", {}, tint = DictTheme.colors.accent, filled = true)

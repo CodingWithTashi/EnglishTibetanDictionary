@@ -27,9 +27,13 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -110,13 +114,14 @@ private fun SheetHandle() {
     )
 }
 
+/** A sheet's title (the no-results title role, Jomolhari in bo): screen side padding, 8 above, 12 below; a heading. */
 @Composable
-private fun SheetTitle(text: String) {
+fun SheetTitle(text: String, modifier: Modifier = Modifier) {
     MixedText(
         text,
         DictTheme.type.noResultsTitle,
         DictTheme.type.tibetanGloss,
-        Modifier
+        modifier
             .fillMaxWidth()
             .padding(
                 start = DictTheme.dimens.screenPadding,
@@ -350,7 +355,7 @@ private fun FolderPickerContent(
         }
         if (creating) {
             val name = newFolderName.trim()
-            FolderNameField(newFolderName, onNewFolderNameChange, onSave = { if (name.isNotEmpty()) onCreate(name) }, onCancelCreate)
+            NewFolderRow(newFolderName, onNewFolderNameChange, onSave = { if (name.isNotEmpty()) onCreate(name) }, onCancelCreate)
             if (createError != null) {
                 MixedText(createError, DictTheme.type.caption, DictTheme.type.tibetanInline14, color = DictTheme.colors.danger)
             }
@@ -360,37 +365,11 @@ private fun FolderPickerContent(
     }
 }
 
-/** Compact pill field for a new folder's name, with Save (enabled once the name is not blank) and cancel. */
+/** The picker's inline new-folder row: [FolderNameField], Save (enabled once the name is not blank) and cancel. */
 @Composable
-private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
-    val colors = DictTheme.colors
-    val type = DictTheme.type
+private fun NewFolderRow(name: String, onNameChange: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
-        BasicTextField(
-            value = name,
-            onValueChange = onNameChange,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = DictTheme.dimens.searchFieldCompact)
-                .clip(DictShapes.pill)
-                .background(colors.surface1)
-                .border(DictTheme.dimens.focusBorder, colors.accent, DictShapes.pill)
-                .padding(horizontal = DictTheme.dimens.cardPaddingHorizontal)
-                .testTag(FOLDER_NAME_TAG),
-            textStyle = type.body.copy(color = colors.ink),
-            singleLine = true,
-            cursorBrush = SolidColor(colors.accent),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onSave() }),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (name.isEmpty()) {
-                        MixedText(stringResource(R.string.new_folder_hint), type.body, type.tibetanInline16, color = colors.muted)
-                    }
-                    inner()
-                }
-            },
-        )
+        FolderNameField(name, onNameChange, onDone = onSave, Modifier.weight(1f).testTag(FOLDER_NAME_TAG))
         FilledButton(stringResource(R.string.save), onSave, size = ButtonSize.Small, enabled = name.isNotBlank())
         DictIconButton(
             DictIcons.Close,
@@ -398,9 +377,51 @@ private fun FolderNameField(name: String, onNameChange: (String) -> Unit, onSave
             onCancel,
             size = DictTheme.dimens.iconButtonMedium,
             iconSize = DictTheme.dimens.iconSmall,
-            tint = colors.muted,
+            tint = DictTheme.colors.muted,
         )
     }
+}
+
+/**
+ * Pill field for a new folder's name (surface1, 2dp accent border, at least 48 high, one line, the "Folder name"
+ * hint); Done calls [onDone]. With [autoFocus] it takes focus when first shown (the Saved tab's new-folder sheet).
+ */
+@Composable
+fun FolderNameField(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
+) {
+    val colors = DictTheme.colors
+    val type = DictTheme.type
+    val focus = remember { FocusRequester() }
+    if (autoFocus) LaunchedEffect(focus) { focus.requestFocus() }
+    BasicTextField(
+        value = name,
+        onValueChange = onNameChange,
+        modifier = modifier
+            .heightIn(min = DictTheme.dimens.searchFieldCompact)
+            .clip(DictShapes.pill)
+            .background(colors.surface1)
+            .border(DictTheme.dimens.focusBorder, colors.accent, DictShapes.pill)
+            .padding(horizontal = DictTheme.dimens.cardPaddingHorizontal)
+            .focusRequester(focus),
+        textStyle = type.body.copy(color = colors.ink),
+        singleLine = true,
+        cursorBrush = SolidColor(colors.accent),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        decorationBox = { inner ->
+            Box(contentAlignment = Alignment.CenterStart) {
+                if (name.isEmpty()) {
+                    MixedText(stringResource(R.string.new_folder_hint), type.body, type.tibetanInline16, color = colors.muted)
+                }
+                inner()
+            }
+        },
+    )
 }
 
 private const val FOLDER_NAME_TAG = "folder_name_field"

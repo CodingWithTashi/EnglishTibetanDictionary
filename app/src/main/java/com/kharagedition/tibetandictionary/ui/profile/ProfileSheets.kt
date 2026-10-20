@@ -2,7 +2,6 @@ package com.kharagedition.tibetandictionary.ui.profile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -13,8 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
@@ -23,16 +20,14 @@ import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
 import com.kharagedition.tibetandictionary.ui.components.DirectionPickerSheet
 import com.kharagedition.tibetandictionary.ui.components.LanguagePickerSheet
-import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.SettingsRow
+import com.kharagedition.tibetandictionary.ui.components.SheetTitle
 import com.kharagedition.tibetandictionary.ui.components.TextSizeSheet
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 
-/** Sheet title padding (8 above, 12 below) and space under the last row, as on the shared picker sheets. */
-private val TitleTop = 8.dp
-private val TitleBottom = 12.dp
+/** Space under the last row, as on the shared picker sheets. */
 private val SheetBottom = 24.dp
 
 /** External-link mark after each app in the More apps sheet. */
@@ -82,16 +77,7 @@ private fun MoreAppsSheet(apps: List<OtherApp>, onOpen: (OtherApp) -> Unit, onDi
 @Composable
 private fun MoreAppsContent(apps: List<OtherApp>, onOpen: (OtherApp) -> Unit) {
     val dimens = DictTheme.dimens
-    MixedText(
-        stringResource(R.string.more_apps),
-        DictTheme.type.noResultsTitle,
-        DictTheme.type.tibetanGloss,
-        Modifier
-            .fillMaxWidth()
-            .padding(start = dimens.screenPadding, top = TitleTop, end = dimens.screenPadding, bottom = TitleBottom)
-            .semantics { heading() },
-        color = DictTheme.colors.ink,
-    )
+    SheetTitle(stringResource(R.string.more_apps))
     Column(
         Modifier
             .verticalScroll(rememberScrollState())

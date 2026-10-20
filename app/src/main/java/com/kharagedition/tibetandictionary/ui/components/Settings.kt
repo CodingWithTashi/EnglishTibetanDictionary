@@ -10,26 +10,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -81,7 +82,10 @@ private val SwitchHeight = 20.dp
 private val SwitchThumb = 16.dp
 private val SwitchInset = 2.dp
 
-/** Segmented control: at least 32 high, 3dp track padding, 2dp between segments, 10dp segment side padding. */
+/**
+ * Segmented control: a track at least 32 high (each segment's 48dp touch target reaches past it), 3dp track padding,
+ * 2dp between segments, 10dp segment side padding.
+ */
 private val SegmentedHeight = 32.dp
 private val SegmentedPadding = 3.dp
 private val SegmentedGap = 2.dp
@@ -205,7 +209,9 @@ private fun DictSwitch(checked: Boolean) {
 
 /**
  * A three-way choice (Light / Dark / System) on a surface1 pill track: the selected segment is accent with
- * onAccent text; labels are 12/500 (Jomolhari 14 in bo).
+ * onAccent text; labels are 12/500 (Jomolhari 14 in bo). The track stays 32dp high while each segment reserves a
+ * 48dp touch target around it; every segment draws its own slice of the track, so the track spans the segments
+ * with no gaps.
  */
 @Composable
 fun SegmentedControl3(
@@ -215,21 +221,24 @@ fun SegmentedControl3(
     modifier: Modifier = Modifier,
 ) {
     val colors = DictTheme.colors
-    Row(
-        modifier
-            .height(IntrinsicSize.Min)
-            .heightIn(min = SegmentedHeight)
-            .clip(DictShapes.pill)
-            .background(colors.surface1)
-            .padding(SegmentedPadding)
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(SegmentedGap),
-    ) {
+    Row(modifier.selectableGroup(), verticalAlignment = Alignment.CenterVertically) {
         options.forEachIndexed { index, option ->
             val selected = index == selectedIndex
+            val first = index == 0
+            val last = index == options.lastIndex
             Box(
                 Modifier
-                    .fillMaxHeight()
+                    .minimumInteractiveComponentSize()
+                    // At least as wide as the touch target, so the slices meet.
+                    .widthIn(min = DictTheme.dimens.minTouch)
+                    .background(colors.surface1, trackSlice(first, last))
+                    .padding(
+                        start = if (first) SegmentedPadding else SegmentedGap / 2,
+                        top = SegmentedPadding,
+                        end = if (last) SegmentedPadding else SegmentedGap / 2,
+                        bottom = SegmentedPadding,
+                    )
+                    .heightIn(min = SegmentedHeight - SegmentedPadding * 2)
                     .clip(DictShapes.pill)
                     .background(if (selected) colors.accent else Color.Transparent)
                     .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
@@ -248,6 +257,17 @@ fun SegmentedControl3(
         }
     }
 }
+
+/** One segment's slice of the pill track: the first rounds its start, the last its end, the others are square. */
+private fun trackSlice(first: Boolean, last: Boolean): Shape = RoundedCornerShape(
+    topStartPercent = if (first) HALF else 0,
+    topEndPercent = if (last) HALF else 0,
+    bottomEndPercent = if (last) HALF else 0,
+    bottomStartPercent = if (first) HALF else 0,
+)
+
+/** Corner radius as a percentage of the height: a pill end. */
+private const val HALF = 50
 
 /** Preview copy: the string resources in en, the 3d mockup's Tibetan labels in bo (values-bo is filled later). */
 private class SettingsCopy(
