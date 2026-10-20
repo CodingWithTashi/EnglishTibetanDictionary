@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.core.init.nightMode
 import com.kharagedition.tibetandictionary.navigation.DeepLinks
 import com.kharagedition.tibetandictionary.navigation.NavigationEventBus
 import com.kharagedition.tibetandictionary.ui.app.AppRoot
@@ -55,6 +55,8 @@ class MainActivity : AppCompatActivity() {
                 AppRootState.Loading -> Box(Modifier.fillMaxSize().background(colorResource(R.color.window_background)))
                 is AppRootState.Installing -> DictTheme { InstallingScreen(s, onRetry = viewModel::retryInstall) }
                 is AppRootState.Ready -> {
+                    // DictionaryApplication applied the stored mode before this activity existed, so at start-up this
+                    // sets the mode in force and does nothing; a later change in Profile recreates the activity.
                     LaunchedEffect(s.appearance) { AppCompatDelegate.setDefaultNightMode(s.appearance.nightMode()) }
                     AppRoot(s)
                 }
@@ -80,10 +82,4 @@ class MainActivity : AppCompatActivity() {
         if (follow && !fromRecents) navigationEvents.emit(link)
         setIntent(Intent(intent).setData(null))
     }
-}
-
-private fun Appearance.nightMode(): Int = when (this) {
-    Appearance.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-    Appearance.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
-    Appearance.DARK -> AppCompatDelegate.MODE_NIGHT_YES
 }

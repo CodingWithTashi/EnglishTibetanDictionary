@@ -5,6 +5,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.kharagedition.tibetandictionary.core.init.AppInitializer
+import com.kharagedition.tibetandictionary.core.init.StoredAppearance
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -13,9 +14,13 @@ class DictionaryApplication : Application() {
 
     @Inject lateinit var appInitializer: AppInitializer
 
+    @Inject lateinit var storedAppearance: StoredAppearance
+
     override fun onCreate() {
         super.onCreate()
         configureFirebase()
+        // Before any activity exists, so a cold start never recreates the activity to change the theme.
+        storedAppearance.applyBlocking()
         appInitializer.start()
     }
 
