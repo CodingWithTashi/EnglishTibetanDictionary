@@ -45,7 +45,6 @@ import com.kharagedition.tibetandictionary.ui.components.FullEmptyState
 import com.kharagedition.tibetandictionary.ui.components.LatinText
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
-import com.kharagedition.tibetandictionary.ui.components.SeeAlsoRow
 import com.kharagedition.tibetandictionary.ui.components.SenseCard
 import com.kharagedition.tibetandictionary.ui.components.SkeletonEntryRow
 import com.kharagedition.tibetandictionary.ui.components.SkeletonPreset
@@ -77,6 +76,7 @@ private val FooterBottom = 16.dp
 private const val SKELETON_DELAY_MS = 250L
 
 internal const val SCREEN_TAG = "entry_screen"
+internal const val BACK_TAG = "entry_back"
 internal const val SAVE_TAG = "entry_save"
 internal const val AUDIO_TAG = "entry_audio"
 internal const val REPORT_TAG = "entry_report"
@@ -84,7 +84,7 @@ internal const val LOADING_TAG = "entry_loading"
 internal const val MISSING_BACK_TAG = "entry_missing_back"
 
 /** `entry_related_{id}`, or `entry_related_search_{index}` for a link that opens a search. */
-internal fun relatedTag(item: RelatedUi, index: Int): String =
+internal fun relatedTag(index: Int, item: RelatedUi): String =
     item.entryId?.let { "entry_related_$it" } ?: "entry_related_search_$index"
 
 internal fun senseTag(index: Int): String = "entry_sense_$index"
@@ -99,7 +99,12 @@ internal fun EntryToolbar(entryShown: Boolean, isSaved: Boolean, onEvent: (Entry
             .padding(start = ToolbarSide, top = ToolbarTop, end = ToolbarSide),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DictIconButton(DictIcons.Back, stringResource(R.string.back), { onEvent(EntryEvent.Back) })
+        DictIconButton(
+            DictIcons.Back,
+            stringResource(R.string.back),
+            { onEvent(EntryEvent.Back) },
+            Modifier.testTag(BACK_TAG),
+        )
         Spacer(Modifier.weight(1f))
         if (entryShown) {
             DictIconButton(
@@ -178,32 +183,6 @@ internal fun EntrySenses(entry: EntryUi) {
                 DictTheme.type.tibetanInline14,
                 color = DictTheme.colors.muted,
             )
-        }
-    }
-}
-
-/**
- * "See also" over [SeeAlsoRow]s, as `SeeAlsoSection` draws it, with a test tag on each row ([relatedTag]).
- */
-@Composable
-internal fun EntryRelated(items: List<RelatedUi>, onOpen: (RelatedUi) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
-        MixedText(
-            stringResource(R.string.see_also),
-            DictTheme.type.sectionLabel,
-            DictTheme.type.tibetanInline15,
-            Modifier.semantics { heading() },
-            color = DictTheme.colors.muted,
-        )
-        Column {
-            items.forEachIndexed { index, item ->
-                SeeAlsoRow(
-                    item,
-                    { onOpen(item) },
-                    Modifier.testTag(relatedTag(item, index)),
-                    showDivider = index < items.lastIndex,
-                )
-            }
         }
     }
 }

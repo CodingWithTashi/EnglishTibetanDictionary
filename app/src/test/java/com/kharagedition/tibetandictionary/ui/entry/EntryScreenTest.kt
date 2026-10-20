@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.entry
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -124,7 +125,7 @@ class EntryScreenTest {
     fun `toolbar actions emit their events`() {
         show(EntryUiState(loading = false, entry = tashi))
 
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithTag("entry_back").assertContentDescriptionEquals("Back").performClick()
         compose.onNodeWithContentDescription("Copy").performClick()
         compose.onNodeWithContentDescription("Share").performClick()
 

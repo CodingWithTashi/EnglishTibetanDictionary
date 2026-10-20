@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -27,9 +28,17 @@ private val RowInset = 4.dp
 private val RowGap = 10.dp
 private val SectionGap = 8.dp
 
-/** "See also" (12/600 muted) over a list of [SeeAlsoRow]s; the last row has no divider. */
+/**
+ * "See also" (12/600 muted) over a list of [SeeAlsoRow]s; the last row has no divider. [rowTag] gives each row a
+ * test tag from its index and item (none when it returns null).
+ */
 @Composable
-fun SeeAlsoSection(items: List<RelatedUi>, onClick: (RelatedUi) -> Unit, modifier: Modifier = Modifier) {
+fun SeeAlsoSection(
+    items: List<RelatedUi>,
+    onClick: (RelatedUi) -> Unit,
+    modifier: Modifier = Modifier,
+    rowTag: (index: Int, item: RelatedUi) -> String? = { _, _ -> null },
+) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SectionGap)) {
         MixedText(
             stringResource(R.string.see_also),
@@ -40,7 +49,13 @@ fun SeeAlsoSection(items: List<RelatedUi>, onClick: (RelatedUi) -> Unit, modifie
         )
         Column {
             items.forEachIndexed { index, item ->
-                SeeAlsoRow(item, { onClick(item) }, showDivider = index < items.lastIndex)
+                val tag = rowTag(index, item)
+                SeeAlsoRow(
+                    item,
+                    { onClick(item) },
+                    if (tag != null) Modifier.testTag(tag) else Modifier,
+                    showDivider = index < items.lastIndex,
+                )
             }
         }
     }

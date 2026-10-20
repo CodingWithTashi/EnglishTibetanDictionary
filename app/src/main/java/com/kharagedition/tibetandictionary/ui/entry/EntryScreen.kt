@@ -43,6 +43,7 @@ import com.kharagedition.tibetandictionary.ui.components.ExtremeScale
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScalePreview
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
+import com.kharagedition.tibetandictionary.ui.components.SeeAlsoSection
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import kotlinx.coroutines.flow.Flow
@@ -123,7 +124,7 @@ private fun Context.email(email: EntryEffect.OpenEmail) {
  * The stateless entry screen: toolbar, then the entry (header, sense cards, see also, correction footer), the
  * missing notice or the loading skeleton; the folder picker sheet while [EntryUiState.folderPicker] is set.
  *
- * Test tags: `entry_screen`, `entry_save`, `entry_audio`, `entry_sense_{index}`, `entry_related_{id}`
+ * Test tags: `entry_screen`, `entry_back`, `entry_save`, `entry_audio`, `entry_sense_{index}`, `entry_related_{id}`
  * (`entry_related_search_{index}` for links without an id), `entry_report`, `entry_loading`, `entry_missing_back`.
  */
 @Composable
@@ -158,7 +159,9 @@ private fun EntryBody(entry: EntryUi, onEvent: (EntryEvent) -> Unit, modifier: M
     ) {
         EntryHeader(entry) { onEvent(EntryEvent.PlayAudio) }
         if (entry.senses.isNotEmpty() || entry.isTruncated) EntrySenses(entry)
-        if (entry.related.isNotEmpty()) EntryRelated(entry.related) { onEvent(EntryEvent.OpenRelated(it)) }
+        if (entry.related.isNotEmpty()) {
+            SeeAlsoSection(entry.related, onClick = { onEvent(EntryEvent.OpenRelated(it)) }, rowTag = ::relatedTag)
+        }
         Column {
             ReportCorrectionFooter { onEvent(EntryEvent.ReportCorrection) }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))

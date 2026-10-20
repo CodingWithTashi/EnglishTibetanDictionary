@@ -6,7 +6,6 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -275,8 +274,8 @@ class AppNavHostTest {
         assertOnEntry(seeAlso = TASHI)
 
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithTag("entry_back").performClick()
+        compose.onNodeWithTag("entry_back").performClick()
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
 
