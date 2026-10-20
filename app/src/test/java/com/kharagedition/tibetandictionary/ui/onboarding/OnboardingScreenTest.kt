@@ -25,6 +25,7 @@ import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
@@ -57,7 +58,7 @@ class OnboardingScreenTest {
 
     /** The screen on a real view model over the fakes, as the route shows it. */
     private fun showWithViewModel(dictionary: FakeDictionaryRepository = FakeDictionaryRepository()) {
-        val viewModel = OnboardingViewModel(prefs, dictionary)
+        val viewModel = OnboardingViewModel(prefs, dictionary, RecordingErrorReporter())
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
                 val state by viewModel.uiState.collectAsState()

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.Features
+import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
@@ -11,8 +13,10 @@ import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +32,8 @@ import kotlinx.coroutines.launch
  * from the dictionary's capabilities, and the footer links to [linkTargets]. Settings persist as they change. The
  * language shown is the one the app is in ([localeApplier]), falling back to the stored one while no per-app language
  * is set; choosing another persists it and switches the app to it. [uiState] is null until prefs and capabilities load.
+ * A setting that cannot be stored (DataStore's IOException on a full or damaged disk) is recorded through [errors]
+ * and shown as a generic error toast; the screen keeps showing the stored value.
  */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -35,6 +41,7 @@ class ProfileViewModel @Inject constructor(
     dictionary: DictionaryRepository,
     private val localeApplier: LocaleApplier,
     private val linkTargets: ProfileLinkTargets,
+    private val errors: ErrorReporter,
 ) : ViewModel() {
 
     private val appLanguage = MutableStateFlow(localeApplier.currentLanguage())
@@ -79,11 +86,14 @@ class ProfileViewModel @Inject constructor(
         // Close the sheet first: switching the locale recreates the activity, and this state outlives it.
         sheet.value = null
         viewModelScope.launch {
-            // Choosing the language in use again would only recreate the activity.
-            if (language == (appLanguage.value ?: prefs.snapshot().appLanguage)) return@launch
-            appLanguage.value = language
-            prefs.setAppLanguage(language)
-            localeApplier.setLanguage(language)
+            val shown = appLanguage.value
+            guarded(onFailure = { appLanguage.value = shown }) {
+                // Choosing the language in use again would only recreate the activity.
+                if (language == (shown ?: prefs.snapshot().appLanguage)) return@guarded
+                appLanguage.value = language
+                prefs.setAppLanguage(language)
+                localeApplier.setLanguage(language)
+            }
         }
     }
 
@@ -128,7 +138,23 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun persist(block: suspend UserPreferencesRepository.() -> Unit) {
-        viewModelScope.launch { prefs.block() }
+        viewModelScope.launch { guarded { prefs.block() } }
+    }
+
+    /**
+     * Runs [block]; a failure is recorded, [onFailure] undoes what the screen already shows, and a generic error
+     * toast says the change was not saved. Cancellation still propagates.
+     */
+    private suspend fun guarded(onFailure: () -> Unit = {}, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            errors.record(t)
+            onFailure()
+            effectChannel.send(ProfileEffect.Toast(UiText(R.string.entry_action_failed)))
+        }
     }
 
     private fun send(effect: ProfileEffect) {

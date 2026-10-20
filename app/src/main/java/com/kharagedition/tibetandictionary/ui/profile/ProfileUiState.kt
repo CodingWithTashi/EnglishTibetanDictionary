@@ -10,6 +10,7 @@ import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 
 /**
  * The Profile tab (2f/3d). [defaultDirection] is the stored default, or the first visible direction when the stored
@@ -99,4 +100,7 @@ sealed interface ProfileEffect {
     data class ShareApp(val listingUrl: String) : ProfileEffect
 
     data object NavigateAbout : ProfileEffect
+
+    /** A toast, worded by the screen in the UI language (a setting that could not be saved). */
+    data class Toast(val message: UiText) : ProfileEffect
 }

@@ -7,9 +7,12 @@ import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
+import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -28,9 +31,13 @@ class OnboardingViewModelTest {
     private val prefs = FakeUserPreferencesRepository()
     private val dictionary = FakeDictionaryRepository()
 
+    private val errors = RecordingErrorReporter()
+
     /** A view model whose state is collected for the whole test, as the screen does. */
-    private fun TestScope.viewModel(): OnboardingViewModel {
-        val vm = OnboardingViewModel(prefs, dictionary)
+    private fun TestScope.viewModel(
+        prefs: UserPreferencesRepository = this@OnboardingViewModelTest.prefs,
+    ): OnboardingViewModel {
+        val vm = OnboardingViewModel(prefs, dictionary, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -39,6 +46,29 @@ class OnboardingViewModelTest {
 
     /** Continue on the step shown now. */
     private fun OnboardingViewModel.next() = onEvent(OnboardingEvent.Next(state().step))
+
+    // Failures
+
+    @Test
+    fun `writes that fail are recorded and onboarding still finishes`() = runTest {
+        val failing = object : UserPreferencesRepository by prefs {
+            override suspend fun setDefaultDirectionId(id: String) = throw IOException("disk full")
+            override suspend fun setOnboarded(value: Boolean) = throw IOException("disk full")
+        }
+        val vm = viewModel(failing)
+
+        vm.effects.test {
+            vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
+            vm.next()
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
+            vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.LARGE))
+            vm.next()
+            assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
+        }
+        assertThat(errors.recorded.map { it.message }).containsExactly("disk full", "disk full")
+        // The writes that worked are kept.
+        assertThat(prefs.prefs.value.textSize).isEqualTo(AppTextSize.LARGE)
+    }
 
     // Steps
 

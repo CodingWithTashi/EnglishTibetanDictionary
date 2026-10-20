@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
@@ -11,6 +12,7 @@ import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,12 +28,15 @@ import kotlinx.coroutines.launch
  * First-run setup: the default direction, then text size and line spacing (then sign-in, with accounts). Choices
  * start from the stored [prefs] and the visible directions; each step's values are stored when the user leaves it
  * with Continue, and Skip stores what the remaining steps show. The last step also stores onboarding as done and
- * sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load.
+ * sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A write that fails
+ * (DataStore's IOException) is recorded through [errors] and onboarding carries on: the choices still apply for this
+ * session, and the user is not stuck on the first-run screens.
  */
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
+    private val errors: ErrorReporter,
 ) : ViewModel() {
 
     /** Where the user is and what they changed; null choices still show the stored value. */
@@ -79,7 +84,7 @@ class OnboardingViewModel @Inject constructor(
         if (state.isLastStep) {
             finish(state)
         } else {
-            viewModelScope.launch { prefs.store(state.step, state) }
+            viewModelScope.launch { recorded { prefs.store(state.step, state) } }
             draft.update { it.copy(step = state.step + 1) }
         }
     }
@@ -88,9 +93,20 @@ class OnboardingViewModel @Inject constructor(
     private fun finish(state: OnboardingUiState) {
         finished = true
         viewModelScope.launch {
-            for (step in state.step..state.stepCount) prefs.store(step, state)
-            prefs.setOnboarded(true)
+            for (step in state.step..state.stepCount) recorded { prefs.store(step, state) }
+            recorded { prefs.setOnboarded(true) }
             effectChannel.send(OnboardingEffect.Finished)
+        }
+    }
+
+    /** Runs [block]; a failure is recorded and swallowed, so onboarding continues. Cancellation still propagates. */
+    private suspend fun recorded(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            errors.record(t)
         }
     }
 

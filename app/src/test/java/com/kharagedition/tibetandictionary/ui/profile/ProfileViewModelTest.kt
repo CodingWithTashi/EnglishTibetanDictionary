@@ -5,6 +5,11 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import com.kharagedition.tibetandictionary.ui.model.UiText
+import java.io.IOException
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
@@ -50,9 +55,11 @@ class ProfileViewModelTest {
         override fun currentLanguage(): AppLanguage? = current
     }
 
+    private val errors = RecordingErrorReporter()
+
     /** A view model whose state is collected for the whole test, as the screen does. */
-    private fun TestScope.viewModel(): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary, locale, linkTargets)
+    private fun TestScope.viewModel(prefs: UserPreferencesRepository = this@ProfileViewModelTest.prefs): ProfileViewModel {
+        val vm = ProfileViewModel(prefs, dictionary, locale, linkTargets, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -173,6 +180,42 @@ class ProfileViewModelTest {
         assertThat(prefs.prefs.value.appLanguage).isEqualTo(AppLanguage.BO)
         assertThat(vm.state().language).isEqualTo(AppLanguage.BO)
         assertThat(vm.state().sheet).isNull()
+    }
+
+    @Test
+    fun `a setting that cannot be stored is recorded and shown as an error toast`() = runTest {
+        val failing = object : UserPreferencesRepository by prefs {
+            override suspend fun setAppearance(appearance: Appearance) = throw IOException("disk full")
+            override suspend fun setTextSize(size: AppTextSize) = throw IOException("disk full")
+        }
+        val vm = viewModel(failing)
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.SetAppearance(Appearance.DARK))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.entry_action_failed)))
+            vm.onEvent(ProfileEvent.SetTextSize(AppTextSize.LARGE))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.entry_action_failed)))
+        }
+        assertThat(errors.recorded.map { it.message }).containsExactly("disk full", "disk full")
+        // The screen keeps showing what is stored.
+        assertThat(vm.state().appearance).isEqualTo(Appearance.SYSTEM)
+        assertThat(vm.state().textSize).isEqualTo(AppTextSize.DEFAULT)
+    }
+
+    @Test
+    fun `a language that cannot be stored is not switched to, and the toast says so`() = runTest {
+        val failing = object : UserPreferencesRepository by prefs {
+            override suspend fun setAppLanguage(language: AppLanguage) = throw IOException("disk full")
+        }
+        val vm = viewModel(failing)
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.SetLanguage(AppLanguage.BO))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.entry_action_failed)))
+        }
+        assertThat(errors.recorded).hasSize(1)
+        assertThat(locale.switched).isEmpty()
+        assertThat(vm.state().language).isEqualTo(AppLanguage.EN)
     }
 
     @Test

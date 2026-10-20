@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +58,7 @@ import com.kharagedition.tibetandictionary.ui.components.DirectionLabel
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScale
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScalePreview
 import com.kharagedition.tibetandictionary.ui.components.LatinText
+import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
 import com.kharagedition.tibetandictionary.ui.components.ScreenTitle
@@ -76,6 +78,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 /** Screen padding above the title and below the version line; gap between the screen's blocks. */
 private val ScreenTop = 16.dp
@@ -125,11 +128,14 @@ fun ProfileScreen(onOpenAbout: () -> Unit) {
     }
 }
 
-/** Performs [effects]: About, external links and the share sheet (worded in the UI language). */
+/** Performs [effects]: About, external links, the share sheet and toasts (worded in the UI language). */
 @Composable
 private fun ProfileEffects(effects: Flow<ProfileEffect>, onOpenAbout: () -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
+    val toaster = LocalToaster.current
+    // Toasts suspend until closed; they outlive the collector's turn but not the screen.
+    val toastScope = rememberCoroutineScope()
     val openAbout by rememberUpdatedState(onOpenAbout)
     LaunchedEffect(effects) {
         effects.collect { effect ->
@@ -138,6 +144,7 @@ private fun ProfileEffects(effects: Flow<ProfileEffect>, onOpenAbout: () -> Unit
                 is ProfileEffect.OpenUrl -> context.startActivitySafely(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
                 is ProfileEffect.ShareApp ->
                     context.shareText(resources.getString(R.string.share_app_text, effect.listingUrl))
+                is ProfileEffect.Toast -> toastScope.launch { toaster.show(effect.message.resolve(resources)) }
             }
         }
     }
