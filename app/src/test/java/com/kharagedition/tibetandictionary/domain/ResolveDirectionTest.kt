@@ -68,9 +68,9 @@ class ResolveDirectionTest {
     fun pinnedStillOffersTheOtherCandidateAsAlternate() {
         assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("bo-en" to 38), pinned = true))
             .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
-        // Pinned bo-bo is itself the Wylie candidate, so bo-en is not considered.
+        // bo-en, the first Wylie direction, competes alongside the pinned bo-bo.
         assertThat(resolve(InputScript.LATIN, selected = "bo-bo", hits = mapOf("bo-en" to 2), pinned = true))
-            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "en-bo"))
+            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "bo-en"))
     }
 
     @Test
@@ -188,10 +188,21 @@ class ResolveDirectionTest {
     }
 
     @Test
-    fun hitsOutsideTheCandidatesAreIgnored() {
-        // With bo-bo selected, bo-en is not a candidate.
+    fun aSelectedWylieDirectionWithoutHitsMovesToTheFirstWylieDirectionWithHits() {
+        assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", hits = mapOf("bo-en" to 12)))
+            .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = null))
+        // Hits in both other candidates: the Wylie one wins for Wylie, the headword one stays the alternate.
         assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", hits = mapOf("bo-en" to 12, "en-bo" to 2)))
-            .isEqualTo(Resolution("en-bo", autoSelected = true, alternateId = null))
+            .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = "en-bo"))
+    }
+
+    @Test
+    fun hitsOutsideTheCandidatesAreIgnored() {
+        // With en-bo selected, bo-bo is neither selected nor the first Wylie direction, so it is not a candidate.
+        assertThat(resolve(InputScript.WYLIE, selected = "en-bo", hits = mapOf("bo-bo" to 12)))
+            .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
+        assertThat(resolve(InputScript.LATIN, selected = "en-bo", hits = mapOf("zh-bo" to 9), directions = withHan))
+            .isEqualTo(Resolution("en-bo", autoSelected = false, alternateId = "bo-en"))
     }
 
     @Test
@@ -243,8 +254,9 @@ class ResolveDirectionTest {
             .isEqualTo(Resolution("bo-en", autoSelected = true, alternateId = null))
         assertThat(resolve(InputScript.LATIN, selected = "bo-en", hits = mapOf("bo-en" to 4), directions = dirs))
             .isEqualTo(Resolution("bo-en", autoSelected = false, alternateId = null))
+        // bo-bo is selected and bo-en is the first Wylie direction: both are Wylie candidates.
         assertThat(resolve(InputScript.WYLIE, selected = "bo-bo", directions = dirs))
-            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = null))
+            .isEqualTo(Resolution("bo-bo", autoSelected = false, alternateId = "bo-en"))
     }
 
     @Test
@@ -260,14 +272,27 @@ class ResolveDirectionTest {
     // candidates()
 
     @Test
-    fun candidatesPairEachDirectionWithTheFieldItsHitsAreCountedOn() {
-        assertThat(ResolveDirection.candidates(InputScript.LATIN, "bo-en", directions))
+    fun candidatesAreTheSelectedDirectionThenTheFirstOfEachField() {
+        // The selected direction first when it is eligible, then the first headword and Wylie directions.
+        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "bo-bo", directions))
+            .containsExactly(
+                Candidate(boBo, MatchField.WYLIE),
+                Candidate(enBo, MatchField.HEADWORD),
+                Candidate(boEn, MatchField.WYLIE),
+            )
+            .inOrder()
+        // Not eligible: only the first of each field.
+        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "zh-bo", withHan))
             .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boEn, MatchField.WYLIE))
             .inOrder()
-        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "bo-bo", directions))
-            .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boBo, MatchField.WYLIE))
+    }
+
+    @Test
+    fun aSelectedDirectionThatIsAlsoFirstOfItsFieldIsListedOnce() {
+        assertThat(ResolveDirection.candidates(InputScript.LATIN, "bo-en", directions))
+            .containsExactly(Candidate(boEn, MatchField.WYLIE), Candidate(enBo, MatchField.HEADWORD))
             .inOrder()
-        assertThat(ResolveDirection.candidates(InputScript.WYLIE, "zh-bo", withHan))
+        assertThat(ResolveDirection.candidates(InputScript.LATIN, "en-bo", directions))
             .containsExactly(Candidate(enBo, MatchField.HEADWORD), Candidate(boEn, MatchField.WYLIE))
             .inOrder()
     }
