@@ -1,0 +1,4 @@
+# fastlane run output (see Fastfile).
+report.xml
+Preview.html
+test_output

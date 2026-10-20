@@ -181,4 +181,8 @@
     <string name="unsave">Remove from Saved</string>
     <!-- A folder chip on the Saved tab, e.g. "All 42" or "Lamrim 7". %1$s: the folder name, or "All"; %2$s: its number of saved words, already in the app language's digits -->
     <string name="saved_folder_chip">%1$s %2$s</string>
+
+    <!-- Installing (T5.2) -->
+    <!-- Replaces install_failed_body when preparing the dictionary was cancelled rather than failing -->
+    <string name="install_interrupted">Preparation was interrupted.</string>
 </resources>
