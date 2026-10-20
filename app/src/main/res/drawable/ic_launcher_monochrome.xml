@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: only the alpha is used -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 160-unit tile mapped by scale 0.45, offset 18 -->
+    <group
+        android:scaleX="0.45"
+        android:scaleY="0.45"
+        android:translateX="18"
+        android:translateY="18">
+        <!-- Pages silhouette, gutter as a 6-unit gap -->
+        <path
+            android:pathData="M30 44Q54.38 36.5 77 48.34L77 120.34Q54.38 108.5 30 116ZM130 44Q105.62 36.5 83 48.34L83 120.34Q105.62 108.5 130 116Z"
+            android:fillColor="#FFFBF8F3" />
+    </group>
+</vector>
