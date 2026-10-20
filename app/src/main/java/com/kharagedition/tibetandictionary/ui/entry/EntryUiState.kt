@@ -1,12 +1,12 @@
 package com.kharagedition.tibetandictionary.ui.entry
 
-import android.content.res.Resources
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 
 /**
  * The entry screen (1h/1l). [loading] until the entry is read; then either [entry] or [missing] (the id is not in
@@ -123,11 +123,4 @@ sealed interface EntryEffect {
 
     /** Opens the e-mail app addressed to [address]. */
     data class OpenEmail(val address: String, val subject: String, val body: String) : EntryEffect
-}
-
-/** A string resource and its format [args], resolved by the UI in the app language. */
-@Immutable
-data class UiText(@param:StringRes val id: Int, val args: List<String> = emptyList()) {
-    fun resolve(resources: Resources): String =
-        if (args.isEmpty()) resources.getString(id) else resources.getString(id, *args.toTypedArray())
 }

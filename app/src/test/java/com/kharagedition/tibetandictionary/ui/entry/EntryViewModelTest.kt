@@ -29,6 +29,7 @@ import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.model.ExampleUi
 import com.kharagedition.tibetandictionary.ui.model.RelatedUi
 import com.kharagedition.tibetandictionary.ui.model.SenseUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import java.io.IOException
 import java.util.Optional
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -15,6 +15,7 @@ import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject

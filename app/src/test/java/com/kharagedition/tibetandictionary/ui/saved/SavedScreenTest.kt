@@ -37,8 +37,8 @@ import com.kharagedition.tibetandictionary.ui.components.AppToastHost
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.Toaster
 import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
-import com.kharagedition.tibetandictionary.ui.entry.UiText
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import kotlinx.coroutines.channels.Channel

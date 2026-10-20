@@ -12,8 +12,8 @@ import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.domain.SavedGrouping
 import com.kharagedition.tibetandictionary.ui.entry.FolderPickerUi
-import com.kharagedition.tibetandictionary.ui.entry.UiText
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

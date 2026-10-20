@@ -1,4 +1,4 @@
-package com.kharagedition.tibetandictionary.ui.home
+package com.kharagedition.tibetandictionary.ui.model
 
 import android.content.res.Resources
 import androidx.annotation.StringRes

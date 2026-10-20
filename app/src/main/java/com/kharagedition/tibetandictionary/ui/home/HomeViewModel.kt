@@ -23,6 +23,7 @@ import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepositor
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.Greeting
 import com.kharagedition.tibetandictionary.domain.StreakCalculator
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate

@@ -6,6 +6,7 @@ import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.LearnStatsUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 
 /** A recent search on Home's chip row: tapping it searches [query] again. [directionId] is where it was searched. */
