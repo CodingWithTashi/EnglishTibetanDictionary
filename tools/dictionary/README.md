@@ -48,14 +48,28 @@ Tests that need `pyewts` skip without it.
   --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
   --out ../../app/src/main/assets/dictionary/dictionary.db \
   --data-version 2026.10.1 [--wotd-seed 20261019] [--require-wylie] [--report out.json] [--limit N] \
-  [--stats-xml ../../app/src/main/res/values/dictionary_stats.xml]
+  [--stats-xml ../../app/src/main/res/values/dictionary_stats.xml] [--built-at 2026-10-19T00:00:00Z]
 ```
 
-`--stats-xml PATH` also writes the app's Android resource file with one value,
-`<integer name="dictionary_entry_count">N</integer>`, where N is the total number of entries across all
-directions of the database just written. The installing screen shows it while the asset is copied. The
-file is written only when `--out` is (never on exit 2), so the two always agree;
-`DictionaryAssetVersionTest` checks this.
+`--stats-xml PATH` also writes the app's Android resource file with two values for the database just
+written:
+
+- `<integer name="dictionary_entry_count">N</integer>`: the total number of entries across all directions.
+  The installing screen shows it while the asset is copied.
+- `<integer name="dictionary_asset_bytes">N</integer>`: the database file's size in bytes. The asset ships
+  compressed in the APK (no `noCompress`), so the installer cannot ask the APK for its length; it takes it
+  from here for copy progress and to check that the copy is complete.
+
+The two files are written as a pair: the database is staged in a temporary file, the stats file is written
+with that file's final size, and only then is the database renamed over `--out`. If the stats file cannot be
+written, `--out` is left as it was; if the rename fails, the previous stats file is put back. Neither is
+written on exit 2. `DictionaryAssetVersionTest` checks that they agree.
+
+`--built-at TIME` sets `meta.built_at` (ISO 8601, e.g. `2026-10-19T00:00:00Z`; a time without an offset is
+UTC; stored in UTC to the second). Without it the build uses `SOURCE_DATE_EPOCH` (seconds since 1970, the
+[reproducible-builds](https://reproducible-builds.org/specs/source-date-epoch/) convention) when that is set,
+else the current time. `built_at` is the only value that changes between builds of the same inputs, so with a
+fixed time a rebuild of unchanged data is byte-identical (and git sees no change to the asset).
 
 ### Shipping a data release
 
@@ -65,7 +79,8 @@ The asset and the stats file are committed (`app/src/main/assets/dictionary/dict
 1. Bump `DictionaryDatabase.VERSION` and export the schema (`./gradlew :app:compileDebugKotlin` writes
    `app/schemas/…DictionaryDatabase/<VERSION>.json`). The build stamps the highest schema version into
    `PRAGMA user_version`, and the installer recopies the asset when that differs from the device's file.
-2. From `tools/dictionary`, build both files (exit 0 required):
+2. From `tools/dictionary`, build both files (exit 0 required). Pass the release date as `--built-at`, so
+   building the same release again gives the same bytes:
 
    ```sh
    .venv/bin/python -I build_db.py --require-wylie \
@@ -73,11 +88,13 @@ The asset and the stats file are committed (`app/src/main/assets/dictionary/dict
      --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
      --out ../../app/src/main/assets/dictionary/dictionary.db \
      --stats-xml ../../app/src/main/res/values/dictionary_stats.xml \
-     --data-version 2026.10.1 --wotd-seed 20261019 --report /tmp/dictionary-report.json
+     --data-version 2026.10.1 --wotd-seed 20261019 --built-at 2026-10-19T00:00:00Z \
+     --report /tmp/dictionary-report.json
    ```
 
-3. Run `./gradlew :app:testDebugUnitTest`: `DictionaryAssetVersionTest` (header version, schema version and
-   stats count) and `DictionaryAssetOpenTest` (Room opens the real asset) guard the release.
+3. Run `./gradlew :app:testDebugUnitTest`: `DictionaryAssetVersionTest` (header version, schema version, stats
+   count and asset size) and `DictionaryAssetOpenTest` (Room opens the real asset, and the full-text queries are
+   driven from the full-text index) guard the release.
 
 The steps, in order:
 
@@ -90,9 +107,10 @@ The steps, in order:
    resolved to them become unresolved, and the report warns `build:empty_entry_dropped`.
 7. Assign word-of-the-day ranks.
 8. Compute the direction counts and `meta`.
-9. Write the database.
+9. Write the database to a temporary file.
 10. Write `--stats-xml`, when given.
-11. Write the report.
+11. Rename the database into place.
+12. Write the report.
 
 The database is built in memory, compacted with `VACUUM INTO` a temporary file next to `--out`
 (with `journal_mode=DELETE`), and renamed into place. A failed build leaves no file behind.
@@ -102,14 +120,14 @@ The database is built in memory, compacted with `VACUUM INTO` a temporary file n
 | Code | Meaning |
 |---|---|
 | 0 | Success. |
-| 1 | The schema or source cannot be read, or the database cannot be written. The message names the path. |
+| 1 | The schema or source cannot be read, `--built-at` or `SOURCE_DATE_EPOCH` is not a time, or the database or `--stats-xml` cannot be written. The message names the path. `--out` and `--stats-xml` are left as they were. |
 | 2 | A full build's counts leave the expected ranges in `dictbuild/stats.py`. Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
 
 `--limit N` parses only the first N rows of each table, for quick checks. It skips the range
 checks, so it never exits 2.
 
 **Report** (`--report out.json`)
-- `inputs`: the command-line inputs, and `limit`.
+- `inputs`: the command-line inputs (with the resolved `built_at`), and `limit`.
 - `table_counts`: rows per table.
 - `directions`: each direction's `directions` row (the capability counts).
 - `related`: total and resolved links per relation, and the self-links dropped.
@@ -152,10 +170,10 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | `dictbuild/grouping.py` | Merge homonym rows into entries with continuous sense numbers |
 | `dictbuild/related.py` | Index headwords and resolve see-also and synonym links |
 | `dictbuild/wotd.py` | Word-of-the-day eligibility and seeded ranks |
-| `dictbuild/writer.py` | Assemble rows, build `meta`, write the database |
+| `dictbuild/writer.py` | Assemble rows, build `meta`, write the database (`staged_database`: built beside `--out`, renamed after the caller's block) |
 | `dictbuild/stats.py` | Direction capability counts and the expected ranges |
 | `dictbuild/report.py` | The JSON build report |
-| `dictbuild/resources.py` | The `--stats-xml` Android resource (`dictionary_entry_count`) |
+| `dictbuild/resources.py` | The `--stats-xml` Android resource (`dictionary_entry_count`, `dictionary_asset_bytes`) |
 | `build_db.py` | Command line |
 
 ## Shared grammar

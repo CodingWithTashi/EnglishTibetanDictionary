@@ -3,20 +3,24 @@
     .venv/bin/python -I build_db.py --source MLDic.ml \\
         --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \\
         --out ../../app/src/main/assets/dictionary/dictionary.db --data-version 2026.10.1 \\
-        --stats-xml ../../app/src/main/res/values/dictionary_stats.xml
+        --stats-xml ../../app/src/main/res/values/dictionary_stats.xml --built-at 2026-10-19T00:00:00Z
 
 Steps: load the highest `<v>.json` schema → read the three source tables → parse each row → group
 rows into entries → resolve related links across directions → assign word-of-the-day ranks →
-compute direction counts and meta → write the database (temp file, atomic rename) → write the
-`--stats-xml` resource with the total entry count → report.
-Exit status: 0 on success, 1 when an input cannot be read or the database cannot be written,
-2 when a full build's counts leave the expected ranges: `--out` and `--stats-xml` are then left as they
-were, and the database is written to a temporary directory for inspection (the report is still written).
+compute direction counts and meta → write the database to a temporary file → write the
+`--stats-xml` resource (total entry count, asset size) → rename the database into place → report.
+`meta.built_at` is `--built-at`, else `SOURCE_DATE_EPOCH`, else now: with a fixed time a rebuild of
+unchanged data is byte-identical.
+Exit status: 0 on success, 1 when an input cannot be read, `--built-at`/`SOURCE_DATE_EPOCH` is not a
+time, or the database or `--stats-xml` cannot be written (both are then left as they were), 2 when a
+full build's counts leave the expected ranges: `--out` and `--stats-xml` are then left as they were,
+and the database is written to a temporary directory for inspection (the report is still written).
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 import tempfile
@@ -37,12 +41,12 @@ from dictbuild.parsers.tben import parse_tben_row  # noqa: E402
 from dictbuild.parsers.tbtb import parse_tbtb_row  # noqa: E402
 from dictbuild.related import HeadwordIndex, RelatedStats, resolve_related  # noqa: E402
 from dictbuild.report import BuildReport  # noqa: E402
-from dictbuild.resources import write_stats_xml  # noqa: E402
+from dictbuild.resources import write_stats_xml, write_text_atomically  # noqa: E402
 from dictbuild.schema import Schema, latest_schema_path, load_schema  # noqa: E402
 from dictbuild.source import DIRECTION_BY_TABLE, SourceRow, open_source, read_rows  # noqa: E402
 from dictbuild.stats import RangeCheck, check_ranges, direction_rows, table_counts  # noqa: E402
 from dictbuild.wotd import DEFAULT_WOTD_SEED, WOTD_DIRECTION_ID, assign_ranks  # noqa: E402
-from dictbuild.writer import assemble_rows, meta_rows, write_database  # noqa: E402
+from dictbuild.writer import assemble_rows, meta_rows, staged_database  # noqa: E402
 from dictbuild.wylie import WylieConverter, WylieUnavailableError, load_converter  # noqa: E402
 
 SOURCE_NAME = "Monlam Dictionary (MLDic.ml)"
@@ -57,6 +61,10 @@ ATTRIBUTION_TEXT = (
 
 EXIT_INPUT_ERROR = 1
 EXIT_OUT_OF_RANGE = 2
+
+# Reproducible-builds convention: a fixed build time in seconds since the epoch.
+SOURCE_DATE_EPOCH = "SOURCE_DATE_EPOCH"
+BUILT_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -75,9 +83,37 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--stats-xml",
         type=Path,
-        help="also write the app's res/values/dictionary_stats.xml (total entry count) for the database written",
+        help="also write the app's res/values/dictionary_stats.xml (total entry count, asset size) for the database",
+    )
+    parser.add_argument(
+        "--built-at",
+        help=f"meta.built_at as an ISO 8601 time, e.g. 2026-10-19T00:00:00Z (default: {SOURCE_DATE_EPOCH} if set, "
+        "else now); fixing it makes a rebuild of unchanged data byte-identical",
     )
     return parser.parse_args(argv)
+
+
+def resolve_built_at(value: str | None, environ: Mapping[str, str]) -> str:
+    """`meta.built_at` in UTC to the second: `value` (ISO 8601; no offset means UTC), else the
+    `SOURCE_DATE_EPOCH` seconds in `environ`, else the current time.
+
+    Raises ValueError when the time given cannot be parsed.
+    """
+    if value is not None:
+        try:
+            moment = datetime.fromisoformat(value)
+        except ValueError:
+            raise ValueError(f"--built-at {value!r} is not an ISO 8601 time such as 2026-10-19T00:00:00Z") from None
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+    elif (epoch := environ.get(SOURCE_DATE_EPOCH)) is not None:
+        try:
+            moment = datetime.fromtimestamp(int(epoch), timezone.utc)
+        except (ValueError, OverflowError, OSError):
+            raise ValueError(f"{SOURCE_DATE_EPOCH}={epoch!r} is not a number of seconds since 1970") from None
+    else:
+        moment = datetime.now(timezone.utc)
+    return moment.astimezone(timezone.utc).strftime(BUILT_AT_FORMAT)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -91,6 +127,10 @@ def main(argv: list[str] | None = None) -> int:
     except WylieUnavailableError as error:
         return _fail(str(error))
     try:
+        built_at = resolve_built_at(args.built_at, os.environ)
+    except ValueError as error:
+        return _fail(str(error))
+    try:
         rows_by_table = read_source(args.source, args.limit)
     except sqlite3.Error as error:
         return _fail(f"cannot read the source database {args.source}: {error}")
@@ -100,12 +140,13 @@ def main(argv: list[str] | None = None) -> int:
             "source": str(args.source),
             "schema_version": schema.version,
             "data_version": args.data_version,
+            "built_at": built_at,
             "wylie_converter": converter.name,
             "wotd_seed": args.wotd_seed,
             "limit": args.limit,
         }
     )
-    tables, checks = build(rows_by_table, schema, converter, args.wotd_seed, args.data_version, report)
+    tables, checks = build(rows_by_table, schema, converter, args.wotd_seed, args.data_version, built_at, report)
     if args.limit is not None:
         checks = []  # a partial build cannot meet the full-build counts
     else:
@@ -113,28 +154,73 @@ def main(argv: list[str] | None = None) -> int:
     failed = [check for check in checks if not check.ok]
     # An out-of-range build never replaces --out (which may be the shipped asset).
     out = Path(tempfile.mkdtemp(prefix="dictionary-out-of-range-")) / args.out.name if failed else args.out
-    try:
-        write_database(out, schema, tables)
-    except (OSError, sqlite3.Error) as error:
-        return _fail(f"cannot write {out}: {error}")
     total_entries = sum(direction.entry_count for direction in tables["directions"])
-    if args.stats_xml is not None and not failed:
-        try:
-            write_stats_xml(args.stats_xml, total_entries)
-        except OSError as error:
-            return _fail(f"cannot write {args.stats_xml}: {error}")
+    stats_xml = args.stats_xml if not failed else None
+    stats = _StatsXml(stats_xml)
+    try:
+        # The stats file is written while the database is staged, before the rename, so the pair agrees:
+        # a failed stats write leaves `out` as it was, and a failed rename puts the old stats file back.
+        with staged_database(out, schema, tables) as staged:
+            asset_bytes = staged.stat().st_size
+            stats.write(total_entries, asset_bytes)
+    except _StatsXmlError as error:
+        return _fail(str(error))
+    except (OSError, sqlite3.Error) as error:
+        stats.restore()
+        return _fail(f"cannot write {out}: {error}")
     if args.report is not None:
         report.write(args.report)
 
     entries = ", ".join(f"{direction.id} {direction.entry_count}" for direction in tables["directions"])
-    print(f"build_db: wrote {out} (entries: {entries}; schema v{schema.version}; {converter.name})")
+    print(
+        f"build_db: wrote {out} ({asset_bytes} bytes; entries: {entries}; schema v{schema.version}; "
+        f"{converter.name}; built_at {built_at})"
+    )
     for check in failed:
         print(f"build_db: {check.name} = {check.value} is outside {check.minimum}–{check.maximum}", file=sys.stderr)
-    if args.stats_xml is not None and not failed:
-        print(f"build_db: wrote {args.stats_xml} (dictionary_entry_count {total_entries})")
+    if stats_xml is not None:
+        print(
+            f"build_db: wrote {stats_xml} (dictionary_entry_count {total_entries}, "
+            f"dictionary_asset_bytes {asset_bytes})"
+        )
     if failed:
         print(f"build_db: {args.out} was not replaced", file=sys.stderr)
     return EXIT_OUT_OF_RANGE if failed else 0
+
+
+class _StatsXmlError(Exception):
+    """The `--stats-xml` file could not be written; the database was not renamed into place."""
+
+
+class _StatsXml:
+    """Writes the `--stats-xml` file (when `path` is given) and can put its previous content back."""
+
+    def __init__(self, path: Path | None) -> None:
+        self.path = path
+        self._previous: str | None = None
+        self._written = False
+
+    def write(self, total_entries: int, asset_bytes: int) -> None:
+        if self.path is None:
+            return
+        try:
+            self._previous = self.path.read_text(encoding="utf-8") if self.path.is_file() else None
+            write_stats_xml(self.path, total_entries, asset_bytes)
+        except (OSError, ValueError) as error:
+            raise _StatsXmlError(f"cannot write {self.path}: {error}") from error
+        self._written = True
+
+    def restore(self) -> None:
+        """Undo `write` after the database could not be renamed into place (best effort)."""
+        if self.path is None or not self._written:
+            return
+        try:
+            if self._previous is None:
+                self.path.unlink(missing_ok=True)
+            else:
+                write_text_atomically(self.path, self._previous)
+        except OSError as error:
+            print(f"build_db: cannot restore {self.path}: {error}", file=sys.stderr)
 
 
 def read_source(path: Path, limit: int | None) -> dict[str, list[SourceRow]]:
@@ -149,6 +235,7 @@ def build(
     converter: WylieConverter,
     wotd_seed: int,
     data_version: str,
+    built_at: str,
     report: BuildReport,
 ) -> tuple[dict[str, list[Any]], list[RangeCheck]]:
     """Parse, group, link and rank the source rows; return every table's rows and the range checks."""
@@ -177,7 +264,7 @@ def build(
         {
             "schema_version": schema.version,
             "data_version": data_version,
-            "built_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "built_at": built_at,
             "source_name": SOURCE_NAME,
             "source_author": SOURCE_AUTHOR,
             "source_url": SOURCE_URL,
