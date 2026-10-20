@@ -1,0 +1,7 @@
+# gen.py: shaping and glyph outlines
+fonttools==4.67.0
+uharfbuzz==0.56.3
+# render.py: rasterising the legacy PNGs and previews
+skia-python==144.1
+pillow==13.0.0
+numpy==2.5.4
