@@ -1,3 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Tibetan UI strings. Wherever the English UI shows an English label with a Tibetan gloss, the Tibetan UI swaps
+    the roles: the label key holds the Tibetan and the *_gloss key the English (mockup 3d). Bilingual one-liners
+    (greetings, the search placeholder) put the Tibetan half first. Counts arrive already in Tibetan digits.
+-->
 <resources>
+    <!-- Kept in Latin: the splash shows app_name_tibetan with this name under it. -->
+    <string name="app_name">Tibetan Dictionary</string>
+
+    <!-- Bottom navigation: Tibetan label with an English gloss. -->
+    <string name="tab_search">འཚོལ།</string>
+    <string name="tab_saved">ཉར་ཚགས།</string>
+    <string name="tab_learn">སྦྱོང་།</string>
+    <string name="tab_profile">སྒེར།</string>
+    <string name="tab_search_gloss">Search</string>
+    <string name="tab_saved_gloss">Saved</string>
+    <string name="tab_learn_gloss">Learn</string>
+    <string name="tab_profile_gloss">Profile</string>
+
+    <!-- Home -->
+    <string name="greeting_morning">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
+    <string name="greeting_afternoon">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
+    <string name="greeting_evening">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
+    <plurals name="streak_days">
+        <item quantity="other">ཉིན་ %1$s མཐུད་མར།</item>
+    </plurals>
+    <string name="wotd_overline">དེ་རིང་གི་ཚིག</string>
+    <string name="wotd_open">ཁ་ཕྱེ།</string>
+    <string name="recent">ཉེ་ཆར་འཚོལ་བ།</string>
+    <string name="clear">གཙང་སེལ།</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">ཚིག་འཚོལ། · Search a word</string>
+    <string name="search_placeholder_saved">ཉར་བའི་ཚིག་འཚོལ།</string>
+    <plurals name="results_count">
+        <item quantity="other">འཚོལ་འབྲས། %1$s</item>
+    </plurals>
+    <string name="no_match_title">“%1$s” དང་མཐུན་པའི་ཚིག་མ་རྙེད།</string>
+    <string name="no_match_hint_wylie">Wylie ནང་ཚེག་བར་རེ་རེའི་བར་དུ་བར་སྟོང་འཇོག་དགོས། འཚོལ་འདོད་པ་འདི་ཡིན་ནམ།</string>
+    <string name="no_match_hint_english">དག་ཆ་བརྟག་ཞིབ་བྱོས། ཡང་ན་ཚིག་ཐུང་བ་ཞིག་ལ་ཚོད་ལྟ་བྱོས། འཚོལ་འདོད་པ་འདི་ཡིན་ནམ།</string>
+    <string name="no_match_hint_tibetan">དག་ཆ་མི་འདྲ་བ་ཞིག་ཡིན་སྲིད། ཆེས་ཉེ་བའི་ཚིག</string>
+    <string name="try_direction_instead">%1$s ནང་འཚོལ།</string>
+    <string name="wylie_tip">གསལ་འདེབས། Wylie ནང་ཚེག་བར་རེ་རེའི་བར་དུ་བར་སྟོང་འཇོག་དགོས། དཔེར་ན། bkra shis བྲིས་ན་བཀྲ་ཤིས་རྙེད་ཐུབ།</string>
+
+    <!-- Entry -->
+    <string name="see_also">འབྲེལ་ཡོད་ཚིག</string>
+    <string name="example_abbr">དཔེར་ན།</string>
+    <string name="report_correction_prefix">ནོར་འཁྲུལ་ཡོད་དམ།</string>
+    <string name="report_correction">ནོར་བཅོས་ཞུ།</string>
+    <string name="entry_truncated">ཚིག་འདིའི་འགྲེལ་བཤད་མཉེན་ཆས་ནང་འཚུད་ཆེད་མདོར་བསྡུས་བྱས་ཡོད། ཆ་ཚང་ཁུངས་ཀྱི་ཚིག་མཛོད་ནང་ཡོད།</string>
+    <string name="entry_missing">ཚིག་འདི་ད་ལྟ་ཚིག་མཛོད་ནང་མི་འདུག</string>
+
+    <!-- Saved -->
+    <string name="saved_title">ཉར་ཚགས།</string>
+    <string name="saved_gloss">Saved</string>
+    <plurals name="saved_count">
+        <item quantity="other">ཚིག %1$s</item>
+    </plurals>
+    <string name="saved_to_folder">%2$s ནང་ཉར་ཟིན། %1$s</string>
+    <string name="saved_simple">ཉར་ཟིན། %1$s</string>
+    <string name="change">བསྒྱུར།</string>
+    <string name="undo">ཕྱིར་ལོག</string>
+    <string name="removed">ཉར་ཚགས་ནས་བསལ།</string>
+    <string name="all_folder">ཚང་མ།</string>
+    <string name="new_folder">ཡིག་སྣོད་གསར་པ།</string>
+    <string name="folder_picker_title">ཡིག་སྣོད་ནང་ཉར།</string>
+    <string name="new_folder_hint">ཡིག་སྣོད་ཀྱི་མིང་།</string>
+    <string name="saved_empty_title">ད་དུང་ཉར་ཚགས་གང་ཡང་མེད།</string>
+    <string name="saved_empty_body">ཚིག་གང་རུང་གི་སྙིང་རྟགས་ལ་མནན་ན་འདིར་ཉར་ཐུབ།</string>
+    <string name="saved_empty_body_learn">ཉར་བའི་ཚིག་རྣམས་སྦྱོང་ནང་གི་སྦྱོང་བྱང་དུ་འགྱུར།</string>
+    <string name="save_todays_word">དེ་རིང་གི་ཚིག་ཉར། %1$s</string>
+    <string name="no_matches">འཚོལ་འབྲས་མི་འདུག</string>
+
+    <!-- Profile: the labels the design gives for the bo UI (mockup 3d) -->
+    <string name="profile_title">སྒེར་གྱི་སྒྲིག་འགོད།</string>
+    <string name="profile_gloss">Profile</string>
+    <string name="reading">ཀློག་སྟངས།</string>
+    <string name="text_size_spacing">ཡིག་གཟུགས་ཆེ་ཆུང་།</string>
+    <string name="theme">མདོག་རྣམ།</string>
+    <string name="theme_light">དཀར།</string>
+    <string name="theme_dark">ནག</string>
+    <string name="theme_system">རང་འགུལ།</string>
+    <string name="default_direction">སྔོན་སྒྲིག་ཁ་ཕྱོགས།</string>
+    <string name="app_language">མཉེན་ཆས་སྐད་ཡིག</string>
+    <string name="wotd_notification">དེ་རིང་གི་ཚིག་བརྡ་ཐོ།</string>
+    <string name="about">སྐོར།</string>
+    <string name="rate">གདེང་འཇོག</string>
+    <string name="share_app">མཉམ་སྤྱོད།</string>
+    <string name="more_apps">མཉེན་ཆས་གཞན།</string>
+    <string name="support">རྒྱབ་སྐྱོར།</string>
+    <string name="privacy">སྒེར་གསང་།</string>
+    <string name="version_line">བོད་ཡིག་ཚིག་མཛོད། %1$s · ཚིག %2$s · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="version_line_no_count">བོད་ཡིག་ཚིག་མཛོད། %1$s · དྲ་རྒྱ་མི་དགོས།</string>
+
+    <!-- Onboarding -->
+    <string name="continue_">མུ་མཐུད།</string>
+    <string name="skip">མཆོང་།</string>
+    <string name="step_position">རིམ་པ། %1$s / %2$s</string>
+    <string name="onboarding_direction_title">ཚིག་འཚོལ་སྐབས་ཁ་ཕྱོགས་གང་མང་ཤོས་བེད་སྤྱོད་གཏོང་གི་ཡོད།</string>
+    <string name="onboarding_direction_body">འདིས་སྔོན་སྒྲིག་ཁ་ཕྱོགས་གཏན་འཁེལ་བྱེད། དུས་ནམ་ཡིན་ཡང་ཐེངས་གཅིག་མནན་ནས་བརྗེ་ཆོག</string>
+    <string name="onboarding_textsize_title">ཀློག་བདེ་པོ་འདུག་གམ།</string>
+    <string name="onboarding_textsize_body">བརྩེགས་ཡིག་གསལ་པོ་མཐོང་ཆེད་བོད་ཡིག་དབྱིན་ཡིག་ལས་ཆེ་བ་སྟོན།</string>
+    <string name="onboarding_account_title">ཁྱེད་ཀྱི་ཚིག་སྒྲིག་ཆས་ཚང་མར་ཉར།</string>
+    <string name="onboarding_account_body">ནང་འཛུལ་བྱས་ན་ཉར་བའི་ཚིག་དང་། འཚོལ་ཐོ། སྒྲིག་འགོད་བཅས་མཉམ་སྒྲིག་ཁོ་ན་བྱེད། ནང་འཛུལ་མ་བྱས་ཀྱང་ཚང་མ་དྲ་རྒྱ་མེད་པར་བེད་སྤྱོད་ཐུབ།</string>
+    <string name="continue_without_account">ཐོ་ཁོངས་མེད་པར་མུ་མཐུད།</string>
+    <string name="sign_in_google">Google བརྒྱུད་ནས་ནང་འཛུལ།</string>
+    <string name="sign_in_later_note">རྗེས་སུ་སྒེར་གྱི་སྒྲིག་འགོད་ནས་ནང་འཛུལ་བྱེད་ཆོག</string>
+
+    <!-- Text size and spacing -->
+    <string name="text_size">ཡིག་གཟུགས་ཆེ་ཆུང་།</string>
+    <string name="line_spacing">ཡིག་ཕྲེང་བར་ཐག</string>
+    <string name="text_size_small">ཆུང་བ།</string>
+    <string name="text_size_default">སྔོན་སྒྲིག</string>
+    <string name="text_size_large">ཆེ་བ།</string>
+    <string name="text_size_largest">ཆེས་ཆེ་བ།</string>
+
+    <!-- First-launch install -->
+    <string name="installing_entries">ཚིག་ %1$s གྲ་སྒྲིག་བྱེད་བཞིན། · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="installing_dictionary">ཚིག་མཛོད་གྲ་སྒྲིག་བྱེད་བཞིན། · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="install_failed">ཚིག་མཛོད་གྲ་སྒྲིག་བྱེད་མ་ཐུབ།</string>
+    <string name="install_failed_body">སྒྲིག་ཆས་ནང་བར་སྟོང་ལྷག་མ་ཡོད་པ་ཁག་ཐེག་བྱས་རྗེས་བསྐྱར་དུ་ཚོད་ལྟ་བྱོས།</string>
+    <string name="try_again">བསྐྱར་དུ་ཚོད་ལྟ།</string>
+
+    <!-- Actions and content descriptions -->
+    <string name="voice_search">སྐད་སྒྲས་འཚོལ།</string>
+    <string name="play_audio">འདོན་སྟངས་ཉན།</string>
+    <string name="save">ཉར།</string>
+    <string name="saved_cd">ཉར་ཟིན།</string>
+    <string name="copy">ངོ་བཤུ།</string>
+    <string name="share">མཉམ་སྤྱོད།</string>
+    <string name="back">ཕྱིར་ལོག</string>
+    <string name="close">སྒོ་རྒྱོབ།</string>
+    <string name="more">གཞན།</string>
+
+    <!-- Direction descriptions (onboarding cards, direction picker) -->
+    <string name="direction_desc_bo_en">བོད་ཡིག་ནས་དབྱིན་ཡིག</string>
+    <string name="direction_desc_bo_bo">བོད་ཡིག་ཚིག་འགྲེལ།</string>
+    <string name="direction_desc_en_bo">དབྱིན་ཡིག་ནས་བོད་ཡིག</string>
+
+    <!-- About -->
+    <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། བློ་བཟང་སྨོན་ལམ་གྱིས་བསྒྲིགས་པའི་སྨོན་ལམ་བོད་ཡིག་ཚིག་མཛོད། (GPL-3)</string>
+    <string name="about_fonts">ཡིག་གཟུགས། Jomolhari དང་ Noto Sans (SIL Open Font License)</string>
+    <string name="share_app_text">བོད་ཡིག་ཚིག་མཛོད་ཐོག་དྲ་རྒྱ་མེད་པར་བོད་ཡིག་དང་དབྱིན་ཡིག་གི་ཚིག་འཚོལ། %1$s</string>
+
+    <!-- Entry (T3.1) -->
+    <string name="entry_missing_body">ཚིག་མཛོད་གསར་བསྒྱུར་སྐབས་བསལ་ཡོད་སྲིད། དེའི་ཚབ་ཏུ་ཚིག་དེ་འཚོལ་ཞིབ་བྱོས།</string>
+    <string name="folder_exists">“%1$s” ཟེར་བའི་ཡིག་སྣོད་ཡོད་ཟིན།</string>
+    <string name="copied">ངོ་བཤུས་ཟིན།</string>
+    <string name="entry_action_failed">ནོར་འཁྲུལ་ཞིག་བྱུང་སོང་། བསྐྱར་དུ་ཚོད་ལྟ་བྱོས།</string>
+
+    <!-- Saved (T3.2) -->
+    <string name="saved_group_today">དེ་རིང་།</string>
+    <string name="saved_group_week">བདུན་ཕྲག་འདི།</string>
+    <string name="saved_group_month">ཟླ་བ་འདི།</string>
+    <string name="saved_group_earlier">དེ་སྔོན།</string>
+    <string name="saved_no_matches_body">ཚིག་གམ་ཡིག་སྣོད་གཞན་ཞིག་ལ་ཚོད་ལྟ་བྱོས།</string>
+    <string name="unsave">ཉར་ཚགས་ནས་སེལ།</string>
+
+    <!-- Installing (T5.2) -->
+    <string name="install_interrupted">གྲ་སྒྲིག་བར་ཆད་བྱུང་།</string>
+
+    <!-- Profile (T4.1) -->
+    <string name="profile_signed_out_title">ནང་འཛུལ་བྱས་མེད།</string>
+    <string name="profile_signed_out_body">ཉར་བའི་ཚིག་སྒྲིག་ཆས་ཁག་ལ་མཉམ་སྒྲིག</string>
+    <string name="sign_in">ནང་འཛུལ།</string>
+    <!-- The apps' own Tibetan names -->
+    <string name="other_app_prayer">ཉིན་རེའི་ཁ་འདོན།</string>
+    <string name="other_app_calendar">བོད་ཀྱི་ལོ་ཐོ།</string>
+
+    <!-- Search (T2.2) -->
+    <string name="no_match_body">དག་ཆ་བརྟག་ཞིབ་བྱོས། ཡང་ན་ཚིག་ཐུང་བ་ཞིག་ལ་ཚོད་ལྟ་བྱོས།</string>
+
+    <!-- Home (T2.3) -->
+    <plurals name="learned_this_week">
+        <item quantity="other">བདུན་ཕྲག་འདིར་ཚིག་ %1$s སྦྱངས་ཟིན།</item>
+    </plurals>
+    <plurals name="due_for_review">
+        <item quantity="other">སྦྱོང་ནང་བསྐྱར་སྦྱོང་བྱ་རྒྱུ་ %1$s ཡོད།</item>
+    </plurals>
 </resources>
