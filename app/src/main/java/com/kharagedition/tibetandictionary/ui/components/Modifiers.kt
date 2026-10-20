@@ -64,6 +64,17 @@ internal fun Modifier.extendStart(amount: Dp): Modifier = layout { measurable, c
     layout((placeable.width - px).coerceAtLeast(0), placeable.height) { placeable.place(-px, 0) }
 }
 
+/**
+ * Lays this element out at its own width (e.g. a 48dp touch target around a 32dp chip) but reports only
+ * [reported] to the parent, centred on it, so the overhang reaches into the neighbouring gaps instead of widening
+ * them. The overhang still draws and takes touches.
+ */
+internal fun Modifier.reportWidth(reported: Dp): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val width = reported.roundToPx().coerceIn(constraints.minWidth, constraints.maxWidth)
+    layout(width, placeable.height) { placeable.place((width - placeable.width) / 2, 0) }
+}
+
 /** This inclusive range clipped to a text of [length] as an end-exclusive pair, or null when nothing is left. */
 internal fun IntRange.clampTo(length: Int): Pair<Int, Int>? {
     val start = first.coerceAtLeast(0)

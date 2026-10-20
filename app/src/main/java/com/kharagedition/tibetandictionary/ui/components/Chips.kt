@@ -148,7 +148,10 @@ fun DetectedChip(
     TextChip(label, onClick, modifier, size = size, tonal = true, leading = DictIcons.Bold.Check)
 }
 
-/** Dashed round "+" chip (new folder), [size] square, muted plus. */
+/**
+ * Dashed round "+" chip (new folder), [size] square, muted plus. Its 48dp touch target overhangs the chip
+ * sideways without taking row space, so it sits one chip gap after its neighbour (1i).
+ */
 @Composable
 fun AddChip(
     onClick: () -> Unit,
@@ -158,6 +161,7 @@ fun AddChip(
 ) {
     Box(
         modifier
+            .reportWidth(size.height())
             .minimumInteractiveComponentSize()
             .size(size.height())
             .clip(DictShapes.pill)
