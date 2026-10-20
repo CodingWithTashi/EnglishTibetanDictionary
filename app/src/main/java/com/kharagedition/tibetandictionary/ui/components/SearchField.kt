@@ -88,8 +88,11 @@ private fun SearchFieldVariant.textStyles(): Pair<TextStyle, TextStyle> = when (
 private fun SearchFieldVariant.placeholderStyle(): TextStyle =
     if (this == SearchFieldVariant.Compact) DictTheme.type.body else DictTheme.type.fieldPlaceholder
 
-/** Draws the Tibetan runs of the typed query in Jomolhari without changing the text or cursor positions. */
-private class TibetanRunsTransformation(private val tibetan: SpanStyle) : VisualTransformation {
+/**
+ * Draws the Tibetan runs of typed text in [tibetan] (a Jomolhari run span) without changing the text or cursor
+ * positions; used by the search field and [FolderNameField].
+ */
+internal class TibetanRunsTransformation(private val tibetan: SpanStyle) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         if (!TibetanScript.hasTibetan(text)) return TransformedText(text, OffsetMapping.Identity)
         val styled = buildAnnotatedString {
