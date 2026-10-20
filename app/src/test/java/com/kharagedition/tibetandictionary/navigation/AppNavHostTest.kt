@@ -4,12 +4,15 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainActivity
+import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.di.RepositoryModule
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
@@ -43,7 +46,8 @@ import org.robolectric.annotation.Config
 
 /**
  * The shell on a Hilt graph with fake repositories and an installed dictionary: start destination, app links and
- * back between routes. The destinations are still stubs: their route name plus one `stub_*` button per callback.
+ * back between routes. Entry is the real screen over the sample entries (42 is not one of them, so it shows the
+ * missing notice); the other destinations are still stubs: their route name plus one `stub_*` button per callback.
  */
 @HiltAndroidTest
 @UninstallModules(RepositoryModule::class)
@@ -113,9 +117,26 @@ class AppNavHostTest {
         compose.onNodeWithTag("nav_search").assertExists()
     }
 
+    /** Taps the See also row that opens entry [id]. */
+    private fun openSeeAlso(id: Long) {
+        compose.onNodeWithTag("entry_related_$id").performScrollTo().performClick()
+        compose.waitForIdle()
+    }
+
+    /** The entry on top is the one whose See also links to [seeAlso] (tashi and tashi delek link to each other). */
+    private fun assertOnEntry(seeAlso: Long) {
+        compose.onNodeWithTag("entry_screen").assertExists()
+        compose.onNodeWithTag("entry_related_$seeAlso").assertExists()
+    }
+
     @After
     fun tearDown() {
         if (::activity.isInitialized) activity.pause().stop().destroy()
+    }
+
+    private companion object {
+        val TASHI = SampleData.tashi.id
+        val TASHI_DELEK = SampleData.tashiDelek.id
     }
 
     @Test
@@ -154,7 +175,7 @@ class AppNavHostTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("Onboarding").assertExists()
-        compose.onNodeWithText("Entry 42").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
     }
 
     @Test
@@ -163,7 +184,7 @@ class AppNavHostTest {
 
         openLink("app://entry/42")
 
-        compose.onNodeWithText("Entry 42").assertExists()
+        compose.onNodeWithTag("entry_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
 
         pressBack()
@@ -185,7 +206,7 @@ class AppNavHostTest {
     fun `a cold-start entry link opens the entry over the tabs`() {
         launch(onboarded = true, intent = linkIntent("app://entry/42"))
 
-        compose.onNodeWithText("Entry 42").assertExists()
+        compose.onNodeWithTag("entry_screen").assertExists()
         // The link is taken off the intent, so NavController never handles it a second time.
         assertThat(activity.get().intent.data).isNull()
 
@@ -199,7 +220,7 @@ class AppNavHostTest {
         launch(onboarded = false, intent = linkIntent("app://entry/42"))
 
         compose.onNodeWithText("Onboarding").assertExists()
-        compose.onNodeWithText("Entry 42").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
         assertThat(activity.get().intent.data).isNull()
     }
 
@@ -210,19 +231,19 @@ class AppNavHostTest {
         launch(onboarded = true, intent = replay)
 
         assertOnTabs()
-        compose.onNodeWithText("Entry 42").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
     }
 
     @Test
     fun `see-also on an entry pushes another entry`() {
         launch(onboarded = true)
-        openLink("app://entry/42")
+        openLink("app://entry/$TASHI")
 
-        tap("stub_see_also")
-        compose.onNodeWithText("Entry 43").assertExists()
+        openSeeAlso(TASHI_DELEK)
+        assertOnEntry(seeAlso = TASHI)
 
         pressBack()
-        compose.onNodeWithText("Entry 42").assertExists()
+        assertOnEntry(seeAlso = TASHI_DELEK)
 
         pressBack()
         assertOnTabs()
@@ -245,16 +266,16 @@ class AppNavHostTest {
     @Test
     fun `a double tap on back during the transition pops one screen`() {
         launch(onboarded = true)
-        openLink("app://entry/42")
-        tap("stub_see_also")
-        compose.onNodeWithText("Entry 43").assertExists()
+        openLink("app://entry/$TASHI")
+        openSeeAlso(TASHI_DELEK)
+        assertOnEntry(seeAlso = TASHI)
 
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithTag("stub_back").performClick()
-        compose.onNodeWithTag("stub_back").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
 
-        compose.onNodeWithText("Entry 42").assertExists()
+        assertOnEntry(seeAlso = TASHI_DELEK)
     }
 }

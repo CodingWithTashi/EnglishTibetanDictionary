@@ -158,4 +158,27 @@
     <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
     <!-- %1$s: Play Store link -->
     <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
+
+    <!-- Entry (T3.1) -->
+    <!-- Body of the notice shown when an entry is not in the installed dictionary -->
+    <string name="entry_missing_body">It may have been removed in a dictionary update. Try searching for the word instead.</string>
+    <!-- Error under the new-folder field. %1$s: the folder name the user typed -->
+    <string name="folder_exists">A folder named “%1$s” already exists</string>
+    <!-- Confirms a copy on Android versions that do not show their own copy confirmation -->
+    <string name="copied">Copied</string>
+    <!-- Saving, removing or filing a word failed -->
+    <string name="entry_action_failed">Something went wrong. Please try again.</string>
+
+    <!-- Saved (T3.2) -->
+    <!-- Section headers of the saved list, by when a word was saved -->
+    <string name="saved_group_today">Today</string>
+    <string name="saved_group_week">This week</string>
+    <string name="saved_group_month">This month</string>
+    <string name="saved_group_earlier">Earlier</string>
+    <!-- Under "No matches" when the search or folder filter leaves no saved words -->
+    <string name="saved_no_matches_body">Try another word or folder.</string>
+    <!-- Content description of the filled heart on a saved row; tapping it removes the word -->
+    <string name="unsave">Remove from Saved</string>
+    <!-- A folder chip on the Saved tab, e.g. "All 42" or "Lamrim 7". %1$s: the folder name, or "All"; %2$s: its number of saved words, already in the app language's digits -->
+    <string name="saved_folder_chip">%1$s %2$s</string>
 </resources>

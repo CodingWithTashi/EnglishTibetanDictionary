@@ -25,6 +25,14 @@ interface SavedRepository {
 
     suspend fun unsave(entryId: Long)
 
+    /**
+     * Re-inserts a removed row (Undo) keeping savedAt and note, as well as its folder. The default approximates it
+     * with [save], which stamps a new savedAt and drops the note.
+     */
+    suspend fun restore(entry: SavedEntry) {
+        save(entry.toSummary(), entry.folderId)
+    }
+
     suspend fun setFolder(entryId: Long, folderId: Long?)
 
     fun observeFolders(): Flow<List<Folder>>
@@ -41,3 +49,20 @@ interface SavedRepository {
     /** Deletes the folder; its entries stay saved with no folder. */
     suspend fun deleteFolder(id: Long)
 }
+
+/**
+ * The summary [SavedRepository.save] needs to save this snapshot again. A saved row does not keep parts of speech,
+ * phonetics, audio or the sense count, so those are empty.
+ */
+fun SavedEntry.toSummary(): EntrySummary = EntrySummary(
+    id = entryId,
+    directionId = directionId,
+    headword = headword,
+    wylie = wylie,
+    glossPreview = glossPreview,
+    partOfSpeech = emptyList(),
+    phonetic = null,
+    audioFile = null,
+    isTruncated = false,
+    senseCount = 0,
+)
