@@ -183,7 +183,7 @@ private object EntrySamples {
         senses = PreviewSamples.senses,
         related = PreviewSamples.related,
         hasAudio = true,
-        audioFile = "audio/bkra_shis.ogg",
+        audioFile = "bkra_shis.ogg",
         isTruncated = true,
     )
 

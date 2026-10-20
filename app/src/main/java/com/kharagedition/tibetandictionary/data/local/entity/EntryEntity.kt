@@ -35,6 +35,7 @@ data class EntryEntity(
     @ColumnInfo(name = "part_of_speech") val partOfSpeech: String?,
     /** Romanised pronunciation slot (e.g. "tashi"); no source yet. */
     @ColumnInfo(name = "phonetic") val phonetic: String?,
+    /** Bare file name of the bundled pronunciation under `assets/audio/` (e.g. `bkra_shis.ogg`); no source yet. */
     @ColumnInfo(name = "audio_file") val audioFile: String?,
     @ColumnInfo(name = "sense_count") val senseCount: Int,
     @ColumnInfo(name = "is_truncated") val isTruncated: Boolean,

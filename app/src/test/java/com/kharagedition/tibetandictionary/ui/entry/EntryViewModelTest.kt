@@ -184,7 +184,7 @@ class EntryViewModelTest {
 
     @Test
     fun `PlayAudio plays the bundled pronunciation`() = runTest {
-        add(SampleData.tashiEntry.copy(summary = tashi.copy(audioFile = "audio/bkra_shis.ogg")))
+        add(SampleData.tashiEntry.copy(summary = tashi.copy(audioFile = "bkra_shis.ogg")))
         val vm = viewModel()
 
         assertThat(vm.entry().hasAudio).isTrue()

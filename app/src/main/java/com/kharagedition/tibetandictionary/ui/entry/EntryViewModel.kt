@@ -211,7 +211,7 @@ class EntryViewModel @AssistedInject constructor(
     private fun playAudio() {
         val file = loaded()?.ui?.audioFile ?: return
         val player = audio ?: return
-        player.play(AudioSource.Asset(file))
+        player.play(AudioSource.forDictionaryFile(file))
         playedAudio = true
     }
 

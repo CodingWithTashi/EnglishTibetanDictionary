@@ -177,7 +177,7 @@ class HomeViewModel @Inject constructor(
         val file = wotd.value?.entry?.summary?.audioFile ?: return
         val player = player ?: return
         try {
-            player.play(AudioSource.Asset("$AUDIO_ASSET_DIR/$file"))
+            player.play(AudioSource.forDictionaryFile(file))
         } catch (t: Throwable) {
             errors.record(t)
         }
@@ -248,9 +248,6 @@ class HomeViewModel @Inject constructor(
 
         /** Active days read for the streak, which therefore counts at most a year. */
         const val STREAK_LOOKBACK_DAYS = 366
-
-        /** Bundled pronunciations live under this assets folder. */
-        const val AUDIO_ASSET_DIR = "audio"
 
         /** "19 Oct" (2a); month names stay English until the bo strings are written. */
         val WotdDate: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)

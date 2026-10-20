@@ -108,7 +108,7 @@ These parts of the app stay hidden until the dictionary asset has data for them.
 
 | Feature | Shows when |
 |---|---|
-| Audio (speaker button on an entry and on the word of the day) | The entry has `entries.audio_file` set and the sound file is bundled in the app's assets |
+| Audio (speaker button on an entry and on the word of the day) | The entry has `entries.audio_file` set to a file name and that file is bundled under `app/src/main/assets/audio/` |
 | Part of speech ("n. · vt." under the headword; "(n.)" on a sense when an entry has more than one) | The entry or sense has `part_of_speech` |
 | Examples (under a sense) | The sense has rows in `examples` |
 | See also (chips at the end of an entry) | The entry has rows in `related_entries` |

@@ -50,7 +50,7 @@ class EntryScreenTest {
         ),
         related = related,
         hasAudio = true,
-        audioFile = "audio/bkra_shis.ogg",
+        audioFile = "bkra_shis.ogg",
         isTruncated = true,
     )
 
