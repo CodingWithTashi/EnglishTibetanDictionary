@@ -87,4 +87,34 @@ class SearchEngineTest {
         assertThat(shortenedPrefixes("a", Script.LATIN)).isEmpty()
         assertThat(shortenedPrefixes("", Script.LATIN)).isEmpty()
     }
+
+    @Test
+    fun shorterLevelsNeedThreeLatinLettersOrAWholeTibetanSyllable() {
+        assertThat(specificEnough("bkr", Script.LATIN)).isTrue()
+        assertThat(specificEnough("bk", Script.LATIN)).isFalse()
+        // Spaces are not letters.
+        assertThat(specificEnough("a b", Script.LATIN)).isFalse()
+        assertThat(specificEnough("ka b", Script.LATIN)).isTrue()
+        assertThat(specificEnough("བཀྲ་", Script.TIBETAN)).isTrue()
+        assertThat(specificEnough("བཀྲ་ཤི", Script.TIBETAN)).isTrue()
+        assertThat(specificEnough("བཀྲ", Script.TIBETAN)).isFalse()
+        assertThat(specificEnough("水", Script.HAN)).isTrue()
+    }
+
+    @Test
+    fun wylieSpacingsPutOneSpaceAfterEachPossibleSyllable() {
+        // A syllable needs a vowel: no space after "b", "bk" or "bkr".
+        assertThat(wylieSpacings("bkrashi")).containsExactly("bkra shi", "bkras hi", "bkrash i").inOrder()
+        // Never next to a space that is already there; the vowel is looked for after the last space.
+        assertThat(wylieSpacings("ka bzangpo"))
+            .containsExactly("ka bza ngpo", "ka bzan gpo", "ka bzang po", "ka bzangp o").inOrder()
+        val sangsrgyas = listOf(
+            "sa ngsrgyas", "san gsrgyas", "sang srgyas", "sangs rgyas", "sangsr gyas", "sangsrg yas", "sangsrgy as",
+            "sangsrgya s",
+        )
+        assertThat(wylieSpacings("sangsrgyas")).containsExactlyElementsIn(sangsrgyas).inOrder()
+        assertThat(wylieSpacings("bk")).isEmpty()
+        assertThat(wylieSpacings("a")).isEmpty()
+        assertThat(wylieSpacings("")).isEmpty()
+    }
 }

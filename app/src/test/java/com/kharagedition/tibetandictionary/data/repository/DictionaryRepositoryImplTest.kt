@@ -455,6 +455,29 @@ class DictionaryRepositoryImplTest {
     }
 
     @Test
+    fun didYouMeanGathersSeveralShorteningsAndPutsBackASpace() = runTest {
+        val repo = miniRepository()
+        // "bkras" is the longest shortening of "bkrashi" with rows; on its own it would hide "bkra shis".
+        val bkras = listOf(
+            entry(1_000_045L, BO_EN, "བཀྲས་", 45, wylie = "bkras"),
+            entry(1_000_046L, BO_EN, "བཀྲས་པ་", 46, wylie = "bkras pa"),
+        )
+        db.testWriteDao().insertEntries(bkras)
+
+        val result = repo.search("bkrashi", BO_EN)
+
+        assertThat(result.hits).isEmpty()
+        // "bkra shis" and "bkras" are both two edits away; Monlam order puts "bkra shis" first.
+        val first = result.suggestions.first().hit
+        assertThat(first.entry.id).isEqualTo(TASHI)
+        assertThat(first.field).isEqualTo(MatchField.WYLIE)
+        // Found by the spacing "bkra shi", the longest candidate that reaches it.
+        assertThat(first.wylieHighlight).isEqualTo(0 until 8)
+        assertThat(result.suggestions.map { it.hit.entry.id }).containsAtLeast(TASHI, 1_000_045L).inOrder()
+        assertThat(result.suggestions.map { it.directionId }.toSet()).containsExactly(BO_EN)
+    }
+
+    @Test
     fun didYouMeanCrossDirection() = runTest {
         val repo = miniRepository()
 

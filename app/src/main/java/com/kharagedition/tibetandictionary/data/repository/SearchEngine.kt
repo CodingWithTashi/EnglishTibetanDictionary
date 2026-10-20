@@ -50,9 +50,13 @@ import com.kharagedition.tibetandictionary.data.search.ScriptDetector
  *    preview.
  * 6. **Did-you-mean**, page 0 only and only when steps 3–4 found nothing; at most [MAX_SUGGESTIONS], one per entry, in
  *    this order, stopping once full:
- *    a. [shortenedPrefixes] through the mode's prefix step ([SHORTENED_LIMIT] rows); the first candidate with rows
- *       wins; ranked by Damerau-Levenshtein distance between the query and the matched field, then `sort_order`.
- *       When step (b) has a direction to try, (a) keeps one slot free for it;
+ *    a. [shortenedPrefixes] through the mode's prefix step, [SHORTENED_LIMIT] rows each. Every candidate with rows
+ *       counts, up to [MAX_SHORTENING_LEVELS] of them; once one has rows, a shorter one is tried only while it is
+ *       [specificEnough] (three Latin letters, a whole Tibetan syllable), so "bkrashi" gathers "bkras" and "bkra"
+ *       rather than stopping at "bkras". In Wylie mode, also the query with a space put back at one syllable boundary
+ *       ([wylieSpacings]: "bkrashi" → "bkra shi"), for each that some Wylie starts with. The union is ranked by
+ *       Damerau-Levenshtein distance between the query and the matched field, then `sort_order`. When step (b) has a
+ *       direction to try, (a) keeps one slot free for it;
  *    b. the headword prefix step in every other visible direction whose source script is the query's script, tagged
  *       with that direction ([Suggestion.directionId]);
  *    c. `ftsGloss` with any term in the searched direction, when [fullTextAllowed]. Skipped for a one-word query in a
@@ -158,24 +162,42 @@ internal class SearchEngine(
         return found.values.toList()
     }
 
-    /** Step (a): rows for the first [shortenedPrefixes] candidate that has any, closest to [q] first. */
+    /**
+     * Step (a): rows for up to [MAX_SHORTENING_LEVELS] [shortenedPrefixes] candidates that have any (after the first,
+     * only [specificEnough] ones), plus in Wylie mode the [wylieSpacings] of [q]; closest to [q] first.
+     */
     private suspend fun shortenedPrefixHits(
         dir: String,
         field: PrefixField,
         q: String,
         script: Script,
     ): List<SearchHit> {
-        val target = comparable(q)
+        // Each row with the longest candidate that found it: the highlight covers that candidate.
+        val found = LinkedHashMap<Long, Pair<EntryEntity, String>>()
+        fun collect(rows: List<EntryEntity>, prefix: String) = rows.forEach { row ->
+            val seen = found[row.id]
+            if (seen == null || prefix.length > seen.second.length) found[row.id] = row to prefix
+        }
+        var levels = 0
         for (prefix in shortenedPrefixes(q, script)) {
+            // Candidates only get shorter, so the first one too short (or one level too many) ends the search.
+            if (levels == MAX_SHORTENING_LEVELS || levels > 0 && !specificEnough(prefix, script)) break
             val rows = prefixRows(dir, field, prefix, SHORTENED_LIMIT, 0)
             if (rows.isEmpty()) continue
-            return rows
-                .map { row -> row to EditDistance.damerauLevenshtein(target, comparable(field.textOf(row))) }
-                .sortedWith(compareBy({ it.second }, { it.first.sortOrder }))
-                .take(MAX_SUGGESTIONS)
-                .map { (row, _) -> prefixHit(row, field, prefix) }
+            collect(rows, prefix)
+            levels++
         }
-        return emptyList()
+        if (field == PrefixField.WYLIE) {
+            for (spaced in wylieSpacings(q)) collect(prefixRows(dir, field, spaced, SHORTENED_LIMIT, 0), spaced)
+        }
+        val target = comparable(q)
+        return found.values
+            .map { (row, prefix) ->
+                Triple(row, prefix, EditDistance.damerauLevenshtein(target, comparable(field.textOf(row))))
+            }
+            .sortedWith(compareBy({ it.third }, { it.first.sortOrder }))
+            .take(MAX_SUGGESTIONS)
+            .map { (row, prefix, _) -> prefixHit(row, field, prefix) }
     }
 
     /** The prefix step: rows whose [field] starts with [prefix]; the one equal to it (or to it plus a tsheg) first. */
@@ -301,8 +323,11 @@ internal class SearchEngine(
         /** Hits in page 0's full-text block (both FTS queries sort every match before their limit; keep it small). */
         const val FULL_TEXT_LIMIT = 20
 
-        /** Rows fetched per shortened prefix before ranking by edit distance. */
+        /** Rows fetched per shortened prefix (and per Wylie spacing) before ranking by edit distance. */
         const val SHORTENED_LIMIT = 20
+
+        /** Shortened prefixes with rows that did-you-mean step (a) gathers at most. */
+        const val MAX_SHORTENING_LEVELS = 3
 
         const val MAX_SUGGESTIONS = 5
     }
@@ -369,4 +394,39 @@ internal fun shortenedPrefixes(q: String, script: Script): List<String> {
         candidates += start.substring(0, length).trimEnd()
     }
     return candidates.filter { it.isNotEmpty() && it != q }
+}
+
+/** Latin letters (code points other than spaces) a shortened prefix keeps once a longer one had rows. */
+private const val MIN_LATIN_LETTERS = 3
+
+/**
+ * Whether did-you-mean step (a) still tries the shortened [prefix] after a longer candidate had rows: a shorter one
+ * mostly adds rows further from the query. Latin needs [MIN_LATIN_LETTERS] letters ("bkr" yes, "bk" no); Tibetan a
+ * whole syllable, i.e. a tsheg ("བཀྲ་" yes, "བཀྲ" no, which would only add every བཀྲ… headword); Han one character.
+ * The first candidate with rows counts at any length.
+ */
+internal fun specificEnough(prefix: String, script: Script): Boolean = when (script) {
+    Script.LATIN -> prefix.count { !it.isWhitespace() } >= MIN_LATIN_LETTERS
+    Script.TIBETAN -> TibetanScript.TSHEG in prefix
+    Script.HAN -> prefix.isNotEmpty()
+}
+
+/** The vowels of Wylie as a query is normalised (lower case): every Wylie syllable has one. */
+private const val WYLIE_VOWELS = "aeiou"
+
+/**
+ * Did-you-mean step (a) in Wylie mode: [q] with one space put back between two syllables typed together
+ * ("bkrashi" → "bkra shi"), at each position whose neighbours are not spaces and whose left part (back to the
+ * previous space) holds a vowel, so it could be a syllable; in order of position. Each is a candidate prefix like
+ * those of [shortenedPrefixes]. Only one space is put back: "byangchubsems" does not become "byang chub sems".
+ */
+internal fun wylieSpacings(q: String): List<String> {
+    val spaced = mutableListOf<String>()
+    var syllableHasVowel = false
+    for (i in 1 until q.length) {
+        val left = q[i - 1]
+        syllableHasVowel = if (left == ' ') false else syllableHasVowel || left in WYLIE_VOWELS
+        if (syllableHasVowel && q[i] != ' ') spaced += q.substring(0, i) + " " + q.substring(i)
+    }
+    return spaced
 }
