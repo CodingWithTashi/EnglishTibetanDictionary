@@ -2,14 +2,16 @@
 
     .venv/bin/python -I build_db.py --source MLDic.ml \\
         --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \\
-        --out ../../app/src/main/assets/dictionary/dictionary.db --data-version 2026.10.1
+        --out ../../app/src/main/assets/dictionary/dictionary.db --data-version 2026.10.1 \\
+        --stats-xml ../../app/src/main/res/values/dictionary_stats.xml
 
 Steps: load the highest `<v>.json` schema → read the three source tables → parse each row → group
 rows into entries → resolve related links across directions → assign word-of-the-day ranks →
-compute direction counts and meta → write the database (temp file, atomic rename) → report.
+compute direction counts and meta → write the database (temp file, atomic rename) → write the
+`--stats-xml` resource with the total entry count → report.
 Exit status: 0 on success, 1 when an input cannot be read or the database cannot be written,
-2 when a full build's counts leave the expected ranges: `--out` is then left as it was, and the
-database is written to a temporary directory for inspection (the report is still written).
+2 when a full build's counts leave the expected ranges: `--out` and `--stats-xml` are then left as they
+were, and the database is written to a temporary directory for inspection (the report is still written).
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ from dictbuild.parsers.tben import parse_tben_row  # noqa: E402
 from dictbuild.parsers.tbtb import parse_tbtb_row  # noqa: E402
 from dictbuild.related import HeadwordIndex, RelatedStats, resolve_related  # noqa: E402
 from dictbuild.report import BuildReport  # noqa: E402
+from dictbuild.resources import write_stats_xml  # noqa: E402
 from dictbuild.schema import Schema, latest_schema_path, load_schema  # noqa: E402
 from dictbuild.source import DIRECTION_BY_TABLE, SourceRow, open_source, read_rows  # noqa: E402
 from dictbuild.stats import RangeCheck, check_ranges, direction_rows, table_counts  # noqa: E402
@@ -69,6 +72,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--require-wylie", action="store_true", help="fail when pyewts is not installed")
     parser.add_argument("--report", type=Path, help="write a JSON build report here")
     parser.add_argument("--limit", type=int, help="parse only the first N rows of each source table")
+    parser.add_argument(
+        "--stats-xml",
+        type=Path,
+        help="also write the app's res/values/dictionary_stats.xml (total entry count) for the database written",
+    )
     return parser.parse_args(argv)
 
 
@@ -109,6 +117,12 @@ def main(argv: list[str] | None = None) -> int:
         write_database(out, schema, tables)
     except (OSError, sqlite3.Error) as error:
         return _fail(f"cannot write {out}: {error}")
+    total_entries = sum(direction.entry_count for direction in tables["directions"])
+    if args.stats_xml is not None and not failed:
+        try:
+            write_stats_xml(args.stats_xml, total_entries)
+        except OSError as error:
+            return _fail(f"cannot write {args.stats_xml}: {error}")
     if args.report is not None:
         report.write(args.report)
 
@@ -116,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"build_db: wrote {out} (entries: {entries}; schema v{schema.version}; {converter.name})")
     for check in failed:
         print(f"build_db: {check.name} = {check.value} is outside {check.minimum}–{check.maximum}", file=sys.stderr)
+    if args.stats_xml is not None and not failed:
+        print(f"build_db: wrote {args.stats_xml} (dictionary_entry_count {total_entries})")
     if failed:
         print(f"build_db: {args.out} was not replaced", file=sys.stderr)
     return EXIT_OUT_OF_RANGE if failed else 0

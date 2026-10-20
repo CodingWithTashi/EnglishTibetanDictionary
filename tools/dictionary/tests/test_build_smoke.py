@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import xml.etree.ElementTree as ElementTree
 from contextlib import closing
 from pathlib import Path
 
@@ -164,6 +165,63 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(
     assert f"{out} was not replaced" in capsys.readouterr().err
     checks = json.loads(report.read_text(encoding="utf-8"))["range_checks"]
     assert {check["name"] for check in checks if not check["ok"]} >= {"entries bo-en", "senses bo-bo"}
+
+
+def stats_entry_count(path: Path) -> int:
+    """The `dictionary_entry_count` integer resource of a generated `dictionary_stats.xml`."""
+    resources = ElementTree.parse(path).getroot()
+    assert resources.tag == "resources"
+    [integer] = resources
+    assert (integer.tag, integer.attrib) == ("integer", {"name": "dictionary_entry_count"})
+    return int(integer.text or "")
+
+
+def test_stats_xml_holds_the_total_entry_count(tmp_path: Path, schema_dir: Path) -> None:
+    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
+    out = tmp_path / "dictionary.db"
+    stats = tmp_path / "res" / "values" / "dictionary_stats.xml"
+    stats.parent.mkdir(parents=True)
+    stats.write_text("<resources><integer name=\"dictionary_entry_count\">0</integer></resources>")
+
+    code = build_db.main(
+        [
+            "--source", str(source),
+            "--schema-dir", str(schema_dir),
+            "--out", str(out),
+            "--data-version", "t",
+            "--stats-xml", str(stats),
+            "--limit", "10",
+        ]
+    )  # fmt: skip
+
+    assert code == 0
+    with closing(sqlite3.connect(out)) as db:
+        total = db.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+        assert db.execute("SELECT SUM(entry_count) FROM directions").fetchone()[0] == total == 4
+    assert stats_entry_count(stats) == total
+    assert sorted(path.name for path in stats.parent.iterdir()) == ["dictionary_stats.xml"]  # no temp file left
+
+
+def test_out_of_range_build_leaves_the_stats_xml_untouched(
+    tmp_path: Path, schema_dir: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
+    stats = tmp_path / "dictionary_stats.xml"
+    stats.write_text("shipped stats")
+
+    code = build_db.main(
+        [
+            "--source", str(source),
+            "--schema-dir", str(schema_dir),
+            "--out", str(tmp_path / "dictionary.db"),
+            "--data-version", "t",
+            "--stats-xml", str(stats),
+        ]
+    )  # fmt: skip
+
+    assert code == build_db.EXIT_OUT_OF_RANGE
+    assert stats.read_text() == "shipped stats"
 
 
 def test_entry_without_senses_or_links_is_not_written(tmp_path: Path, schema_dir: Path) -> None:

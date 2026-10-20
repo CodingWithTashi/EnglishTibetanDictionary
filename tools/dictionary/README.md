@@ -47,8 +47,37 @@ Tests that need `pyewts` skip without it.
   --source /path/to/MLDic.ml \
   --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
   --out ../../app/src/main/assets/dictionary/dictionary.db \
-  --data-version 2026.10.1 [--wotd-seed 20261019] [--require-wylie] [--report out.json] [--limit N]
+  --data-version 2026.10.1 [--wotd-seed 20261019] [--require-wylie] [--report out.json] [--limit N] \
+  [--stats-xml ../../app/src/main/res/values/dictionary_stats.xml]
 ```
+
+`--stats-xml PATH` also writes the app's Android resource file with one value,
+`<integer name="dictionary_entry_count">N</integer>`, where N is the total number of entries across all
+directions of the database just written. The installing screen shows it while the asset is copied. The
+file is written only when `--out` is (never on exit 2), so the two always agree;
+`DictionaryAssetVersionTest` checks this.
+
+### Shipping a data release
+
+The asset and the stats file are committed (`app/src/main/assets/dictionary/dictionary.db`,
+`app/src/main/res/values/dictionary_stats.xml`). To ship new data:
+
+1. Bump `DictionaryDatabase.VERSION` and export the schema (`./gradlew :app:compileDebugKotlin` writes
+   `app/schemas/…DictionaryDatabase/<VERSION>.json`). The build stamps the highest schema version into
+   `PRAGMA user_version`, and the installer recopies the asset when that differs from the device's file.
+2. From `tools/dictionary`, build both files (exit 0 required):
+
+   ```sh
+   .venv/bin/python -I build_db.py --require-wylie \
+     --source /path/to/MLDic.ml \
+     --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
+     --out ../../app/src/main/assets/dictionary/dictionary.db \
+     --stats-xml ../../app/src/main/res/values/dictionary_stats.xml \
+     --data-version 2026.10.1 --wotd-seed 20261019 --report /tmp/dictionary-report.json
+   ```
+
+3. Run `./gradlew :app:testDebugUnitTest`: `DictionaryAssetVersionTest` (header version, schema version and
+   stats count) and `DictionaryAssetOpenTest` (Room opens the real asset) guard the release.
 
 The steps, in order:
 
@@ -62,7 +91,8 @@ The steps, in order:
 7. Assign word-of-the-day ranks.
 8. Compute the direction counts and `meta`.
 9. Write the database.
-10. Write the report.
+10. Write `--stats-xml`, when given.
+11. Write the report.
 
 The database is built in memory, compacted with `VACUUM INTO` a temporary file next to `--out`
 (with `journal_mode=DELETE`), and renamed into place. A failed build leaves no file behind.
@@ -73,7 +103,7 @@ The database is built in memory, compacted with `VACUUM INTO` a temporary file n
 |---|---|
 | 0 | Success. |
 | 1 | The schema or source cannot be read, or the database cannot be written. The message names the path. |
-| 2 | A full build's counts leave the expected ranges in `dictbuild/stats.py`. Each failing count is printed. `--out` is not replaced: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
+| 2 | A full build's counts leave the expected ranges in `dictbuild/stats.py`. Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
 
 `--limit N` parses only the first N rows of each table, for quick checks. It skips the range
 checks, so it never exits 2.
@@ -125,6 +155,7 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | `dictbuild/writer.py` | Assemble rows, build `meta`, write the database |
 | `dictbuild/stats.py` | Direction capability counts and the expected ranges |
 | `dictbuild/report.py` | The JSON build report |
+| `dictbuild/resources.py` | The `--stats-xml` Android resource (`dictionary_entry_count`) |
 | `build_db.py` | Command line |
 
 ## Shared grammar
