@@ -26,7 +26,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarVisuals
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -207,7 +206,7 @@ internal fun DictToast(data: SnackbarData, modifier: Modifier = Modifier) {
                     .padding(horizontal = ActionSide),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(action, color = colors.inverseAccent, style = type.labelSemibold)
+                MixedText(action, type.labelSemibold, type.tibetanToast, color = colors.inverseAccent)
             }
         }
     }

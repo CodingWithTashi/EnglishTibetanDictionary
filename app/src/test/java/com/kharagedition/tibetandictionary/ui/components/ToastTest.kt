@@ -8,13 +8,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.theme.Jomolhari
+import com.kharagedition.tibetandictionary.ui.theme.NotoSans
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +56,28 @@ class ToastTest {
 
         assertThat(undone).isEqualTo(1)
         compose.onNodeWithText("Removed").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a Tibetan action label is drawn in the Tibetan font`() {
+        showToast("བཀྲ་ཤིས། removed", action = "ཕྱིར་ལོག", onAction = {})
+
+        assertThat(fontOf("ཕྱིར་ལོག")).isEqualTo(Jomolhari)
+    }
+
+    @Test
+    fun `a Latin action label stays in the Latin font`() {
+        showToast("Removed", action = "Undo", onAction = {})
+
+        assertThat(fontOf("Undo")).isEqualTo(NotoSans)
+    }
+
+    /** The font family [text] is laid out in. */
+    private fun fontOf(text: String): Any? {
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single().layoutInput.style.fontFamily
     }
 
     @Test
