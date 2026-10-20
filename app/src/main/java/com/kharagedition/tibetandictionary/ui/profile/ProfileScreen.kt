@@ -271,7 +271,7 @@ private fun ReadingSample() {
             .padding(horizontal = SamplePaddingHorizontal, vertical = SamplePaddingVertical),
         horizontalArrangement = Arrangement.spacedBy(SampleGap),
     ) {
-        TibetanText(SAMPLE_HEADWORD, Modifier.alignByBaseline(), style = DictTheme.type.tibetanSaved, color = colors.ink)
+        TibetanText(SAMPLE_HEADWORD, Modifier.alignByBaseline(), style = DictTheme.type.tibetanSample, color = colors.ink)
         LatinText(SAMPLE_GLOSS, Modifier.alignByBaseline(), style = DictTheme.type.bodySmall, color = colors.muted)
     }
 }

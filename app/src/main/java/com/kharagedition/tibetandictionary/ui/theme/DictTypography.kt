@@ -167,6 +167,9 @@ class DictTypography(
     val tibetanScreenTitle = tibetan(26f, 1.7f)
     val tibetanRow = tibetan(24f, 1.8f)
     val tibetanSaved = tibetan(22f, 1.8f)
+
+    /** Reading sample on Profile (2f): its line height is the line-spacing setting itself (22 × 1.9 at default). */
+    val tibetanSample = tibetan(22f, 1.9f)
     val tibetanPreviewSense = tibetan(21f, 1.9f)
     val tibetanExample = tibetan(19f, 1.6f)
     val tibetanGloss = tibetan(18f, 1.6f)
@@ -206,8 +209,9 @@ class DictTypography(
             "tibetanEntryHeadword" to tibetanEntryHeadword, "tibetanWotd" to tibetanWotd,
             "tibetanSplash" to tibetanSplash, "tibetanGreeting" to tibetanGreeting,
             "tibetanScreenTitle" to tibetanScreenTitle, "tibetanRow" to tibetanRow, "tibetanSaved" to tibetanSaved,
-            "tibetanPreviewSense" to tibetanPreviewSense, "tibetanExample" to tibetanExample,
-            "tibetanGloss" to tibetanGloss, "tibetanChip" to tibetanChip, "tibetanInline16" to tibetanInline16,
+            "tibetanSample" to tibetanSample, "tibetanPreviewSense" to tibetanPreviewSense,
+            "tibetanExample" to tibetanExample, "tibetanGloss" to tibetanGloss, "tibetanChip" to tibetanChip,
+            "tibetanInline16" to tibetanInline16,
             "tibetanToast" to tibetanToast, "tibetanInline15" to tibetanInline15, "tibetanSegment" to tibetanSegment,
             "tibetanInline14" to tibetanInline14, "tibetanNavPrimary" to tibetanNavPrimary,
             "tibetanBadge" to tibetanBadge, "tibetanNavGloss" to tibetanNavGloss,

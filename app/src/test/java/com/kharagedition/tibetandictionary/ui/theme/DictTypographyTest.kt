@@ -207,6 +207,7 @@ class DictTypographyTest {
             "tibetanScreenTitle" to Spec(26f, ratio = 1.7f),
             "tibetanRow" to Spec(24f, ratio = 1.8f),
             "tibetanSaved" to Spec(22f, ratio = 1.8f),
+            "tibetanSample" to Spec(22f, ratio = 1.9f),
             "tibetanPreviewSense" to Spec(21f, ratio = 1.9f),
             "tibetanExample" to Spec(19f, ratio = 1.6f),
             "tibetanGloss" to Spec(18f, ratio = 1.6f),
