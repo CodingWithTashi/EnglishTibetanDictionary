@@ -9,7 +9,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -54,8 +56,8 @@ class OnboardingScreenTest {
     }
 
     /** The screen on a real view model over the fakes, as the route shows it. */
-    private fun showWithViewModel() {
-        val viewModel = OnboardingViewModel(prefs, FakeDictionaryRepository())
+    private fun showWithViewModel(dictionary: FakeDictionaryRepository = FakeDictionaryRepository()) {
+        val viewModel = OnboardingViewModel(prefs, dictionary)
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
                 val state by viewModel.uiState.collectAsState()
@@ -105,6 +107,19 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun `with no visible direction step 1 has no cards and Continue still moves on`() {
+        val emptied = SampleData.capabilities.copy(directions = listOf(SampleData.boEn.copy(entryCount = 0)))
+        showWithViewModel(FakeDictionaryRepository(capabilities = emptied))
+
+        compose.onNodeWithTag("onboarding_step_1").assertExists()
+        compose.onAllNodes(isSelectable()).assertCountEquals(0)
+
+        tap("onboarding_continue")
+
+        compose.onNodeWithTag("onboarding_step_2").assertExists()
+    }
+
+    @Test
     fun `Skip is offered on step 1 only`() {
         showWithViewModel()
         compose.onNodeWithTag("onboarding_skip").assertIsDisplayed()
@@ -125,7 +140,7 @@ class OnboardingScreenTest {
 
         assertThat(events).containsExactly(
             OnboardingEvent.SelectDirection(SampleData.boBo.id),
-            OnboardingEvent.Next,
+            OnboardingEvent.Next(OnboardingStep.DIRECTION),
             OnboardingEvent.Skip,
         ).inOrder()
     }
@@ -187,6 +202,9 @@ class OnboardingScreenTest {
         compose.onNodeWithText("Sign in with Google").performClick()
         compose.onNodeWithText("Continue without account").performClick()
 
-        assertThat(events).containsExactly(OnboardingEvent.SignIn, OnboardingEvent.ContinueWithoutAccount).inOrder()
+        assertThat(events).containsExactly(
+            OnboardingEvent.SignIn,
+            OnboardingEvent.ContinueWithoutAccount(OnboardingStep.ACCOUNT),
+        ).inOrder()
     }
 }

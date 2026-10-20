@@ -52,6 +52,9 @@ import kotlinx.coroutines.flow.Flow
 /** Top bar with the page indicator and Skip. */
 private val TopBarHeight = 56.dp
 
+/** The account step only ships with accounts, which make onboarding three steps long. */
+private const val STEP_COUNT_WITH_ACCOUNTS = 3
+
 /** Space between the scrolling step content and the bottom buttons; 10 between stacked buttons. */
 private val ActionsTop = 16.dp
 private val ActionGap = 10.dp
@@ -169,7 +172,7 @@ private fun OnboardingActions(state: OnboardingUiState, onEvent: (OnboardingEven
             )
             FilledButton(
                 stringResource(R.string.continue_without_account),
-                onClick = { onEvent(OnboardingEvent.ContinueWithoutAccount) },
+                onClick = { onEvent(OnboardingEvent.ContinueWithoutAccount(state.step)) },
                 modifier = Modifier.fillMaxWidth(),
                 size = ButtonSize.Cta,
             )
@@ -186,7 +189,7 @@ private fun OnboardingActions(state: OnboardingUiState, onEvent: (OnboardingEven
         } else {
             FilledButton(
                 stringResource(R.string.continue_),
-                onClick = { onEvent(OnboardingEvent.Next) },
+                onClick = { onEvent(OnboardingEvent.Next(state.step)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("onboarding_continue"),
@@ -199,7 +202,6 @@ private fun OnboardingActions(state: OnboardingUiState, onEvent: (OnboardingEven
 /** Preview state: the 2b mockup (three directions, Tibetan → English selected, default reading settings). */
 private val previewState = OnboardingUiState(
     step = OnboardingStep.DIRECTION,
-    stepCount = OnboardingStep.READING,
     directions = PreviewSamples.directions,
     selectedDirection = PreviewSamples.boEn,
 )
@@ -222,7 +224,7 @@ private fun OnboardingReadingPreview() {
 @Composable
 private fun OnboardingAccountPreview() {
     ComponentPreview(edgeToEdge = true) {
-        OnboardingScreen(previewState.copy(step = OnboardingStep.ACCOUNT, stepCount = OnboardingStep.ACCOUNT), onEvent = {})
+        OnboardingScreen(previewState.copy(step = OnboardingStep.ACCOUNT, stepCount = STEP_COUNT_WITH_ACCOUNTS), onEvent = {})
     }
 }
 

@@ -37,6 +37,9 @@ class OnboardingViewModelTest {
 
     private fun OnboardingViewModel.state(): OnboardingUiState = checkNotNull(uiState.value)
 
+    /** Continue on the step shown now. */
+    private fun OnboardingViewModel.next() = onEvent(OnboardingEvent.Next(state().step))
+
     // Steps
 
     @Test
@@ -54,7 +57,7 @@ class OnboardingViewModelTest {
         val vm = viewModel()
         assertThat(vm.state().showSkip).isTrue()
 
-        repeat(vm.state().stepCount - 1) { vm.onEvent(OnboardingEvent.Next) }
+        repeat(vm.state().stepCount - 1) { vm.next() }
 
         assertThat(vm.state().step).isEqualTo(vm.state().stepCount)
         assertThat(vm.state().isLastStep).isTrue()
@@ -65,7 +68,7 @@ class OnboardingViewModelTest {
     fun `Back returns to the previous step and keeps what was chosen there`() = runTest {
         val vm = viewModel()
         vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
-        vm.onEvent(OnboardingEvent.Next)
+        vm.next()
         vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.LARGE))
 
         vm.onEvent(OnboardingEvent.Back)
@@ -120,6 +123,24 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `with no visible direction nothing is selected and Continue moves on without storing a direction`() =
+        runTest {
+            dictionary.capabilities.value = SampleData.capabilities.copy(
+                directions = listOf(SampleData.boEn.copy(entryCount = 0)),
+            )
+            prefs.prefs.value = UserPrefs(defaultDirectionId = "zh-bo")
+            val vm = viewModel()
+
+            assertThat(vm.state().directions).isEmpty()
+            assertThat(vm.state().selectedDirection).isNull()
+
+            vm.next()
+
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
+            assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("zh-bo")
+        }
+
+    @Test
     fun `choices change the state but are not stored before Continue`() = runTest {
         val vm = viewModel()
 
@@ -150,7 +171,7 @@ class OnboardingViewModelTest {
 
         vm.effects.test {
             vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
-            vm.onEvent(OnboardingEvent.Next)
+            vm.next()
 
             assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
             assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo(SampleData.enBo.id)
@@ -161,7 +182,7 @@ class OnboardingViewModelTest {
             assertThat(prefs.prefs.value.textSize).isEqualTo(AppTextSize.DEFAULT)
             expectNoEvents()
 
-            vm.onEvent(OnboardingEvent.Next)
+            vm.next()
 
             assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
             assertThat(prefs.prefs.value.textSize).isEqualTo(AppTextSize.LARGE)
@@ -194,7 +215,7 @@ class OnboardingViewModelTest {
     @Test
     fun `Skip also stores what was chosen on a later step before going back`() = runTest {
         val vm = viewModel()
-        vm.onEvent(OnboardingEvent.Next)
+        vm.next()
         vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.SMALL))
         vm.onEvent(OnboardingEvent.SetLineSpacing(LineSpacing.MIN))
         vm.onEvent(OnboardingEvent.Back)
@@ -213,8 +234,8 @@ class OnboardingViewModelTest {
         vm.effects.test {
             vm.onEvent(OnboardingEvent.Skip)
             vm.onEvent(OnboardingEvent.Skip)
-            vm.onEvent(OnboardingEvent.Next)
-            vm.onEvent(OnboardingEvent.ContinueWithoutAccount)
+            vm.next()
+            vm.onEvent(OnboardingEvent.ContinueWithoutAccount(vm.state().step))
 
             assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
             expectNoEvents()
@@ -222,13 +243,29 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `a double tap on the last Continue finishes once`() = runTest {
+    fun `a double tap on step 1's Continue moves on one step and does not finish`() = runTest {
         val vm = viewModel()
-        repeat(vm.state().stepCount - 1) { vm.onEvent(OnboardingEvent.Next) }
 
         vm.effects.test {
-            vm.onEvent(OnboardingEvent.Next)
-            vm.onEvent(OnboardingEvent.Next)
+            // Both taps were made on step 1's button; the second lands after the step moved on.
+            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DIRECTION))
+            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DIRECTION))
+
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
+            expectNoEvents()
+        }
+        assertThat(prefs.prefs.value.onboarded).isFalse()
+    }
+
+    @Test
+    fun `a double tap on the last Continue finishes once`() = runTest {
+        val vm = viewModel()
+        repeat(vm.state().stepCount - 1) { vm.next() }
+        val last = vm.state().step
+
+        vm.effects.test {
+            vm.onEvent(OnboardingEvent.Next(last))
+            vm.onEvent(OnboardingEvent.Next(last))
 
             assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
             expectNoEvents()
@@ -253,10 +290,10 @@ class OnboardingViewModelTest {
     @Test
     fun `Continue without account on the last step finishes like Continue`() = runTest {
         val vm = viewModel()
-        repeat(vm.state().stepCount - 1) { vm.onEvent(OnboardingEvent.Next) }
+        repeat(vm.state().stepCount - 1) { vm.next() }
 
         vm.effects.test {
-            vm.onEvent(OnboardingEvent.ContinueWithoutAccount)
+            vm.onEvent(OnboardingEvent.ContinueWithoutAccount(vm.state().step))
 
             assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
         }

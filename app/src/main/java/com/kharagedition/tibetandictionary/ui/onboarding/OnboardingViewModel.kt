@@ -2,7 +2,6 @@ package com.kharagedition.tibetandictionary.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
@@ -60,7 +59,8 @@ class OnboardingViewModel @Inject constructor(
         val state = uiState.value ?: return
         if (finished) return
         when (event) {
-            OnboardingEvent.Next, OnboardingEvent.ContinueWithoutAccount -> next(state)
+            is OnboardingEvent.Next -> next(state, event.fromStep)
+            is OnboardingEvent.ContinueWithoutAccount -> next(state, event.fromStep)
             OnboardingEvent.Skip -> finish(state)
             OnboardingEvent.Back -> draft.update { it.copy(step = (it.step - 1).coerceAtLeast(OnboardingStep.DIRECTION)) }
             is OnboardingEvent.SelectDirection -> if (state.directions.any { it.id == event.id }) {
@@ -73,7 +73,9 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    private fun next(state: OnboardingUiState) {
+    /** Leaves [fromStep]; ignored once the user has moved on from it (a double tap on Continue). */
+    private fun next(state: OnboardingUiState, fromStep: Int) {
+        if (fromStep != state.step) return
         if (state.isLastStep) {
             finish(state)
         } else {
@@ -108,9 +110,6 @@ class OnboardingViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
-
-        /** Direction and reading; the sign-in step only with accounts. */
-        val STEP_COUNT = if (Features.ACCOUNTS) OnboardingStep.ACCOUNT else OnboardingStep.READING
 
         /** Stores what [step] of [state] sets; the account step stores nothing. */
         suspend fun UserPreferencesRepository.store(step: Int, state: OnboardingUiState) {

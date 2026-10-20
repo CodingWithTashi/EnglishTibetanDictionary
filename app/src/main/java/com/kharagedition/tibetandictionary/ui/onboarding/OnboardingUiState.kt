@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.onboarding
 
 import androidx.compose.runtime.Immutable
+import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
@@ -17,6 +18,9 @@ object OnboardingStep {
     const val ACCOUNT = 3
 }
 
+/** How many steps onboarding has: direction and reading, plus sign-in while `Features.ACCOUNTS`. */
+internal val STEP_COUNT: Int = if (Features.ACCOUNTS) 3 else 2
+
 /**
  * First-run setup (2b/2c/2d). [step] runs from 1 to [stepCount] (see [OnboardingStep]). [directions] are the
  * visible ones in switcher order; [selectedDirection] is the user's pick, else the stored default when visible,
@@ -26,7 +30,7 @@ object OnboardingStep {
 @Immutable
 data class OnboardingUiState(
     val step: Int = OnboardingStep.DIRECTION,
-    val stepCount: Int = OnboardingStep.READING,
+    val stepCount: Int = STEP_COUNT,
     val directions: List<Direction> = emptyList(),
     val selectedDirection: Direction? = null,
     val textSize: AppTextSize = AppTextSize.DEFAULT,
@@ -38,9 +42,14 @@ data class OnboardingUiState(
     val showSkip: Boolean get() = !isLastStep
 }
 
+/**
+ * Buttons that leave a step carry the step they were shown on ([Next.fromStep],
+ * [ContinueWithoutAccount.fromStep]); a tap that lands after the step already moved on is ignored, so a double tap
+ * cannot skip a step.
+ */
 sealed interface OnboardingEvent {
     /** Continue: store this step's values and go on, or finish on the last step. */
-    data object Next : OnboardingEvent
+    data class Next(val fromStep: Int) : OnboardingEvent
 
     /** Store what this and the later steps show and finish. */
     data object Skip : OnboardingEvent
@@ -53,7 +62,7 @@ sealed interface OnboardingEvent {
     data class SetLineSpacing(val spacing: Float) : OnboardingEvent
 
     /** The account step's primary button; that step is the last, so this finishes like [Next]. */
-    data object ContinueWithoutAccount : OnboardingEvent
+    data class ContinueWithoutAccount(val fromStep: Int) : OnboardingEvent
 
     data object SignIn : OnboardingEvent
 }
