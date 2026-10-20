@@ -246,6 +246,61 @@ def test_sa_unresolved_target_stops_before_english_words(pyewts: WylieConverter)
     assert [s.gloss for s in row.senses] == ["which stood in lhasa"]
 
 
+@requires_pyewts
+def test_sa_prefix_never_cuts_the_wylie_run(pyewts: WylieConverter) -> None:
+    index = HeadwordIndex(tibetan={"bo-en": {"ཁ་": 1_000_001, "སྤུ་": 1_000_002, "སྤུ་ཟིང་": 1_000_003}})
+
+    leather = parse(2414, "ཁ་ལྤགས་", "SA kha pags", pyewts, index)
+    bristle = parse(8504, "གཟིལ་བུན་པ་", "SA spu zing byed pa", pyewts, index)
+
+    assert leather.senses == []  # no "pags" gloss
+    assert leather.related == [RelatedCandidate("ཁ་པགས་", "see_also", "kha pags", None)]
+    assert bristle.senses == []
+    assert bristle.related == [RelatedCandidate("སྤུ་ཟིང་བྱེད་པ་", "see_also", "spu zing byed pa", None)]
+
+
+@requires_pyewts
+def test_sa_later_item_of_wylie_syllables_is_a_target(pyewts: WylieConverter) -> None:
+    index = HeadwordIndex(tibetan={"bo-en": {"ཁ་སྟེན་": 5}})
+
+    row = parse(14488, "ཆ་ཙེ་", "SA kha sten, tshig sten", pyewts, index)
+
+    assert row.senses == []
+    assert row.related == [
+        RelatedCandidate("ཁ་སྟེན་", "see_also", "kha sten", 5),
+        RelatedCandidate("ཚིག་སྟེན་", "see_also", "tshig sten", None),
+    ]
+
+
+@requires_pyewts
+@pytest.mark.parametrize(
+    ("definition", "gloss"),
+    [
+        ("SA grang ba, cold", "cold"),  # 11617: single English words are often valid Wylie
+        ("SA bkal ba, spin, send, forward things", "spin, send, forward things"),  # 52141
+        ("SA rgas pa, old man", "old man"),  # da drag ("old") is not modern spelling
+        ("SA rgas pa, strong wind", "strong wind"),  # "str" does not convert cleanly
+    ],
+)
+def test_sa_later_english_item_is_gloss(pyewts: WylieConverter, definition: str, gloss: str) -> None:
+    index = HeadwordIndex(tibetan={"bo-en": {"གྲང་བ་": 1, "བཀལ་བ་": 2, "རྒས་པ་": 3}})
+
+    row = parse(11617, "གྲང་", definition, pyewts, index)
+
+    assert [sense.gloss for sense in row.senses] == [gloss]
+    assert len(row.related) == 1
+
+
+@requires_pyewts
+def test_sa_later_single_syllable_needs_a_tibetan_shape(pyewts: WylieConverter) -> None:
+    index = HeadwordIndex(tibetan={"bo-en": {"ཁ་སྟེན་": 5}})
+
+    row = parse(14488, "ཆ་ཙེ་", "SA kha sten, mgo, ra'i", pyewts, index)
+
+    assert row.senses == []
+    assert [candidate.wylie for candidate in row.related] == ["kha sten", "mgo", "ra'i"]
+
+
 def test_truncated_flag() -> None:
     truncated = parse(
         446,

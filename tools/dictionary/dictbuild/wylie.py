@@ -8,8 +8,30 @@ without pyewts still succeeds with `entries.wylie` NULL, unless `--require-wylie
 from __future__ import annotations
 
 import importlib.metadata
+import re
 from dataclasses import dataclass
 from typing import Protocol
+
+# A well-formed Wylie syllable: [prefix][superscript]root[subscript]vowel[suffix][post-suffix][a
+# particle such as 'i] ("bsgrubs", "pa'i", "g.yu"). pyewts 0.2.0 converts most English without a
+# warning ("hard to understand/penetrate"), so callers check every Latin token against this first.
+_WYLIE_SYLLABLE = re.compile(
+    r"(?:g\.|[gdbm'])?[rls]?"
+    r"(?:tsh|ts|dz|kh|ng|ch|ny|th|ph|zh|sh|Th|Dh|Sh|[kgcjtdnpbmwzy'rlshTDN])?[yrlw]?"
+    r"(?:ai|au|-i|-I|[aiueoAIU])(?:ng|[gdnbm'rls])?[sd]?(?:'(?:i|o|u|am|ang|is|os|us|ung))?"
+)
+LATIN_TOKEN = re.compile(r"[A-Za-z'.+~-]+")
+
+
+def is_wylie_syllable(token: str) -> bool:
+    """Whether a Latin token is one well-formed Wylie syllable ("bsgrubs", "pa'i", "g.yu")."""
+    return _WYLIE_SYLLABLE.fullmatch(token.strip(".")) is not None
+
+
+def is_wylie_text(text: str) -> bool:
+    """Whether `text` has Latin tokens and every one of them is a Wylie syllable ("pags", "bzo ba")."""
+    tokens = LATIN_TOKEN.findall(text)
+    return bool(tokens) and all(is_wylie_syllable(token) for token in tokens)
 
 
 class WylieUnavailableError(RuntimeError):

@@ -14,6 +14,7 @@ from collections.abc import Iterable
 
 from dictbuild.model import GLOSS_LANG_EN, EntryDraft
 from dictbuild.text import syllables
+from dictbuild.wylie import is_wylie_text
 
 WOTD_DIRECTION_ID = "bo-en"
 DEFAULT_WOTD_SEED = 20261019
@@ -25,8 +26,8 @@ MIN_GLOSS_LENGTH = 3
 MAX_GLOSS_LENGTH = 100
 
 # Rule "pure Tibetan letters": consonants, vowel signs and marks, subjoined letters and the tsheg;
-# no digits, shad marks, symbols or other scripts.
-_TIBETAN_LETTERS = re.compile(r"[\u0f40-\u0f6c\u0f71-\u0f87\u0f8d-\u0fbc\u0f0b]+")
+# no digits, shad marks, symbols (U+0F85 paluta) or other scripts.
+_TIBETAN_LETTERS = re.compile(r"[\u0f40-\u0f6c\u0f71-\u0f84\u0f86\u0f87\u0f8d-\u0fbc\u0f0b]+")
 # A first gloss with a digit, "/", "[" or "(" is a reference, a list of alternatives or carries an
 # aside ("pillar (of a house)", "see 2"): it reads badly on its own as the word of the day.
 _UNSHOWABLE_GLOSS = re.compile(r"[\d/\[(]")
@@ -34,7 +35,8 @@ _UNSHOWABLE_GLOSS = re.compile(r"[\d/\[(]")
 
 def is_eligible(entry: EntryDraft) -> bool:
     """bo-en, 2–4 syllables, ≤24 code points, pure Tibetan letters, first gloss English 3–100 chars
-    with no digit, "/", "[" or "(", not truncated."""
+    with no digit, "/", "[" or "(", not truncated; on an entry with see-also links, a first gloss of
+    Wylie syllables only ("pags", "bzo ba": the rest of an `SA` list) does not count."""
     headword = entry.headword
     if entry.direction_id != WOTD_DIRECTION_ID or len(headword) > MAX_CODE_POINTS:
         return False
@@ -45,7 +47,11 @@ def is_eligible(entry: EntryDraft) -> bool:
     first = entry.senses[0]
     if first.gloss_lang != GLOSS_LANG_EN or not MIN_GLOSS_LENGTH <= len(first.gloss) <= MAX_GLOSS_LENGTH:
         return False
-    return not _UNSHOWABLE_GLOSS.search(first.gloss)
+    if _UNSHOWABLE_GLOSS.search(first.gloss):
+        return False
+    # Short English glosses are often valid Wylie too ("rub", "pen", "sand"), so the Wylie test only
+    # applies where an `SA` list can have left Wylie behind.
+    return not (entry.related and is_wylie_text(first.gloss))
 
 
 def assign_ranks(entries: Iterable[EntryDraft], seed: int) -> dict[int, int]:

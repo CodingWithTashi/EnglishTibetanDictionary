@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from dictbuild.model import EntryDraft, ParsedSense
+from dictbuild.model import EntryDraft, ParsedSense, RelatedCandidate
 from dictbuild.wotd import assign_ranks, is_eligible
 
 
@@ -17,12 +17,21 @@ def entry(
     gloss_lang: str = "en",
     truncated: bool = False,
     senses: list[ParsedSense] | None = None,
+    related: list[RelatedCandidate] | None = None,
 ) -> EntryDraft:
     if senses is None:
         senses = [ParsedSense(gloss=gloss, gloss_lang=gloss_lang, source_id=source_id, is_truncated=truncated)]
     return EntryDraft(
-        direction_id=direction_id, source_id=source_id, headword=headword, group_key=headword, senses=senses
+        direction_id=direction_id,
+        source_id=source_id,
+        headword=headword,
+        group_key=headword,
+        senses=senses,
+        related=related or [],
     )
+
+
+SEE_ALSO = [RelatedCandidate("ཁ་པགས་", "see_also", "kha pags")]
 
 
 def test_eligible_entry() -> None:
@@ -31,6 +40,8 @@ def test_eligible_entry() -> None:
     assert is_eligible(entry(gloss="sea"))  # three characters
     assert is_eligible(entry(gloss="x" * 100))
     assert is_eligible(entry(gloss="pillar, column; post"))  # punctuation other than / [ ( is fine
+    assert is_eligible(entry(gloss="rub"))  # short English is often valid Wylie too
+    assert is_eligible(entry(gloss="the hide of a yak", related=SEE_ALSO))
 
 
 @pytest.mark.parametrize(
@@ -44,6 +55,7 @@ def test_eligible_entry() -> None:
         entry("བསྒྲུབས་བསྒྲུབས་བསྒྲུབས་བསྒྲུབས་"),  # over 24 code points
         entry("ཀ་༡་"),  # Tibetan digit
         entry("ཀ།"),  # shad is not a letter
+        entry("བཀྲ་ཤིས\u0f85་"),  # U+0F85 paluta is a mark, not a letter
         entry("ཀaཁ་"),  # Latin letter
         entry(senses=[]),
         entry(gloss="ཀ་བ།", gloss_lang="bo"),
@@ -53,6 +65,8 @@ def test_eligible_entry() -> None:
         entry(gloss="to see/look"),  # slash
         entry(gloss="pillar [of a house]"),  # square bracket
         entry(gloss="pillar (of a house)"),  # parenthesis
+        entry(gloss="pags", related=SEE_ALSO),  # Wylie left over from an SA list
+        entry(gloss="bzo ba", related=SEE_ALSO),
         entry(truncated=True),
     ],
 )

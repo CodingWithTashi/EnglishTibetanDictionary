@@ -15,7 +15,7 @@ from dictbuild.parsers.common import split_numbered, tidy
 from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
 from dictbuild.text import clean_definition, is_truncated, normalise_tibetan_headword, tibetan_ratio
-from dictbuild.wylie import WylieConverter
+from dictbuild.wylie import LATIN_TOKEN, WylieConverter, is_wylie_syllable
 
 # Rule "`{TAG}` anywhere → source_tag" ("{C}", "{GD:515}", "{TGP-77}"), per sense, as written.
 _TAG = re.compile(r"\{(?P<tag>[^{}]*)\}")
@@ -30,16 +30,10 @@ LABEL_DEFINITION = "definition"
 LABEL_DIVISION = "division"
 
 # Rule "ASCII-only definitions containing `/` → toUnicode(); accept if no warnings and ≥80 % Tibetan".
+# Every Latin token must also be a well-formed Wylie syllable (`is_wylie_syllable`): English words
+# almost never all pass.
 WYLIE_MIN_TIBETAN_RATIO = 0.8
-# pyewts 0.2.0 converts most English without a warning ("hard to understand/penetrate"), so every
-# Latin token must also be a well-formed Wylie syllable: [prefix][superscript]root[subscript]vowel
-# [suffix][post-suffix][a particle such as 'i]. English words almost never all pass.
-_WYLIE_SYLLABLE = re.compile(
-    r"(?:g\.|[gdbm'])?[rls]?"
-    r"(?:tsh|ts|dz|kh|ng|ch|ny|th|ph|zh|sh|Th|Dh|Sh|[kgcjtdnpbmwzy'rlshTDN])?[yrlw]?"
-    r"(?:ai|au|-i|-I|[aiueoAIU])(?:ng|[gdnbm'rls])?[sd]?(?:'(?:i|o|u|am|ang|is|os|us|ung))?"
-)
-_LATIN_TOKEN = re.compile(r"[A-Za-z'.+~-]+")
+__all__ = ["is_wylie_syllable", "parse_tben_row"]
 
 # Rule "`SA a, b, c` → see-also candidates": "SA" as a word at the start, after a space, comma,
 # semicolon or opening bracket. Its list ends at ";", ")", "{" or the next "SA".
@@ -52,6 +46,12 @@ _ENGLISH_STOPWORDS = frozenset(
     {"a", "also", "an", "and", "as", "by", "etc", "for", "from", "in", "is", "of", "on", "or", "see", "that", "the",
      "to", "which", "with"}
 )  # fmt: skip
+# A later SA item made only of Wylie syllables is an unresolved target ("SA kha sten, tshig sten"). Short
+# English words are often valid Wylie too ("SA grang ba, cold", "spin, send", "old man"), so the item must
+# also convert cleanly, use no "ai"/"au" vowel or da drag (not modern spelling: "gain", "cold", "bend"),
+# and have two syllables, an apostrophe or an onset English never has ("mgo", "rta", "lha").
+_NOT_MODERN_SPELLING = re.compile(r"ai|au|[nrl]d\.?$")
+_TIBETAN_ONSET = re.compile(r"g\.|[gdbm](?![aeiouAEIOU.yrlw])|[rl][kgcjtdnpbmz]|lh")
 
 
 def parse_tben_row(row: SourceRow, converter: WylieConverter, index: HeadwordIndex) -> ParsedRow:
@@ -93,13 +93,8 @@ def parse_tben_row(row: SourceRow, converter: WylieConverter, index: HeadwordInd
     return parsed
 
 
-def is_wylie_syllable(token: str) -> bool:
-    """Whether a Latin token is one well-formed Wylie syllable ("bsgrubs", "pa'i", "g.yu")."""
-    return _WYLIE_SYLLABLE.fullmatch(token.strip(".")) is not None
-
-
 def _convert_wylie(text: str, converter: WylieConverter, parsed: ParsedRow) -> tuple[str, str]:
-    if all(is_wylie_syllable(token) for token in _LATIN_TOKEN.findall(text)):
+    if all(is_wylie_syllable(token) for token in LATIN_TOKEN.findall(text)):
         conversion = converter.to_unicode(text)
         if conversion is not None and conversion.ok and tibetan_ratio(conversion.text) >= WYLIE_MIN_TIBETAN_RATIO:
             return tidy(conversion.text), GLOSS_LANG_BO
@@ -128,9 +123,10 @@ def _extract_see_also(text: str, converter: WylieConverter, index: HeadwordIndex
 def _see_also_targets(span: str, converter: WylieConverter, index: HeadwordIndex, parsed: ParsedRow) -> int:
     """Add the targets listed in `span` and return how many characters of it they took.
 
-    The first item is always a target: the longest Wylie prefix that is a headword, else the
-    Wylie up to the first English word. Each later item is a target only if it is a headword as a
-    whole; the first one that is not ends the list (the rest is gloss).
+    The first item is always a target: the longest Wylie prefix that is a headword and ends the
+    Wylie run, else the whole Wylie run up to the first English word, unresolved. Each later item is
+    a target only if it is a headword as a whole or is only Wylie syllables (then unresolved); the
+    first one that is neither ends the list (the rest is gloss).
     """
     offset = 0
     consumed = 0
@@ -141,7 +137,7 @@ def _see_also_targets(span: str, converter: WylieConverter, index: HeadwordIndex
         if position == 0:
             target = _first_target(tokens, converter, index)
         else:
-            target = _whole_item_target(tokens, converter, index)
+            target = _whole_item_target(tokens, converter, index) or _wylie_item_target(tokens, converter)
             if target is None:
                 break
         candidate, end = target
@@ -160,6 +156,8 @@ def _first_target(
         wylie = _wylie(tokens)
         return RelatedCandidate(wylie, RELATION_SEE_ALSO, wylie), tokens[-1].end()
     for count in range(min(len(tokens), MAX_SEE_ALSO_TOKENS), 0, -1):
+        if count < len(tokens) and _plausible_wylie(tokens[count].group()):
+            continue  # "SA kha pags" names ཁ་ལྤགས་: a prefix may not cut the Wylie run ("kha" + "pags")
         if (found := _resolve(tokens[:count], converter, index)) is not None:
             return found
     count = 1
@@ -175,6 +173,22 @@ def _whole_item_target(
     if not converter.available or len(tokens) > MAX_SEE_ALSO_TOKENS:
         return None
     return _resolve(tokens, converter, index)
+
+
+def _wylie_item_target(tokens: list[re.Match[str]], converter: WylieConverter) -> tuple[RelatedCandidate, int] | None:
+    """A later list item that is only Wylie ("SA kha sten, tshig sten") is a target even if unresolved."""
+    if not converter.available or len(tokens) > MAX_SEE_ALSO_TOKENS:
+        return None
+    words = [token.group() for token in tokens]
+    if not all(_plausible_wylie(word) and not _NOT_MODERN_SPELLING.search(word) for word in words):
+        return None
+    if len(words) == 1 and "'" not in words[0] and not _TIBETAN_ONSET.match(words[0]):
+        return None
+    wylie = _wylie(tokens)
+    conversion = converter.to_unicode(wylie)
+    if conversion is None or not conversion.ok:
+        return None
+    return RelatedCandidate(_unicode_headword(wylie, converter), RELATION_SEE_ALSO, wylie), tokens[-1].end()
 
 
 def _resolve(
