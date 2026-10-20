@@ -649,6 +649,24 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `queries are normalised as the repository normalises them`() = runTest {
+        val vm = viewModel()
+
+        // A zero-width space, a byte-order mark and a no-break space, as pasted text can carry.
+        vm.type("\u200Bbkra\u00A0\uFEFFshis\u200B")
+        advanceUntilIdle()
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.Results)
+
+        // Only invisible characters: a blank query, so the suggestions show and nothing is searched.
+        vm.type("\u200B\uFEFF")
+        advanceUntilIdle()
+        assertThat(vm.state.phase).isEqualTo(SearchPhase.Suggestions)
+
+        assertThat(searchedQueries()).containsExactly("bkra shis")
+        assertThat(errors.recorded).isEmpty()
+    }
+
+    @Test
     fun `a single Tibetan stack is searched but never recorded`() = runTest {
         val stack = "ཀྲ" // two code points, one character on screen
         dictionary.searchResults[stack to boEn.id] = SearchResult(

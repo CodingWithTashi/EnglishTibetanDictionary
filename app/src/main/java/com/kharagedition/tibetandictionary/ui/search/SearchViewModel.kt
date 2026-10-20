@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
-import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.SearchHit
@@ -17,6 +16,7 @@ import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
+import com.kharagedition.tibetandictionary.data.search.QueryNormalizer
 import com.kharagedition.tibetandictionary.domain.DetectScript
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.InputScript
@@ -82,7 +82,10 @@ class SearchViewModel @AssistedInject constructor(
     /** The user's direction: [directionId] (null = the default direction), [pinned] by a tapped segment. */
     private data class Selection(val directionId: String? = null, val pinned: Boolean = false)
 
-    /** One search to run: the normalised [query], the user's [selectedId] and the visible [directions]. */
+    /**
+     * One search to run: the [QueryNormalizer]-normalised [query], the user's [selectedId] and the visible
+     * [directions].
+     */
     private data class Request(
         val query: String,
         val selectedId: String,
@@ -149,7 +152,7 @@ class SearchViewModel @AssistedInject constructor(
     init {
         // An emptied field passes at once, so typing the same query again right after clearing is a new search.
         val queries = field
-            .map { normalize(it.text) }
+            .map { QueryNormalizer.normalize(it.text) }
             .distinctUntilChanged()
             .debounce { query -> if (query.isEmpty()) 0L else DEBOUNCE_MS }
             .distinctUntilChanged()
@@ -163,7 +166,7 @@ class SearchViewModel @AssistedInject constructor(
             .mapLatest { request -> request?.let { search(it) } }
             .onEach { result ->
                 // A search that finishes after the field was emptied has nothing left to show.
-                if (result != null && normalize(field.value.text).isEmpty()) return@onEach
+                if (result != null && QueryNormalizer.normalize(field.value.text).isEmpty()) return@onEach
                 outcome.value = result
                 if (result != null) countSearch(result)
             }
@@ -200,7 +203,7 @@ class SearchViewModel @AssistedInject constructor(
     /** Takes the field's new value; emptying it drops the shown outcome at once and unpins the direction. */
     private fun changeQuery(value: TextFieldValue) {
         field.value = value
-        if (normalize(value.text).isEmpty()) {
+        if (QueryNormalizer.normalize(value.text).isEmpty()) {
             selection.update { it.copy(pinned = false) }
             outcome.value = null
         }
@@ -209,7 +212,7 @@ class SearchViewModel @AssistedInject constructor(
     /** The search for [query], or null when there is nothing to search (empty field, no visible direction). */
     private fun request(query: String, sel: Selection, caps: DictionaryCapabilities, defaultId: String): Request? {
         // Clearing unpins the selection before the debounced query catches up; never search the old text then.
-        if (query.isEmpty() || normalize(field.value.text).isEmpty()) return null
+        if (query.isEmpty() || QueryNormalizer.normalize(field.value.text).isEmpty()) return null
         val selectedId = selectedDirection(sel, caps, defaultId)?.id ?: return null
         return Request(query, selectedId, sel.pinned, caps.directions)
     }
@@ -363,7 +366,7 @@ class SearchViewModel @AssistedInject constructor(
     ): SearchUiState {
         val directions = caps.directions
         val userSelected = selectedDirection(selection, caps, defaultId)
-        val blank = normalize(field.text).isEmpty()
+        val blank = QueryNormalizer.normalize(field.text).isEmpty()
         val shown = outcome.takeUnless { blank }
         val searched = shown?.let { o -> directions.firstOrNull { it.id == o.directionId } }
         val selected = if (selection.pinned) userSelected else searched ?: userSelected
@@ -409,21 +412,6 @@ class SearchViewModel @AssistedInject constructor(
          * such as ཀྲ), are searched but never recorded.
          */
         const val MIN_RECORDED_LENGTH = 2
-
-        private val Whitespace = Regex("\\s+")
-
-        /**
-         * The query as searched and recorded: non-breaking tshegs made plain, whitespace trimmed and collapsed,
-         * trailing shads dropped and Latin lower-cased (the repository normalises the same way).
-         */
-        fun normalize(text: String): String {
-            val collapsed = text
-                .replace(TibetanScript.NON_BREAKING_TSHEG, TibetanScript.TSHEG)
-                .trim()
-                .replace(Whitespace, " ")
-                .trimEnd('།', '༎', ' ')
-            return if (TibetanScript.hasTibetan(collapsed)) collapsed else collapsed.lowercase()
-        }
 
         /** The user's selection when it is visible, else the default direction (falling back to the first). */
         fun selectedDirection(sel: Selection, caps: DictionaryCapabilities, defaultId: String): Direction? =
