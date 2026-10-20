@@ -66,7 +66,7 @@ fun SeeAlsoSection(
  * trailing chevron.
  */
 @Composable
-fun SeeAlsoRow(item: RelatedUi, onClick: () -> Unit, modifier: Modifier = Modifier, showDivider: Boolean = true) {
+internal fun SeeAlsoRow(item: RelatedUi, onClick: () -> Unit, modifier: Modifier = Modifier, showDivider: Boolean = true) {
     val colors = DictTheme.colors
     val dimens = DictTheme.dimens
     Row(

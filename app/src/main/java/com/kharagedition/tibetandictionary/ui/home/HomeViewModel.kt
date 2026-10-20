@@ -59,9 +59,9 @@ import kotlinx.coroutines.launch
  * that part of the page is left out (a failing word of the day hides the card), so Home never crashes.
  *
  * The greeting, the streak and today's word are for the time and day Home was last shown ([HomeEvent.Shown]), so a
- * Home left open overnight moves on when it comes back. Switcher taps change the default direction. The heart saves today's word to the last-used folder (unfiled
- * when that folder is gone) or removes it through [SavedWordActions], with a plain toast; choosing a folder lives
- * on the Entry screen.
+ * Home left open overnight moves on when it comes back. Switcher taps change the default direction. The heart
+ * saves today's word to the last-used folder (unfiled when that folder is gone) or removes it through
+ * [SavedWordActions], with a plain toast; choosing a folder lives on the Entry screen.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
