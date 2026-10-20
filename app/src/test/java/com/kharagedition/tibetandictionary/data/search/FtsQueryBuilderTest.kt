@@ -97,6 +97,43 @@ class FtsQueryBuilderTest {
     }
 
     @Test
+    fun aFinishedLastTokenIsMatchedExactly() {
+        val kawaDone = FtsQueryBuilder.parse("ཀ་བ་")
+        val kawa = FtsQueryBuilder.parse("ཀ་བ")
+        val goDone = FtsQueryBuilder.parse("go ")
+        val go = FtsQueryBuilder.parse("go")
+
+        // A tsheg after the last syllable: the user has finished it, so it is matched exactly.
+        assertThat(kawaDone).isEqualTo(FtsQueryBuilder.Parsed(listOf("ཀ", "བ"), lastFinished = true))
+        assertThat(FtsQueryBuilder.phrase(kawaDone.tokens, kawaDone.lastFinished)).isEqualTo("\"ཀ བ\"")
+        assertThat(FtsQueryBuilder.allTerms(kawaDone.tokens, kawaDone.lastFinished)).isEqualTo("\"ཀ\" \"བ\"")
+        assertThat(FtsQueryBuilder.anyTerm(kawaDone.tokens, kawaDone.lastFinished)).isEqualTo("\"ཀ\" OR \"བ\"")
+        // Still typing: the last token stays a prefix.
+        assertThat(kawa).isEqualTo(FtsQueryBuilder.Parsed(listOf("ཀ", "བ"), lastFinished = false))
+        assertThat(FtsQueryBuilder.phrase(kawa.tokens, kawa.lastFinished)).isEqualTo("\"ཀ བ*\"")
+        // Latin: a space finishes the word.
+        assertThat(goDone).isEqualTo(FtsQueryBuilder.Parsed(listOf("go"), lastFinished = true))
+        assertThat(FtsQueryBuilder.phrase(goDone.tokens, goDone.lastFinished)).isEqualTo("\"go\"")
+        assertThat(go.lastFinished).isFalse()
+        assertThat(FtsQueryBuilder.allTerms(go.tokens, go.lastFinished)).isEqualTo("\"go*\"")
+    }
+
+    @Test
+    fun finishingIsJudgedOnTheTextAsTyped() {
+        // Normalisation trims "go " to "go" and strips a trailing shad; the typed text still shows the end.
+        assertThat(FtsQueryBuilder.parse("go", typed = "go ").lastFinished).isTrue()
+        assertThat(FtsQueryBuilder.parse("ཀ་བ", typed = "ཀ་བ།").lastFinished).isTrue()
+        assertThat(FtsQueryBuilder.parse("ཀ་བ", typed = "ཀ་བ༌").lastFinished).isTrue()
+        assertThat(FtsQueryBuilder.parse("lead", typed = "lead ").lastFinished).isTrue()
+        // Other punctuation does not finish a word, and without tokens nothing is finished.
+        assertThat(FtsQueryBuilder.parse("lead-").lastFinished).isFalse()
+        assertThat(FtsQueryBuilder.parse("lead\"").lastFinished).isFalse()
+        assertThat(FtsQueryBuilder.parse("go - ").lastFinished).isTrue()
+        assertThat(FtsQueryBuilder.parse("་")).isEqualTo(FtsQueryBuilder.Parsed(emptyList(), lastFinished = false))
+        assertThat(FtsQueryBuilder.parse(" ").lastFinished).isFalse()
+    }
+
+    @Test
     fun noTokensGiveNull() {
         assertThat(tokens("")).isEmpty()
         assertThat(tokens("  \u0F0B \u0F0D \"*():^-")).isEmpty()

@@ -228,6 +228,7 @@ class DictionaryRepositoryImplTest {
         val repo = miniRepository()
 
         val ba = repo.search("ba", BO_EN)
+        val baFinished = repo.search("ba ", BO_EN)
         val shis = repo.search("shis", BO_EN)
         val ban = repo.search("ban", BO_EN)
         val fortune = repo.search("fortune", BO_EN)
@@ -237,6 +238,10 @@ class DictionaryRepositoryImplTest {
         // Two letters: the Wylie prefix step only (exact "ba" before "bal"), no full-text block.
         assertThat(ba.ids()).containsExactly(BA, BAL).inOrder()
         assertThat(ba.fields()).containsExactly(MatchField.WYLIE, MatchField.WYLIE)
+        // A space finishes the syllable: the full-text block runs with "ba" matched exactly, so the Wylie "ka ba" and
+        // "skal ba" follow, but not the gloss word "banner".
+        assertThat(baFinished.ids()).containsExactly(BA, BAL, KAWA, KALWA).inOrder()
+        assertThat(baFinished.query).isEqualTo("ba ")
         // A syllable inside the Wylie: full-text "contains" hits in Monlam order.
         assertThat(shis.ids()).containsExactly(TASHI_DELEK, TASHI, PAL_TASHI).inOrder()
         assertThat(shis.fields().toSet()).containsExactly(MatchField.WYLIE)
@@ -275,6 +280,7 @@ class DictionaryRepositoryImplTest {
         val tashi = repo.search("བཀྲ་ཤིས", EN_BO)
         val pillow = repo.search("སྔས", EN_BO)
         val kawa = repo.search("ཀ་བ", EN_BO)
+        val kawaFinished = repo.search("ཀ་བ་", EN_BO)
 
         assertThat(tashi.script).isEqualTo(Script.TIBETAN)
         assertThat(tashi.ids()).containsExactly(GOOD_FORTUNE, FORTUNE).inOrder()
@@ -288,6 +294,10 @@ class DictionaryRepositoryImplTest {
         assertThat(kawa.hits).isEmpty()
         assertThat(kawa.suggestions.map { it.hit.entry.id to it.directionId })
             .containsExactly(KAWA to BO_EN, BOBO_KAWA to BO_BO).inOrder()
+        // With the closing tsheg the syllable is finished: matched exactly, it reaches the gloss "ཀ་བ།" of "pillar".
+        assertThat(kawaFinished.ids()).containsExactly(PILLAR)
+        assertThat(kawaFinished.fields()).containsExactly(MatchField.GLOSS)
+        assertThat(kawaFinished.suggestions).isEmpty()
     }
 
     @Test

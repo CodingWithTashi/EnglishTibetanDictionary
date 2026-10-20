@@ -11,7 +11,7 @@ import org.junit.Test
  */
 class SearchEngineTest {
 
-    private fun fullText(q: String) = fullTextAllowed(FtsQueryBuilder.tokens(q))
+    private fun fullText(q: String) = fullTextAllowed(FtsQueryBuilder.parse(q))
 
     @Test
     fun fullTextWaitsForThreeLatinLetters() {
@@ -32,8 +32,6 @@ class SearchEngineTest {
     fun fullTextWaitsForATibetanSyllableOfTwoCodePoints() {
         assertThat(fullText("ཀ")).isFalse()
         assertThat(fullText("ཀ་བ")).isFalse()
-        // A tsheg separates tokens; it does not make the last one longer.
-        assertThat(fullText("ཀ་བ་")).isFalse()
         assertThat(fullText("བཀ")).isTrue()
         // A vowel sign or a subjoined letter is a code point of the syllable.
         assertThat(fullText("ཀུ")).isTrue()
@@ -44,6 +42,22 @@ class SearchEngineTest {
         // Han, like Tibetan, writes a syllable per code point.
         assertThat(fullText("水")).isFalse()
         assertThat(fullText("水牛")).isTrue()
+    }
+
+    @Test
+    fun aFinishedLastTokenIsAllowedAtAnyLength() {
+        // A tsheg (Tibetan) or a space (Latin) after the last token: it is matched exactly, so length does not matter.
+        assertThat(fullText("ཀ་བ་")).isTrue()
+        assertThat(fullText("ཀ་")).isTrue()
+        assertThat(fullText("go ")).isTrue()
+        assertThat(fullText("a ")).isTrue()
+        assertThat(fullTextAllowed(FtsQueryBuilder.parse("ཀ་བ", typed = "ཀ་བ།"))).isTrue()
+        // Unfinished: the length rule still applies.
+        assertThat(fullText("ཀ་བ")).isFalse()
+        assertThat(fullText("go")).isFalse()
+        assertThat(fullText("go-")).isFalse()
+        // No tokens: nothing to finish.
+        assertThat(fullText("་ ")).isFalse()
     }
 
     @Test

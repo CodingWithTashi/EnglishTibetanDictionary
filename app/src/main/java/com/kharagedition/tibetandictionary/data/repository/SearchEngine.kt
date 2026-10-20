@@ -37,8 +37,8 @@ import com.kharagedition.tibetandictionary.data.search.ScriptDetector
  *    sets [SearchResult.hasMore]); the exact match (also with a trailing tsheg) first, then Monlam `sort_order`. Every
  *    page after the first holds prefix rows only, so [SearchResult.hasMore] pages through these rows.
  * 4. **Full-text block**, page 0 only, after the prefix rows (so page 0 may hold more than `limit` hits), and only
- *    when [fullTextAllowed] (the last token is long enough to match as a prefix cheaply). At most [FULL_TEXT_LIMIT]
- *    hits in this order:
+ *    when [fullTextAllowed]: the last token is finished (a tsheg, shad or space follows it, so it is matched exactly)
+ *    or long enough to match as a prefix cheaply. At most [FULL_TEXT_LIMIT] hits in this order:
  *    - headword "contains" hits: `ftsHeadwordOutsidePrefix` with the query as one phrase, only in modes with a prefix
  *      step. The index holds headwords and Wylie, so in Wylie mode the hit is a [MatchField.WYLIE] one;
  *    - gloss hits: `ftsGloss` with every term, when the mode has a gloss step.
@@ -75,7 +75,8 @@ internal class SearchEngine(
         val direction = directionDao.get(directionId)?.takeIf { it.entryCount > 0 } ?: return empty
         val sourceScript = scriptOf(direction.sourceScript) ?: return empty
         val mode = Mode.of(direction, sourceScript, script)
-        val tokens = FtsQueryBuilder.tokens(q)
+        // Tokens from the normalised query; whether the last one is finished from the text as typed ("go " → "go").
+        val fts = FtsQueryBuilder.parse(q, typed = query)
 
         val hits = LinkedHashMap<Long, SearchHit>()
         var hasMore = false
@@ -84,26 +85,31 @@ internal class SearchEngine(
             hasMore = rows.size > limit
             rows.take(limit).forEach { hits[it.id] = prefixHit(it, mode.prefix, q) }
         }
-        if (offset == 0 && fullTextAllowed(tokens)) {
-            fullTextBlock(direction.id, mode, q, tokens).forEach { hits.putIfAbsent(it.entry.id, it) }
+        if (offset == 0 && fullTextAllowed(fts)) {
+            fullTextBlock(direction.id, mode, q, fts).forEach { hits.putIfAbsent(it.entry.id, it) }
         }
         val page = hits.values.toList()
         val suggestions =
-            if (page.isEmpty() && offset == 0) didYouMean(direction, mode, q, script, tokens) else emptyList()
+            if (page.isEmpty() && offset == 0) didYouMean(direction, mode, q, script, fts) else emptyList()
         return SearchResult(query, direction.id, script, page, hasMore, suggestions)
     }
 
     /** Step 4: "contains" hits, then gloss hits; at most [FULL_TEXT_LIMIT], none of them a prefix-step row. */
-    private suspend fun fullTextBlock(dir: String, mode: Mode, q: String, tokens: List<String>): List<SearchHit> {
+    private suspend fun fullTextBlock(
+        dir: String,
+        mode: Mode,
+        q: String,
+        fts: FtsQueryBuilder.Parsed,
+    ): List<SearchHit> {
         val block = LinkedHashMap<Long, SearchHit>()
         if (mode.prefix != null) {
-            FtsQueryBuilder.phrase(tokens)?.let { match ->
+            FtsQueryBuilder.phrase(fts.tokens, fts.lastFinished)?.let { match ->
                 entryDao.ftsHeadwordOutsidePrefix(dir, match, q, PrefixBounds.upper(q), FULL_TEXT_LIMIT)
                     .forEach { block.putIfAbsent(it.id, containsHit(it, mode.prefix, q)) }
             }
         }
         if (mode.gloss && block.size < FULL_TEXT_LIMIT) {
-            FtsQueryBuilder.allTerms(tokens)?.let { match ->
+            FtsQueryBuilder.allTerms(fts.tokens, fts.lastFinished)?.let { match ->
                 entryDao.ftsGloss(dir, match, FULL_TEXT_LIMIT)
                     .filterNot { mode.prefix != null && isPrefixRow(it, q) }
                     .forEach { block.putIfAbsent(it.id, glossHit(it, listOf(q))) }
@@ -117,7 +123,7 @@ internal class SearchEngine(
         mode: Mode,
         q: String,
         script: Script,
-        tokens: List<String>,
+        fts: FtsQueryBuilder.Parsed,
     ): List<Suggestion> {
         val found = LinkedHashMap<Long, Suggestion>()
         fun add(hit: SearchHit, directionId: String, max: Int = MAX_SUGGESTIONS) {
@@ -140,11 +146,11 @@ internal class SearchEngine(
         }
 
         // (c) Glosses containing any of the words. With one word in a gloss mode, step 4 already ran this query.
-        val repeatsGlossStep = mode.gloss && tokens.size == 1
-        if (found.size < MAX_SUGGESTIONS && fullTextAllowed(tokens) && !repeatsGlossStep) {
-            FtsQueryBuilder.anyTerm(tokens)?.let { match ->
+        val repeatsGlossStep = mode.gloss && fts.tokens.size == 1
+        if (found.size < MAX_SUGGESTIONS && fullTextAllowed(fts) && !repeatsGlossStep) {
+            FtsQueryBuilder.anyTerm(fts.tokens, fts.lastFinished)?.let { match ->
                 entryDao.ftsGloss(direction.id, match, MAX_SUGGESTIONS)
-                    .forEach { add(glossHit(it, tokens), direction.id) }
+                    .forEach { add(glossHit(it, fts.tokens), direction.id) }
             }
         }
         return found.values.toList()
@@ -301,13 +307,17 @@ internal class SearchEngine(
 }
 
 /**
- * Whether a full-text step may run for the query's FTS [tokens]. The last token is matched as a prefix (`tok*`), and a
- * very short one matches so many rows that sorting them for a keystroke is too slow. So the last token needs at least
- * three code points when it is Latin, and two when it is Tibetan or Han (one code point there is a whole letter or
- * syllable, e.g. the བ of ཀ་བ). The script is [ScriptDetector]'s for that token alone.
+ * Whether a full-text step may run for the parsed query [fts].
+ * - A finished last token ([FtsQueryBuilder.Parsed.lastFinished]: "ཀ་བ་", "go ") is matched exactly, so any length
+ *   will do.
+ * - An unfinished one is matched as a prefix (`tok*`), and a very short one matches so many rows that sorting them for
+ *   a keystroke is too slow. It needs at least three code points when it is Latin, and two when it is Tibetan or Han
+ *   (one code point there is a whole letter or syllable, e.g. the བ of ཀ་བ). The script is [ScriptDetector]'s for that
+ *   token alone.
  */
-internal fun fullTextAllowed(tokens: List<String>): Boolean {
-    val last = tokens.lastOrNull() ?: return false
+internal fun fullTextAllowed(fts: FtsQueryBuilder.Parsed): Boolean {
+    val last = fts.tokens.lastOrNull() ?: return false
+    if (fts.lastFinished) return true
     val codePoints = last.codePointCount(0, last.length)
     return when (ScriptDetector.detect(last)) {
         Script.LATIN -> codePoints >= 3
