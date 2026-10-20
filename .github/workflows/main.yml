@@ -55,3 +55,26 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+
+  dictionary-pipeline:
+    # tools/dictionary builds the bundled dictionary.db. Its tests need no Monlam source: without MLDIC_SOURCE the
+    # one smoke test that reads it skips.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/dictionary
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install the pipeline's requirements
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+
+      - name: Run the pipeline tests
+        run: .venv/bin/python -I -m pytest -q
