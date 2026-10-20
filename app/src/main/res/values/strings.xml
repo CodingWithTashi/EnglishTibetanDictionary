@@ -194,4 +194,20 @@
     <!-- The developer's other apps, listed under "More apps" -->
     <string name="other_app_prayer">Tibetan Prayer</string>
     <string name="other_app_calendar">Tibetan Calendar</string>
+
+    <!-- Search (T2.2) -->
+    <!-- Under no_match_title when there is nothing to suggest -->
+    <string name="no_match_body">Check the spelling or try a shorter word.</string>
+
+    <!-- Home (T2.3) -->
+    <!-- Learn stats card title. %1$s: number of words, already formatted for the app language -->
+    <plurals name="learned_this_week">
+        <item quantity="one">%1$s word learned this week</item>
+        <item quantity="other">%1$s words learned this week</item>
+    </plurals>
+    <!-- Learn stats card sub-line. %1$s: number of words, already formatted for the app language -->
+    <plurals name="due_for_review">
+        <item quantity="one">%1$s due for review in Learn</item>
+        <item quantity="other">%1$s due for review in Learn</item>
+    </plurals>
 </resources>

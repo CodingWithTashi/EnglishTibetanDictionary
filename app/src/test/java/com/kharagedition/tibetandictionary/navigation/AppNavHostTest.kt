@@ -3,10 +3,11 @@ package com.kharagedition.tibetandictionary.navigation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -46,9 +47,8 @@ import org.robolectric.annotation.Config
 
 /**
  * The shell on a Hilt graph with fake repositories and an installed dictionary: start destination, app links and
- * back between routes. Entry, Onboarding, Profile and About are the real screens (entry 42 is not one of the sample
- * entries, so it shows the missing notice); the other destinations are still stubs: their route name plus one
- * `stub_*` button per callback.
+ * back between routes. Every destination but Learn is the real screen (entry 42 is not one of the sample entries, so
+ * it shows the missing notice).
  */
 @HiltAndroidTest
 @UninstallModules(RepositoryModule::class)
@@ -114,7 +114,7 @@ class AppNavHostTest {
     }
 
     private fun assertOnTabs() {
-        compose.onNodeWithText("Home").assertExists()
+        compose.onNodeWithTag("home_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertExists()
     }
 
@@ -200,7 +200,8 @@ class AppNavHostTest {
 
         openLink("app://search?query=bkra")
 
-        compose.onNodeWithText("Search bkra").assertExists()
+        compose.onNodeWithTag("search_screen").assertExists()
+        compose.onNode(hasSetTextAction()).assertTextContains("bkra")
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
     }
 
