@@ -1,0 +1,10 @@
+# Build pipeline for the app's prebuilt dictionary.db (see README.md).
+# Run the tests from this directory with:  .venv/bin/python -I -m pytest -q
+
+[tool.pytest.ini_options]
+# -I (isolated mode) keeps the cwd off sys.path, so the package root is added here.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+filterwarnings = ["error"]
+markers = ["slow: builds a database from the real Monlam source (deselect with -m \"not slow\")"]

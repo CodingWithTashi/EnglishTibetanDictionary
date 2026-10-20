@@ -1,0 +1,37 @@
+"""Read-only access to the Monlam source database (tables `entotb`, `tben`, `tbtb`)."""
+
+from __future__ import annotations
+
+import sqlite3
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
+
+# Source table → dictionary direction id.
+DIRECTION_BY_TABLE: dict[str, str] = {"tben": "bo-en", "tbtb": "bo-bo", "entotb": "en-bo"}
+
+
+@dataclass(frozen=True, slots=True)
+class SourceRow:
+    source_id: int
+    word: str
+    definition: str
+
+
+def open_source(path: Path | str) -> sqlite3.Connection:
+    """Open the source database read-only; a missing file raises instead of being created."""
+    uri = Path(path).resolve().as_uri() + "?mode=ro"
+    return sqlite3.connect(uri, uri=True)
+
+
+def read_rows(conn: sqlite3.Connection, table: str, *, limit: int | None = None) -> Iterator[SourceRow]:
+    """Rows of a source table in `_id` order (Monlam order); NULL text reads as ""."""
+    if table not in DIRECTION_BY_TABLE:
+        raise ValueError(f"unknown source table {table!r}; expected one of {sorted(DIRECTION_BY_TABLE)}")
+    sql = f"SELECT _id, word, definition FROM {table} ORDER BY _id"
+    params: tuple[int, ...] = ()
+    if limit is not None:
+        sql += " LIMIT ?"
+        params = (limit,)
+    cursor = conn.execute(sql, params)
+    return (SourceRow(source_id, word or "", definition or "") for source_id, word, definition in cursor)

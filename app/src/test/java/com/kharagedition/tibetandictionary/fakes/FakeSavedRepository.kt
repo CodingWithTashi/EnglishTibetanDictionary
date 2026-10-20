@@ -15,7 +15,9 @@ import kotlinx.coroutines.flow.map
  * - [saved] rows may be seeded in any order; every list is observed newest first by [SavedEntry.savedAt].
  * - `observeFolder(null)` returns unfiled entries; re-saving keeps the entry's note; `restore` puts a removed row
  *   back unchanged.
- * - Folder names are unique (trimmed, case-insensitive); a new folder goes after the highest position.
+ * - Folder names are trimmed, must not be blank and are unique (case-insensitive); violations throw
+ *   [IllegalArgumentException]. A new folder goes after the highest position.
+ * - `save` and `setFolder` with a folder id that does not exist file the entry as unfiled (null).
  * - Deleting a folder keeps its entries, with no folder.
  */
 class FakeSavedRepository(
@@ -56,7 +58,7 @@ class FakeSavedRepository(
             headword = entry.headword,
             wylie = entry.wylie,
             glossPreview = entry.glossPreview,
-            folderId = folderId,
+            folderId = existingFolderOrNull(folderId),
             note = existing?.note,
             savedAt = clock.now().toEpochMilli(),
         )
@@ -73,7 +75,8 @@ class FakeSavedRepository(
     }
 
     override suspend fun setFolder(entryId: Long, folderId: Long?) {
-        saved.value = saved.value.map { if (it.entryId == entryId) it.copy(folderId = folderId) else it }
+        val target = existingFolderOrNull(folderId)
+        saved.value = saved.value.map { if (it.entryId == entryId) it.copy(folderId = target) else it }
     }
 
     override fun observeFolders(): Flow<List<Folder>> = combine(folders, saved) { folderRows, savedRows ->
@@ -81,16 +84,16 @@ class FakeSavedRepository(
     }
 
     override suspend fun createFolder(name: String): Long {
-        requireUniqueName(name, exceptId = null)
+        val trimmed = validName(name, exceptId = null)
         val id = nextFolderId++
         val position = (folders.value.maxOfOrNull { it.position } ?: -1) + 1
-        folders.value = folders.value + Folder(id = id, name = name, position = position, count = 0)
+        folders.value = folders.value + Folder(id = id, name = trimmed, position = position, count = 0)
         return id
     }
 
     override suspend fun renameFolder(id: Long, name: String) {
-        requireUniqueName(name, exceptId = id)
-        folders.value = folders.value.map { if (it.id == id) it.copy(name = name) else it }
+        val trimmed = validName(name, exceptId = id)
+        folders.value = folders.value.map { if (it.id == id) it.copy(name = trimmed) else it }
     }
 
     override suspend fun deleteFolder(id: Long) {
@@ -98,10 +101,16 @@ class FakeSavedRepository(
         saved.value = saved.value.map { if (it.folderId == id) it.copy(folderId = null) else it }
     }
 
-    private fun requireUniqueName(name: String, exceptId: Long?) {
+    private fun existingFolderOrNull(folderId: Long?): Long? =
+        folderId?.takeIf { id -> folders.value.any { it.id == id } }
+
+    /** The trimmed [name], after checking it is not blank and no other folder than [exceptId] has it. */
+    private fun validName(name: String, exceptId: Long?): String {
         val wanted = name.trim()
+        require(wanted.isNotEmpty()) { "A folder name cannot be blank" }
         require(folders.value.none { it.id != exceptId && it.name.trim().equals(wanted, ignoreCase = true) }) {
             "A folder named \"$wanted\" already exists"
         }
+        return wanted
     }
 }

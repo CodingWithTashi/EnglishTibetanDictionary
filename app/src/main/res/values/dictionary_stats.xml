@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Facts about the bundled dictionary asset. The data build (tools/dictionary, T1.4) overwrites this file with the
-    asset's real numbers; 0 means unknown, and the installing screen then shows its generic status.
+    Facts about the bundled dictionary asset (app/src/main/assets/dictionary/dictionary.db). Written by the
+    data build (tools/dictionary/build_db.py, option stats-xml) together with the asset; do not edit by hand.
+    The installing screen shows the entry count; 0 means unknown.
 -->
 <resources>
-    <integer name="dictionary_entry_count">0</integer>
+    <integer name="dictionary_entry_count">167839</integer>
 </resources>

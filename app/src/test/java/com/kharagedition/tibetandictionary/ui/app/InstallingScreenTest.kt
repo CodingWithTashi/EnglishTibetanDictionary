@@ -35,7 +35,8 @@ class InstallingScreenTest {
 
     @Test
     fun `while copying it shows the app name and a generic status`() {
-        show(AppRootState.Installing(progress = 0.6f, totalEntries = null))
+        // 0: the bundled asset's count is unknown too (the real resource now carries the data build's count).
+        show(AppRootState.Installing(progress = 0.6f, totalEntries = null), bundledEntryCount = 0)
 
         compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertExists()
         compose.onNodeWithText("Tibetan Dictionary").assertExists()
