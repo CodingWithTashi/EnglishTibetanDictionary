@@ -16,7 +16,6 @@ import com.kharagedition.tibetandictionary.data.search.Highlighter
 import com.kharagedition.tibetandictionary.data.search.PrefixBounds
 import com.kharagedition.tibetandictionary.data.search.QueryNormalizer
 import com.kharagedition.tibetandictionary.data.search.ScriptDetector
-import kotlinx.coroutines.flow.first
 
 /**
  * The search pipeline behind [DictionaryRepositoryImpl.search]. Stateless; callers switch to the IO dispatcher.
@@ -35,22 +34,29 @@ import kotlinx.coroutines.flow.first
  *
  *    Han text in a tibt or latn direction searches nothing and goes straight to did-you-mean.
  * 3. **Prefix step:** `EntryDao.prefixByHeadword`/`prefixByWylie` with `limit + 1` rows at `offset` (the extra row
- *    sets [SearchResult.hasMore]); the exact match (also with a trailing tsheg) first, then Monlam `sort_order`.
- * 4. **Full-text steps**, page 0 only and only while there are fewer than `limit` hits: `ftsHeadword` with the
- *    query as one phrase (only in modes with a prefix step; the index holds headwords and Wylie, so in Wylie mode the
- *    hit is a [MatchField.WYLIE] one), then `ftsGloss` with every term ([GLOSS_LIMIT] rows) when the mode has a gloss
- *    step. Hits already listed are skipped; the page is capped at `limit`. Order: exact → prefix → FTS headword →
- *    gloss.
+ *    sets [SearchResult.hasMore]); the exact match (also with a trailing tsheg) first, then Monlam `sort_order`. Every
+ *    page after the first holds prefix rows only, so [SearchResult.hasMore] pages through these rows.
+ * 4. **Full-text block**, page 0 only, after the prefix rows (so page 0 may hold more than `limit` hits), and only
+ *    when [fullTextAllowed] (the last token is long enough to match as a prefix cheaply). At most [FULL_TEXT_LIMIT]
+ *    hits in this order:
+ *    - headword "contains" hits: `ftsHeadwordOutsidePrefix` with the query as one phrase, only in modes with a prefix
+ *      step. The index holds headwords and Wylie, so in Wylie mode the hit is a [MatchField.WYLIE] one;
+ *    - gloss hits: `ftsGloss` with every term, when the mode has a gloss step.
+ *
+ *    The block never repeats a row the prefix step lists on this page or a later one ([isPrefixRow]): such a row
+ *    would show twice once the next page is appended.
  * 5. **Highlights** ([Highlighter]): headword hits `headwordRange`; Wylie prefix hits `wylieRange` plus
  *    `headwordRangeForWylie`; Wylie full-text hits a contains range on the Wylie; gloss hits `glossRange` on the
  *    preview.
  * 6. **Did-you-mean**, page 0 only and only when steps 3–4 found nothing; at most [MAX_SUGGESTIONS], one per entry, in
  *    this order, stopping once full:
  *    a. [shortenedPrefixes] through the mode's prefix step ([SHORTENED_LIMIT] rows); the first candidate with rows
- *       wins; ranked by Damerau-Levenshtein distance between the query and the matched field, then `sort_order`;
+ *       wins; ranked by Damerau-Levenshtein distance between the query and the matched field, then `sort_order`.
+ *       When step (b) has a direction to try, (a) keeps one slot free for it;
  *    b. the headword prefix step in every other visible direction whose source script is the query's script, tagged
  *       with that direction ([Suggestion.directionId]);
- *    c. `ftsGloss` with any term in the searched direction.
+ *    c. `ftsGloss` with any term in the searched direction, when [fullTextAllowed]. Skipped for a one-word query in a
+ *       mode with a gloss step: step 4 already ran that exact query.
  *
  * Every MATCH expression comes from [FtsQueryBuilder], so no input can make SQLite throw.
  */
@@ -78,26 +84,32 @@ internal class SearchEngine(
             hasMore = rows.size > limit
             rows.take(limit).forEach { hits[it.id] = prefixHit(it, mode.prefix, q) }
         }
-        if (offset == 0 && hits.size < limit) {
-            if (mode.prefix != null) {
-                FtsQueryBuilder.phrase(tokens)?.let { match ->
-                    entryDao.ftsHeadword(direction.id, match, limit).forEach {
-                        hits.putIfAbsent(it.id, containsHit(it, mode.prefix, q))
-                    }
-                }
-            }
-            if (mode.gloss) {
-                FtsQueryBuilder.allTerms(tokens)?.let { match ->
-                    entryDao.ftsGloss(direction.id, match, GLOSS_LIMIT).forEach {
-                        hits.putIfAbsent(it.id, glossHit(it, listOf(q)))
-                    }
-                }
-            }
+        if (offset == 0 && fullTextAllowed(tokens)) {
+            fullTextBlock(direction.id, mode, q, tokens).forEach { hits.putIfAbsent(it.entry.id, it) }
         }
-        val page = hits.values.take(limit)
+        val page = hits.values.toList()
         val suggestions =
             if (page.isEmpty() && offset == 0) didYouMean(direction, mode, q, script, tokens) else emptyList()
         return SearchResult(query, direction.id, script, page, hasMore, suggestions)
+    }
+
+    /** Step 4: "contains" hits, then gloss hits; at most [FULL_TEXT_LIMIT], none of them a prefix-step row. */
+    private suspend fun fullTextBlock(dir: String, mode: Mode, q: String, tokens: List<String>): List<SearchHit> {
+        val block = LinkedHashMap<Long, SearchHit>()
+        if (mode.prefix != null) {
+            FtsQueryBuilder.phrase(tokens)?.let { match ->
+                entryDao.ftsHeadwordOutsidePrefix(dir, match, q, PrefixBounds.upper(q), FULL_TEXT_LIMIT)
+                    .forEach { block.putIfAbsent(it.id, containsHit(it, mode.prefix, q)) }
+            }
+        }
+        if (mode.gloss && block.size < FULL_TEXT_LIMIT) {
+            FtsQueryBuilder.allTerms(tokens)?.let { match ->
+                entryDao.ftsGloss(dir, match, FULL_TEXT_LIMIT)
+                    .filterNot { mode.prefix != null && isPrefixRow(it, q) }
+                    .forEach { block.putIfAbsent(it.id, glossHit(it, listOf(q))) }
+            }
+        }
+        return block.values.take(FULL_TEXT_LIMIT)
     }
 
     private suspend fun didYouMean(
@@ -108,28 +120,28 @@ internal class SearchEngine(
         tokens: List<String>,
     ): List<Suggestion> {
         val found = LinkedHashMap<Long, Suggestion>()
-        fun add(hit: SearchHit, directionId: String) {
-            if (found.size < MAX_SUGGESTIONS) found.putIfAbsent(hit.entry.id, Suggestion(hit, directionId))
+        fun add(hit: SearchHit, directionId: String, max: Int = MAX_SUGGESTIONS) {
+            if (found.size < max) found.putIfAbsent(hit.entry.id, Suggestion(hit, directionId))
         }
+        // Other directions whose headwords are in the query's script, for step (b).
+        val others = directionDao.visible().filter { it.id != direction.id && scriptOf(it.sourceScript) == script }
 
-        // (a) Shorter prefixes in this direction.
+        // (a) Shorter prefixes in this direction, keeping a slot for (b) when it has somewhere to look.
         if (mode.prefix != null) {
-            shortenedPrefixHits(direction.id, mode.prefix, q, script).forEach { add(it, direction.id) }
+            val max = if (others.isEmpty()) MAX_SUGGESTIONS else MAX_SUGGESTIONS - 1
+            shortenedPrefixHits(direction.id, mode.prefix, q, script).forEach { add(it, direction.id, max) }
         }
 
-        // (b) The same query in other directions whose headwords are in the query's script.
-        if (found.size < MAX_SUGGESTIONS) {
-            val others = directionDao.observeVisible().first()
-                .filter { it.id != direction.id && scriptOf(it.sourceScript) == script }
-            for (other in others) {
-                if (found.size >= MAX_SUGGESTIONS) break
-                prefixRows(other.id, PrefixField.HEADWORD, q, MAX_SUGGESTIONS, 0)
-                    .forEach { add(prefixHit(it, PrefixField.HEADWORD, q), other.id) }
-            }
+        // (b) The same query in those other directions.
+        for (other in others) {
+            if (found.size >= MAX_SUGGESTIONS) break
+            prefixRows(other.id, PrefixField.HEADWORD, q, MAX_SUGGESTIONS, 0)
+                .forEach { add(prefixHit(it, PrefixField.HEADWORD, q), other.id) }
         }
 
-        // (c) Glosses containing any of the words.
-        if (found.size < MAX_SUGGESTIONS) {
+        // (c) Glosses containing any of the words. With one word in a gloss mode, step 4 already ran this query.
+        val repeatsGlossStep = mode.gloss && tokens.size == 1
+        if (found.size < MAX_SUGGESTIONS && fullTextAllowed(tokens) && !repeatsGlossStep) {
             FtsQueryBuilder.anyTerm(tokens)?.let { match ->
                 entryDao.ftsGloss(direction.id, match, MAX_SUGGESTIONS)
                     .forEach { add(glossHit(it, tokens), direction.id) }
@@ -224,6 +236,20 @@ internal class SearchEngine(
     /** Text compared by edit distance: normalised like a query, without a trailing tsheg. */
     private fun comparable(text: String) = TibetanScript.stripTrailingTsheg(QueryNormalizer.normalize(text))
 
+    /**
+     * Whether the prefix step lists [row] for [q] on some page: its headword or Wylie is in
+     * `[q, PrefixBounds.upper(q))` under NOCASE, i.e. starts with [q] with ASCII letters folded. This is the same test
+     * as in `EntryDao.ftsHeadwordOutsidePrefix`. Only the column in the query's script can match.
+     */
+    private fun isPrefixRow(row: EntryEntity, q: String): Boolean =
+        row.headword.startsWithNoCase(q) || row.wylie?.startsWithNoCase(q) == true
+
+    /** [startsWith] as SQLite's NOCASE compares: ASCII letters fold, every other character must be equal. */
+    private fun String.startsWithNoCase(prefix: String): Boolean =
+        length >= prefix.length && prefix.indices.all { asciiLower(this[it]) == asciiLower(prefix[it]) }
+
+    private fun asciiLower(c: Char): Char = if (c in 'A'..'Z') c + ('a' - 'A') else c
+
     internal enum class PrefixField {
         HEADWORD,
         WYLIE,
@@ -235,7 +261,13 @@ internal class SearchEngine(
         }
     }
 
-    /** Which steps run for a (direction, query script) pair; see the class table. */
+    /**
+     * Which steps run for a (direction, query script) pair; see the class table.
+     *
+     * A Latin query in a Tibetan-source direction searches glosses only when `target_lang` is "en": glosses there are
+     * English, written in Latin script. bo-bo glosses are Tibetan, so there a Latin query could only hit a stray quoted
+     * English word, and it searches the Wylie alone.
+     */
     internal data class Mode(val prefix: PrefixField?, val gloss: Boolean) {
         companion object {
             fun of(direction: DirectionEntity, sourceScript: Script, query: Script): Mode = when (sourceScript) {
@@ -243,7 +275,7 @@ internal class SearchEngine(
                     Script.TIBETAN -> Mode(PrefixField.HEADWORD, gloss = false)
                     Script.LATIN -> Mode(
                         prefix = PrefixField.WYLIE.takeIf { direction.wylieCount > 0 },
-                        gloss = direction.targetLang == "en",
+                        gloss = direction.targetLang == "en", // Latin glosses only; see the KDoc
                     )
                     Script.HAN -> Mode(prefix = null, gloss = false)
                 }
@@ -258,13 +290,28 @@ internal class SearchEngine(
     }
 
     companion object {
-        /** Rows from the gloss full-text step (it sorts every match before the limit, so keep this small). */
-        const val GLOSS_LIMIT = 20
+        /** Hits in page 0's full-text block (both FTS queries sort every match before their limit; keep it small). */
+        const val FULL_TEXT_LIMIT = 20
 
         /** Rows fetched per shortened prefix before ranking by edit distance. */
         const val SHORTENED_LIMIT = 20
 
         const val MAX_SUGGESTIONS = 5
+    }
+}
+
+/**
+ * Whether a full-text step may run for the query's FTS [tokens]. The last token is matched as a prefix (`tok*`), and a
+ * very short one matches so many rows that sorting them for a keystroke is too slow. So the last token needs at least
+ * three code points when it is Latin, and two when it is Tibetan or Han (one code point there is a whole letter or
+ * syllable, e.g. the བ of ཀ་བ). The script is [ScriptDetector]'s for that token alone.
+ */
+internal fun fullTextAllowed(tokens: List<String>): Boolean {
+    val last = tokens.lastOrNull() ?: return false
+    val codePoints = last.codePointCount(0, last.length)
+    return when (ScriptDetector.detect(last)) {
+        Script.LATIN -> codePoints >= 3
+        Script.TIBETAN, Script.HAN -> codePoints >= 2
     }
 }
 

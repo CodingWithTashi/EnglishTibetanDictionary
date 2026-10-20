@@ -11,7 +11,6 @@ import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.SearchResult
 import com.kharagedition.tibetandictionary.data.model.Suggestion
-import com.kharagedition.tibetandictionary.data.search.PrefixBounds
 import com.kharagedition.tibetandictionary.data.search.QueryNormalizer
 import com.kharagedition.tibetandictionary.data.search.ScriptDetector
 import java.time.LocalDate
@@ -21,7 +20,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -78,8 +76,7 @@ class DictionaryRepositoryImpl @Inject constructor(
                 followingRankRanges(dayIndex, count, direction.wotdCount)
                     .flatMap { ranks -> entryDao.wotdRange(direction.id, ranks.first, ranks.last + 1) }
             } else {
-                // Every headword is in ["", U+10FFFF); none equals "", so this is plain sort_order.
-                entryDao.prefixByHeadword(direction.id, "", PrefixBounds.upper(""), "", "", count, 0)
+                entryDao.firstBySortOrder(direction.id, count)
             }
             rows.map { it.toSummary() }
         }
@@ -120,7 +117,7 @@ class DictionaryRepositoryImpl @Inject constructor(
 
     private suspend fun defaultDirectionFor(q: String): String? {
         val script = ScriptDetector.detect(q)
-        val visible = directionDao.observeVisible().first()
+        val visible = directionDao.visible()
         return (visible.firstOrNull { scriptOf(it.sourceScript) == script } ?: visible.firstOrNull())?.id
     }
 

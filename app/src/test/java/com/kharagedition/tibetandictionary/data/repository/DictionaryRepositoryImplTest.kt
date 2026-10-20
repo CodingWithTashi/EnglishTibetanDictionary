@@ -228,15 +228,21 @@ class DictionaryRepositoryImplTest {
         val repo = miniRepository()
 
         val ba = repo.search("ba", BO_EN)
+        val shis = repo.search("shis", BO_EN)
+        val ban = repo.search("ban", BO_EN)
         val fortune = repo.search("fortune", BO_EN)
-        val boBo = repo.search("ba", BO_BO)
+        val boBo = repo.search("ka", BO_BO)
 
         assertThat(ba.script).isEqualTo(Script.LATIN)
-        assertThat(ba.ids()).containsExactly(BA, BAL, KAWA, KALWA, GYALTSEN).inOrder()
-        assertThat(ba.fields()).containsExactly(
-            MatchField.WYLIE, MatchField.WYLIE, MatchField.WYLIE, MatchField.WYLIE, MatchField.GLOSS,
-        ).inOrder()
-        // English reverse lookup: shortest gloss preview first.
+        // Two letters: the Wylie prefix step only (exact "ba" before "bal"), no full-text block.
+        assertThat(ba.ids()).containsExactly(BA, BAL).inOrder()
+        assertThat(ba.fields()).containsExactly(MatchField.WYLIE, MatchField.WYLIE)
+        // A syllable inside the Wylie: full-text "contains" hits in Monlam order.
+        assertThat(shis.ids()).containsExactly(TASHI_DELEK, TASHI, PAL_TASHI).inOrder()
+        assertThat(shis.fields().toSet()).containsExactly(MatchField.WYLIE)
+        // English reverse lookup: "banner" starts with "ban"; shortest gloss preview first.
+        assertThat(ban.ids()).containsExactly(GYALTSEN)
+        assertThat(ban.fields()).containsExactly(MatchField.GLOSS)
         assertThat(fortune.ids()).containsExactly(KALWA, PAL_TASHI, TASHI).inOrder()
         assertThat(fortune.fields().toSet()).containsExactly(MatchField.GLOSS)
         // bo-bo glosses are Tibetan: Latin input searches its Wylie only.
@@ -267,6 +273,7 @@ class DictionaryRepositoryImplTest {
         val repo = miniRepository()
 
         val tashi = repo.search("བཀྲ་ཤིས", EN_BO)
+        val pillow = repo.search("སྔས", EN_BO)
         val kawa = repo.search("ཀ་བ", EN_BO)
 
         assertThat(tashi.script).isEqualTo(Script.TIBETAN)
@@ -275,7 +282,12 @@ class DictionaryRepositoryImplTest {
         assertThat(tashi.hit(GOOD_FORTUNE).glossHighlight).isEqualTo(0 until 3)
         assertThat(tashi.hit(FORTUNE).glossHighlight).isEqualTo(7 until 10)
         assertThat(tashi.hasMore).isFalse()
-        assertThat(kawa.ids()).containsExactly(PILLAR)
+        assertThat(pillow.ids()).containsExactly(PILLOW)
+        // A last syllable of one letter (བ) is too short for the gloss step: did-you-mean offers the headword in the
+        // Tibetan directions instead.
+        assertThat(kawa.hits).isEmpty()
+        assertThat(kawa.suggestions.map { it.hit.entry.id to it.directionId })
+            .containsExactly(KAWA to BO_EN, BOBO_KAWA to BO_BO).inOrder()
     }
 
     @Test
@@ -283,20 +295,65 @@ class DictionaryRepositoryImplTest {
         val repo = miniRepository()
 
         val tibetan = repo.search("བཀྲ་ཤིས", BO_EN)
-        val latin = repo.search("ba", BO_EN)
+        val latin = repo.search("bkra shis", BO_EN)
 
         // TASHI (sort 20) is exact and leads TASHI_DELEK (sort 15); PAL_TASHI only contains the phrase.
         assertThat(tibetan.ids()).containsExactly(TASHI, TASHI_DELEK, PAL_TASHI).inOrder()
-        // Exact Wylie (sort 80) → prefix (75) → full-text Wylie syllable (60, 70) → gloss.
-        assertThat(latin.ids()).containsExactly(BA, BAL, KAWA, KALWA, GYALTSEN).inOrder()
-        assertThat(latin.ids()).containsNoDuplicates()
+        // The same in Wylie. Gloss hits come after these: see fullTextBlockFollowsAFullPrefixPage.
+        assertThat(latin.ids()).containsExactly(TASHI, TASHI_DELEK, PAL_TASHI).inOrder()
+        assertThat(latin.fields().toSet()).containsExactly(MatchField.WYLIE)
+    }
+
+    @Test
+    fun fullTextBlockFollowsAFullPrefixPage() = runTest {
+        val repo = miniRepository()
+        val raBal = 1_000_005L // ར་བལ་ "ra bal": "bal" inside the Wylie
+        val snyoms = 1_000_006L // སྙོམས་: "balance" in the gloss
+        val balPo = 1_000_076L
+        val balYul = 1_000_077L // its gloss has the word "Bal", but its Wylie starts with the query
+        db.testWriteDao().insertEntries(
+            listOf(
+                entry(raBal, BO_EN, "ར་བལ་", 5, wylie = "ra bal", glossPreview = "goat hair"),
+                entry(snyoms, BO_EN, "སྙོམས་", 6, wylie = "snyoms", glossPreview = "balance; evenness"),
+                entry(balPo, BO_EN, "བལ་པོ་", 76, wylie = "bal po", glossPreview = "Nepali"),
+                entry(balYul, BO_EN, "བལ་ཡུལ་", 77, wylie = "bal yul", glossPreview = "Nepal; the Bal country"),
+            ),
+        )
+        db.testWriteDao().insertSenses(
+            listOf(
+                sense(101, raBal, senseNo = 1, gloss = "goat hair"),
+                sense(102, snyoms, senseNo = 1, gloss = "balance; evenness"),
+                sense(103, balPo, senseNo = 1, gloss = "Nepali"),
+                sense(104, balYul, senseNo = 1, gloss = "Nepal; the Bal country"),
+            ),
+        )
+
+        val first = repo.search("bal", BO_EN, limit = 2)
+        val second = repo.search("bal", BO_EN, limit = 2, offset = 2)
+        val short = repo.search("ba", BO_EN, limit = 2)
+
+        // Page 0: the prefix rows fill the page (exact first), then the full-text block follows: the Wylie "contains"
+        // hit, then the gloss hit. Page 0 may therefore hold more than `limit` hits.
+        assertThat(first.ids()).containsExactly(BAL, balPo, raBal, snyoms).inOrder()
+        assertThat(first.fields())
+            .containsExactly(MatchField.WYLIE, MatchField.WYLIE, MatchField.WYLIE, MatchField.GLOSS).inOrder()
+        assertThat(first.hit(raBal).wylieHighlight).isEqualTo(3 until 6)
+        assertThat(first.hit(snyoms).glossHighlight).isEqualTo(0 until 3)
+        assertThat(first.hasMore).isTrue()
+        // bal yul starts with the query: it waits for its prefix page and never joins the full-text block.
+        assertThat(second.ids()).containsExactly(balYul)
+        assertThat(second.fields()).containsExactly(MatchField.WYLIE)
+        assertThat(second.hasMore).isFalse()
+        // Two letters: no full-text block, although "ka ba", "ra bal", "banner" and "balance" would match.
+        assertThat(short.ids()).containsExactly(BA, BAL).inOrder()
+        assertThat(short.hasMore).isTrue()
     }
 
     @Test
     fun searchHighlightsWylieAndHeadword() = runTest {
         val repo = miniRepository()
 
-        val wylie = repo.search("bkra sh", BO_EN)
+        val wylie = repo.search("bkra shi", BO_EN)
         val tibetan = repo.search("བཀ", BO_EN)
         val gloss = repo.search("fortune", BO_EN)
 
@@ -306,14 +363,14 @@ class DictionaryRepositoryImplTest {
                 entry = wylie.hit(TASHI).entry,
                 field = MatchField.WYLIE,
                 headwordHighlight = 0 until 7, // བཀྲ་ཤིས: the two syllables the Wylie covers
-                wylieHighlight = 0 until 7,
+                wylieHighlight = 0 until 8,
                 glossHighlight = null,
             ),
         )
         assertThat(wylie.hit(TASHI_DELEK).headwordHighlight).isEqualTo(0 until 7)
         // A full-text hit inside the Wylie ("dpal bkra shis") highlights where the query occurs.
         assertThat(wylie.hit(PAL_TASHI).field).isEqualTo(MatchField.WYLIE)
-        assertThat(wylie.hit(PAL_TASHI).wylieHighlight).isEqualTo(5 until 12)
+        assertThat(wylie.hit(PAL_TASHI).wylieHighlight).isEqualTo(5 until 13)
         assertThat(wylie.hit(PAL_TASHI).headwordHighlight).isNull()
         // The range never ends inside a stack: བཀ covers the subjoined ra of བཀྲ.
         assertThat(tibetan.hit(TRA).headwordHighlight).isEqualTo(0 until 3)
@@ -374,6 +431,30 @@ class DictionaryRepositoryImplTest {
         assertThat(result.suggestions.map { it.hit.entry.id to it.directionId })
             .containsExactly(PILLAR to EN_BO, BOBO_KAWA to BO_BO).inOrder()
         assertThat(result.suggestions[1].hit.field).isEqualTo(MatchField.GLOSS)
+    }
+
+    @Test
+    fun didYouMeanKeepsASlotForAnotherDirection() = runTest {
+        val repo = miniRepository()
+        val pi = listOf(
+            "པི་" to "pi",
+            "པི་ཝང་" to "pi wang",
+            "པི་པི་" to "pi pi",
+            "པི་ལིང་" to "pi ling",
+            "པི་ཏོ་" to "pi to",
+        ).mapIndexed { i, (headword, wylie) -> entry(1_000_100L + i, BO_EN, headword, 100 + i, wylie = wylie) }
+        db.testWriteDao().insertEntries(pi)
+
+        val result = repo.search("pillo", BO_EN)
+
+        // Step (a) finds five Wylie rows for "pi", but only four may stay: en-bo also reads Latin, and its "pillow"
+        // starts with the query.
+        assertThat(result.hits).isEmpty()
+        assertThat(result.suggestions).hasSize(5)
+        assertThat(pi.map { it.id }).containsAtLeastElementsIn(result.suggestions.take(4).map { it.hit.entry.id })
+        assertThat(result.suggestions.take(4).map { it.directionId }.toSet()).containsExactly(BO_EN)
+        assertThat(result.suggestions.last().hit.entry.id to result.suggestions.last().directionId)
+            .isEqualTo(PILLOW to EN_BO)
     }
 
     @Test
