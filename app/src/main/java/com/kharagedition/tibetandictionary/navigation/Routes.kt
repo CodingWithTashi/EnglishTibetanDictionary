@@ -15,3 +15,6 @@ import kotlinx.serialization.Serializable
 @Serializable data class Entry(val entryId: Long)
 
 @Serializable data object About
+
+/** The full licence texts of the dictionary data and the fonts, pushed from [About]. */
+@Serializable data object Licences

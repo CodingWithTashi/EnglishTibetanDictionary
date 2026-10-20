@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -264,6 +265,25 @@ class AppNavHostTest {
 
         compose.onNodeWithTag("profile_screen").assertExists()
         compose.onNodeWithTag("nav_profile").assertIsSelected()
+    }
+
+    @Test
+    fun `About opens the licences and back returns to About`() {
+        launch(onboarded = true)
+        tap("nav_profile")
+        compose.onNodeWithTag("profile_link_about").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("about_licences").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("licences_screen").assertExists()
+        // The texts load off the main thread.
+        val heading = "Dictionary data · GNU General Public License, version 3"
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(heading).fetchSemanticsNodes().isNotEmpty() }
+
+        pressBack()
+
+        compose.onNodeWithTag("licences_screen").assertDoesNotExist()
+        compose.onNodeWithTag("about_screen").assertExists()
     }
 
     @Test

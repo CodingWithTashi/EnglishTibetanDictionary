@@ -156,6 +156,12 @@
     <!-- About -->
     <string name="about_data">Dictionary data: Monlam Tibetan Dictionary by Lobsang Monlam (GPL-3)</string>
     <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
+    <!-- About row and screen title: the full licence texts of the data and fonts -->
+    <string name="licences">Licences</string>
+    <!-- Licences screen headings; the licence names stay in English -->
+    <string name="licence_data">Dictionary data · GNU General Public License, version 3</string>
+    <string name="licence_font_jomolhari">Jomolhari font · SIL Open Font License 1.0</string>
+    <string name="licence_font_noto_sans">Noto Sans font · SIL Open Font License 1.1</string>
     <!-- %1$s: Play Store link -->
     <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
 

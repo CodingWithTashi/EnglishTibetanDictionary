@@ -56,9 +56,9 @@ private val LineGap = 8.dp
 
 internal const val ABOUT_SCREEN_TAG = "about_screen"
 
-/** About: data source, fonts and licences. [onBack] pops the route. */
+/** About: data source, fonts and licences. [onBack] pops the route; [onOpenLicences] pushes the licence texts. */
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(onBack: () -> Unit, onOpenLicences: () -> Unit) {
     val viewModel = hiltViewModel<AboutViewModel>()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -68,6 +68,7 @@ fun AboutScreen(onBack: () -> Unit) {
         AboutScreen(
             state = loaded,
             onBack = onBack,
+            onLicences = onOpenLicences,
             onEmail = {
                 val subject = resources.getString(R.string.app_name) + " " + loaded.versionName
                 val email = Intent(Intent.ACTION_SENDTO, "mailto:${Links.DEV_EMAIL}".toUri())
@@ -87,12 +88,19 @@ fun AboutScreen(onBack: () -> Unit) {
 
 /**
  * The stateless About screen: back, the app's name and version line, the dictionary data credit (with the data's
- * own attribution when it has one), the fonts, and a row that writes a correction e-mail to the developer.
+ * own attribution when it has one), the fonts, a row that opens the licence texts ([onLicences]) and a row that
+ * writes a correction e-mail to the developer.
  *
- * Test tags: `about_screen`, `about_email`.
+ * Test tags: `about_screen`, `about_licences`, `about_email`.
  */
 @Composable
-fun AboutScreen(state: AboutUiState, onBack: () -> Unit, onEmail: () -> Unit, modifier: Modifier = Modifier) {
+fun AboutScreen(
+    state: AboutUiState,
+    onBack: () -> Unit,
+    onLicences: () -> Unit,
+    onEmail: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = DictTheme.colors
     val type = DictTheme.type
     val dimens = DictTheme.dimens
@@ -103,14 +111,7 @@ fun AboutScreen(state: AboutUiState, onBack: () -> Unit, onEmail: () -> Unit, mo
             .testTag(ABOUT_SCREEN_TAG)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
     ) {
-        // The back icon sits on the text edge; its 48dp touch target reaches into the screen padding.
-        Row(
-            Modifier
-                .padding(start = dimens.screenPadding)
-                .extendStart((dimens.iconButtonLarge - dimens.iconLarge) / 2),
-        ) {
-            DictIconButton(DictIcons.Back, stringResource(R.string.back), onBack)
-        }
+        AboutBackRow(onBack)
         Column(
             Modifier
                 .weight(1f)
@@ -132,6 +133,12 @@ fun AboutScreen(state: AboutUiState, onBack: () -> Unit, onEmail: () -> Unit, mo
             }
             MixedText(stringResource(R.string.about_fonts), type.bodySmall, type.tibetanInline16, color = colors.ink)
             SettingsRow(
+                label = stringResource(R.string.licences),
+                modifier = Modifier.testTag("about_licences"),
+                onClick = onLicences,
+                trailing = SettingsTrailing.Chevron,
+            )
+            SettingsRow(
                 label = stringResource(R.string.report_correction),
                 modifier = Modifier.testTag("about_email"),
                 subLabel = Links.DEV_EMAIL,
@@ -141,6 +148,19 @@ fun AboutScreen(state: AboutUiState, onBack: () -> Unit, onEmail: () -> Unit, mo
             )
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
+    }
+}
+
+/** The back button of About and Licences; the icon sits on the text edge, its 48dp target reaching into the padding. */
+@Composable
+internal fun AboutBackRow(onBack: () -> Unit) {
+    val dimens = DictTheme.dimens
+    Row(
+        Modifier
+            .padding(start = dimens.screenPadding)
+            .extendStart((dimens.iconButtonLarge - dimens.iconLarge) / 2),
+    ) {
+        DictIconButton(DictIcons.Back, stringResource(R.string.back), onBack)
     }
 }
 
@@ -155,11 +175,13 @@ private val previewState = AboutUiState(
 @BoPreview
 @Composable
 private fun AboutPreview() {
-    ComponentPreview(edgeToEdge = true) { AboutScreen(previewState, onBack = {}, onEmail = {}) }
+    ComponentPreview(edgeToEdge = true) { AboutScreen(previewState, onBack = {}, onLicences = {}, onEmail = {}) }
 }
 
 @ExtremeScalePreview
 @Composable
 private fun AboutExtremeScalePreview() {
-    ExtremeScale(edgeToEdge = true) { AboutScreen(previewState.copy(entryCount = null), onBack = {}, onEmail = {}) }
+    ExtremeScale(edgeToEdge = true) {
+        AboutScreen(previewState.copy(entryCount = null), onBack = {}, onLicences = {}, onEmail = {})
+    }
 }

@@ -24,6 +24,7 @@ class AboutScreenTest {
 
     private var backs = 0
     private var emails = 0
+    private var licences = 0
 
     private val state = AboutUiState(
         versionName = "3.0.0",
@@ -34,7 +35,7 @@ class AboutScreenTest {
     private fun show(state: AboutUiState) {
         compose.setContent {
             DictTheme(darkTheme = false) {
-                AboutScreen(state, onBack = { backs++ }, onEmail = { emails++ })
+                AboutScreen(state, onBack = { backs++ }, onLicences = { licences++ }, onEmail = { emails++ })
             }
         }
     }
@@ -67,6 +68,17 @@ class AboutScreenTest {
         compose.onNodeWithTag("about_email").performScrollTo().performClick()
 
         assertThat(emails).isEqualTo(1)
+    }
+
+    @Test
+    fun `the licences row opens the licence texts`() {
+        show(state)
+
+        compose.onNodeWithTag("about_licences").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Licences").performClick()
+
+        assertThat(licences).isEqualTo(1)
+        assertThat(emails).isEqualTo(0)
     }
 
     @Test

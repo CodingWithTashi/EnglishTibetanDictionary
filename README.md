@@ -134,4 +134,6 @@ audio or a phonetic spelling, so those two are not visible yet.
   [Monlam Dictionary](https://github.com/iamironrabbit/monlam-dictionary) app, under the GNU General Public
   License, version 3 (GPL-3.0). The app shows the attribution on its About screen.
 - **Fonts:** Jomolhari (Tibetan, SIL Open Font License 1.0) and Noto Sans (Latin, SIL Open Font License 1.1).
-  The licence texts are in `app/src/main/assets/licenses`.
+- The licence texts (`GPL-3.0.txt`, verbatim from gnu.org, and the two OFL files) are in
+  `app/src/main/assets/licenses`; About → Licences shows them in the app. The app's own licence is still to be
+  settled.

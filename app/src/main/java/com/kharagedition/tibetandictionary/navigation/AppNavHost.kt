@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.kharagedition.tibetandictionary.ui.about.AboutScreen
+import com.kharagedition.tibetandictionary.ui.about.LicencesScreen
 import com.kharagedition.tibetandictionary.ui.entry.EntryScreen
 import com.kharagedition.tibetandictionary.ui.main.MainScaffold
 import com.kharagedition.tibetandictionary.ui.main.MainViewModel
@@ -64,8 +65,8 @@ private fun Scope.popExit(): ExitTransition =
     if (initialState.fadesOnly()) fadeOut(fade) else slideOutHorizontally(slide) { it / SLIDE_DIVISOR } + fadeOut(fade)
 
 /**
- * The app's nav graph: [Onboarding] → [Main] (bottom-bar tabs), with [Search], [Entry] and [About] pushed on top
- * without the bar. Links from [NavigationEventBus] are followed once onboarding is done.
+ * The app's nav graph: [Onboarding] → [Main] (bottom-bar tabs), with [Search], [Entry], [About] and [Licences]
+ * pushed on top without the bar. Links from [NavigationEventBus] are followed once onboarding is done.
  */
 @Composable
 fun AppNavHost(
@@ -139,7 +140,13 @@ fun AppNavHost(
             )
         }
         composable<About> { entry ->
-            AboutScreen(onBack = { entry.ifResumed { navController.popBackStack() } })
+            AboutScreen(
+                onBack = { entry.ifResumed { navController.popBackStack() } },
+                onOpenLicences = { entry.ifResumed { navController.navigate(Licences) } },
+            )
+        }
+        composable<Licences> { entry ->
+            LicencesScreen(onBack = { entry.ifResumed { navController.popBackStack() } })
         }
     }
 }

@@ -141,6 +141,10 @@
     <!-- About -->
     <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། བློ་བཟང་སྨོན་ལམ་གྱིས་བསྒྲིགས་པའི་སྨོན་ལམ་བོད་ཡིག་ཚིག་མཛོད། (GPL-3)</string>
     <string name="about_fonts">ཡིག་གཟུགས། Jomolhari དང་ Noto Sans (SIL Open Font License)</string>
+    <string name="licences">ཆོག་མཆན།</string>
+    <string name="licence_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · GNU General Public License, version 3</string>
+    <string name="licence_font_jomolhari">ཡིག་གཟུགས། Jomolhari · SIL Open Font License 1.0</string>
+    <string name="licence_font_noto_sans">ཡིག་གཟུགས། Noto Sans · SIL Open Font License 1.1</string>
     <string name="share_app_text">བོད་ཡིག་ཚིག་མཛོད་ཐོག་དྲ་རྒྱ་མེད་པར་བོད་ཡིག་དང་དབྱིན་ཡིག་གི་ཚིག་འཚོལ། %1$s</string>
 
     <!-- Entry (T3.1) -->
