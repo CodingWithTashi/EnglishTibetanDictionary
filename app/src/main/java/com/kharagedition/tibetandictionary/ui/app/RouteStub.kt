@@ -8,17 +8,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 
 /**
- * Placeholder body for a destination whose lane has not landed: the route [title] and one text button per action
- * (label to callback), tagged `stub_{label in snake case}`, so the shell can be driven by hand and by tests.
- * Delete it once the last stub body is replaced.
+ * Placeholder body for Learn, the one destination without a screen yet (its tab shows only with `Features.LEARN`,
+ * off in release 1): the [title], centred. Delete it when Learn gets its screen.
  */
 @Composable
-internal fun RouteStub(title: String, vararg actions: Pair<String, () -> Unit>) {
+internal fun RouteStub(title: String) {
     Column(
         Modifier
             .fillMaxSize()
@@ -27,8 +24,5 @@ internal fun RouteStub(title: String, vararg actions: Pair<String, () -> Unit>) 
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(title, style = DictTheme.type.screenTitle, color = DictTheme.colors.ink)
-        actions.forEach { (label, onClick) ->
-            TextButton(label, onClick, Modifier.testTag("stub_" + label.lowercase().replace(' ', '_')))
-        }
     }
 }

@@ -40,7 +40,6 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
-import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -269,57 +268,29 @@ private fun trackSlice(first: Boolean, last: Boolean): Shape = RoundedCornerShap
 /** Corner radius as a percentage of the height: a pill end. */
 private const val HALF = 50
 
-/** Preview copy: the string resources in en, the 3d mockup's Tibetan labels in bo (values-bo is filled later). */
-private class SettingsCopy(
-    val group: String,
-    val textSize: String,
-    val theme: String,
-    val direction: String,
-    val language: String,
-    val wotd: String,
-    val themes: List<String>,
-)
-
-@Composable
-private fun settingsCopy(): SettingsCopy = if (DictTheme.language == AppLanguage.BO) {
-    SettingsCopy(
-        group = "ཀློག་སྟངས།",
-        textSize = "ཡིག་གཟུགས་ཆེ་ཆུང་།",
-        theme = "མདོག་རྣམ།",
-        direction = "སྔོན་སྒྲིག་ཁ་ཕྱོགས།",
-        language = "མཉེན་ཆས་སྐད་ཡིག",
-        wotd = "དེ་རིང་གི་ཚིག་བརྡ་ཐོ།",
-        themes = listOf("དཀར།", "ནག", "རང་འགུལ།"),
-    )
-} else {
-    SettingsCopy(
-        stringResource(R.string.reading),
-        stringResource(R.string.text_size_spacing),
-        stringResource(R.string.theme),
-        stringResource(R.string.default_direction),
-        stringResource(R.string.app_language),
-        stringResource(R.string.wotd_notification),
-        listOf(R.string.theme_light, R.string.theme_dark, R.string.theme_system).map { stringResource(it) },
-    )
-}
-
 @Composable
 private fun SettingsSample() {
-    val copy = settingsCopy()
-    SettingsGroup(copy.group) {
-        SettingsRow(copy.textSize, value = "Default · 1.9", onClick = {}) {
+    val themes = listOf(R.string.theme_light, R.string.theme_dark, R.string.theme_system).map { stringResource(it) }
+    val wotd = stringResource(R.string.wotd_notification)
+    SettingsGroup(stringResource(R.string.reading)) {
+        SettingsRow(stringResource(R.string.text_size_spacing), value = "Default · 1.9", onClick = {}) {
             PreviewCard(AppTextSize.DEFAULT, LineSpacing.DEFAULT)
         }
-        SettingsRow(copy.theme, valueContent = { SegmentedControl3(copy.themes, 2, {}) })
+        SettingsRow(stringResource(R.string.theme), valueContent = { SegmentedControl3(themes, 2, {}) })
         SettingsRow(
-            copy.direction,
+            stringResource(R.string.default_direction),
             valueContent = { DirectionLabel(PreviewSamples.boEn, color = DictTheme.colors.muted) },
             onClick = {},
             trailing = SettingsTrailing.Chevron,
         )
-        SettingsRow(copy.language, value = stringResource(R.string.language_bo), onClick = {}, trailing = SettingsTrailing.Chevron)
-        SettingsRow(copy.wotd, subLabel = "9:00 AM", trailing = SettingsTrailing.Switch(checked = true) {})
-        SettingsRow(copy.wotd, trailing = SettingsTrailing.Switch(checked = false) {}, divider = false)
+        SettingsRow(
+            stringResource(R.string.app_language),
+            value = stringResource(R.string.language_bo),
+            onClick = {},
+            trailing = SettingsTrailing.Chevron,
+        )
+        SettingsRow(wotd, subLabel = "9:00 AM", trailing = SettingsTrailing.Switch(checked = true) {})
+        SettingsRow(wotd, trailing = SettingsTrailing.Switch(checked = false) {}, divider = false)
     }
 }
 
