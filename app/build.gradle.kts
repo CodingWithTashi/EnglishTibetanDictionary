@@ -88,8 +88,6 @@ android {
     lint {
         abortOnError = true
         warningsAsErrors = false
-        // Tibetan strings are filled in separately (values-bo); keep lint strict otherwise.
-        disable += listOf("MissingTranslation")
         // Library and tool versions are pinned to match the owner's other app on purpose.
         disable += listOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
