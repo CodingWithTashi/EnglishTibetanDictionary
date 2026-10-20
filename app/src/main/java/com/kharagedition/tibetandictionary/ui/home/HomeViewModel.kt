@@ -156,8 +156,6 @@ class HomeViewModel @Inject constructor(
         val player = player ?: return
         try {
             player.play(AudioSource.Asset("$AUDIO_ASSET_DIR/$file"))
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: Exception) {
             errors.record(e)
         }

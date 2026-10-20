@@ -107,7 +107,7 @@ class AppNavHostTest {
     fun `an onboarded user starts on the Search tab`() {
         launch(onboarded = true)
 
-        compose.onNodeWithText("Home").assertExists()
+        compose.onNodeWithTag("home_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertExists()
     }
 
@@ -141,7 +141,7 @@ class AppNavHostTest {
 
         pressBack()
 
-        compose.onNodeWithText("Home").assertExists()
+        compose.onNodeWithTag("home_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertExists()
     }
 
