@@ -39,7 +39,6 @@ private val SheetBottom = 24.dp
 private val LinkIcon = 18.dp
 
 /** The sheet [state] has open, wired to [onEvent]; dismissing any of them sends [ProfileEvent.DismissSheet]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProfileSheets(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit) {
     val dismiss = { onEvent(ProfileEvent.DismissSheet) }
@@ -64,11 +63,19 @@ internal fun ProfileSheets(state: ProfileUiState, onEvent: (ProfileEvent) -> Uni
             onPick = { onEvent(ProfileEvent.SetLanguage(it)) },
             onDismiss = dismiss,
         )
-        ProfileSheet.MORE_APPS -> DictModalSheet(dismiss) {
-            MoreAppsContent(state.otherApps) { onEvent(ProfileEvent.OpenOtherApp(it)) }
-        }
+        ProfileSheet.MORE_APPS -> MoreAppsSheet(state.otherApps, onOpen = { onEvent(ProfileEvent.OpenOtherApp(it)) }, dismiss)
         null -> Unit
     }
+}
+
+/**
+ * The More apps sheet. Opts in to the experimental Material 3 API because [DictModalSheet]'s signature exposes
+ * `SheetState`; the shared picker sheets take no `SheetState`, so callers of those need no opt-in.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MoreAppsSheet(apps: List<OtherApp>, onOpen: (OtherApp) -> Unit, onDismiss: () -> Unit) {
+    DictModalSheet(onDismiss) { MoreAppsContent(apps, onOpen) }
 }
 
 /** "More apps": the developer's other apps, each opening its store listing. */
