@@ -1,11 +1,11 @@
 package com.kharagedition.tibetandictionary.core.init
 
 import android.util.Log
-import androidx.appcompat.app.AppCompatDelegate
 import com.kharagedition.tibetandictionary.core.di.ApplicationScope
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.locale.AppLocale
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import javax.inject.Inject
@@ -53,8 +53,7 @@ class AppInitializer @Inject constructor(
 
     /** Copies a per-app locale chosen in Android settings into prefs, so prefs match the language on screen. */
     private suspend fun syncLanguage() {
-        val tag = AppCompatDelegate.getApplicationLocales().takeIf { !it.isEmpty }?.get(0)?.toLanguageTag()
-        AppLanguage.syncTarget(tag, prefs.snapshot().appLanguage)?.let { prefs.setAppLanguage(it) }
+        AppLanguage.syncTarget(AppLocale.currentTag(), prefs.snapshot().appLanguage)?.let { prefs.setAppLanguage(it) }
     }
 
     private inline fun step(name: String, block: () -> Unit) {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository

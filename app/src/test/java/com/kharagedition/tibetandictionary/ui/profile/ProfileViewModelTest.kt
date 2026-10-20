@@ -6,6 +6,7 @@ import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs

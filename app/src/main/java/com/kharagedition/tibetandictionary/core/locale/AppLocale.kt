@@ -12,11 +12,12 @@ object AppLocale {
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language.tag))
     }
 
-    fun current(): AppLanguage {
-        val locales = AppCompatDelegate.getApplicationLocales()
-        val tag = if (!locales.isEmpty) locales[0]?.toLanguageTag() else Locale.getDefault().toLanguageTag()
-        return AppLanguage.fromTag(tag)
-    }
+    /** The per-app locale's language tag, or null when none is set (the app follows the system). */
+    fun currentTag(): String? =
+        AppCompatDelegate.getApplicationLocales().takeIf { !it.isEmpty }?.get(0)?.toLanguageTag()
+
+    /** The per-app language, or null when none is set (the app follows the system). */
+    fun current(): AppLanguage? = currentTag()?.let(AppLanguage::fromTag)
 
     /** For receivers and workers, where the per-app locale is not applied to the context (API < 33). */
     fun localizedContext(context: Context, language: AppLanguage): Context {
