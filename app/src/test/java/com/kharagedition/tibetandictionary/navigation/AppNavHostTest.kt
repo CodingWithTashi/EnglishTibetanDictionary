@@ -151,7 +151,7 @@ class AppNavHostTest {
 
         openLink("app://search?query=bkra")
 
-        compose.onNodeWithText("Search").assertExists()
+        compose.onNodeWithTag("search_screen").assertExists()
         compose.onNodeWithTag("nav_search").assertDoesNotExist()
     }
 }
