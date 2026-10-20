@@ -253,7 +253,7 @@ class HomeViewModelTest {
     // Direction
 
     @Test
-    fun `SelectDirection persists the default direction`() = runTest {
+    fun `SelectDirection persists the default direction and keeps the segments in place for the visit`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()
 
@@ -261,7 +261,53 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo(enBo.id)
+        // The selection (and so the thumb) moves to en-bo; the segments do not jump under the finger.
         assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        assertThat(vm.state.slots.fixed).containsExactly(boEn, boBo, enBo).inOrder()
+
+        // The next visit (back from Search, another tab or the background) leads with the new default.
+        vm.onEvent(HomeEvent.Shown)
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        assertThat(vm.state.slots.fixed.first().id).isEqualTo("en-bo")
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+    }
+
+    @Test
+    fun `a new Home leads with the default stored by a tap`() = runTest {
+        val first = viewModel()
+        advanceUntilIdle()
+        first.onEvent(HomeEvent.SelectDirection(enBo.id))
+        advanceUntilIdle()
+
+        val next = viewModel()
+        advanceUntilIdle()
+
+        assertThat(next.state.selectedDirection).isEqualTo(enBo)
+        assertThat(next.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
+    }
+
+    @Test
+    fun `the stored default direction is the first segment`() = runTest {
+        prefs.setDefaultDirectionId(boBo.id)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(boBo)
+        assertThat(vm.state.slots.fixed).containsExactly(boBo, boEn, enBo).inOrder()
+
+        // Changed elsewhere (Profile → Default direction): selected at once, first from the next visit.
+        prefs.setDefaultDirectionId(enBo.id)
+        advanceUntilIdle()
+
+        assertThat(vm.state.selectedDirection).isEqualTo(enBo)
+        assertThat(vm.state.slots.fixed).containsExactly(boBo, boEn, enBo).inOrder()
+
+        vm.onEvent(HomeEvent.Shown)
+        advanceUntilIdle()
+
+        assertThat(vm.state.slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
     }
 
     @Test

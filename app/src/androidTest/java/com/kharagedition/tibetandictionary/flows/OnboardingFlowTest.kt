@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.flows
 
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.onNodeWithTag
@@ -43,8 +44,12 @@ class OnboardingFlowTest : AppFlowTest() {
         waitForHome()
         val stored = awaitPrefs { it.onboarded && it.defaultDirectionId == "en-bo" }
         assertThat(stored.defaultDirectionId).isEqualTo("en-bo")
-        // Home's switcher starts on the new default.
+        // Home's switcher starts on the new default, which takes the first segment.
         waitFor(hasTestTag("direction_segment_en-bo") and isSelected())
+        val first = compose.onNodeWithTag("direction_segment_en-bo").getBoundsInRoot().left
+        listOf("bo-en", "bo-bo").forEach {
+            assertThat(first).isLessThan(compose.onNodeWithTag("direction_segment_$it").getBoundsInRoot().left)
+        }
     }
 
     @Test

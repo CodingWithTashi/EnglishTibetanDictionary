@@ -61,6 +61,12 @@ class DirectionSlotsTest {
         val boZh = zhBo.copy(id = "bo-zh", sourceLang = "bo", targetLang = "zh", position = 4, entryCount = 0)
         assertThat(ids(DirectionSlots.compute(four + boZh, defaultId = "bo-zh", selectedId = "bo-zh")))
             .isEqualTo(Triple(listOf("bo-en", "en-bo"), listOf("bo-bo", "zh-bo"), null))
+        // With three or fewer visible directions the fallback leads the switcher too.
+        assertThat(ids(DirectionSlots.compute(three, defaultId = "zh-en", selectedId = "zh-en")))
+            .isEqualTo(Triple(listOf("bo-en", "bo-bo", "en-bo"), emptyList<String>(), null))
+        val emptyBoEn = listOf(boEn.copy(entryCount = 0), boBo, enBo)
+        assertThat(ids(DirectionSlots.compute(emptyBoEn, defaultId = "bo-en", selectedId = "bo-en")))
+            .isEqualTo(Triple(listOf("bo-bo", "en-bo"), emptyList<String>(), null))
         // The fallback is shared with screens that only need the default direction.
         assertThat(DirectionSlots.defaultDirection(four, "zh-en")).isEqualTo(boEn)
         assertThat(DirectionSlots.defaultDirection(four + boZh, "bo-zh")).isEqualTo(boEn)
@@ -76,10 +82,30 @@ class DirectionSlotsTest {
     // Ordering and slotting
 
     @Test
+    fun threeDirectionsPutTheDefaultFirstThenTheRestInCanonicalOrder() {
+        assertThat(DirectionSlots.compute(three, defaultId = "en-bo", selectedId = "en-bo").fixed)
+            .containsExactly(enBo, boEn, boBo).inOrder()
+        assertThat(DirectionSlots.compute(three, defaultId = "bo-bo", selectedId = "bo-bo").fixed)
+            .containsExactly(boBo, boEn, enBo).inOrder()
+        // The first canonical direction as default leaves the canonical order unchanged.
+        assertThat(DirectionSlots.compute(three, defaultId = "bo-en", selectedId = "bo-en").fixed)
+            .containsExactly(boEn, boBo, enBo).inOrder()
+    }
+
+    @Test
+    fun theDefaultLeadsWhateverTheSelection() {
+        // The selection (an auto-detected or tapped direction) moves the thumb, never the segments.
+        assertThat(DirectionSlots.compute(three, defaultId = "en-bo", selectedId = "bo-en"))
+            .isEqualTo(DirectionSlots(listOf(enBo, boEn, boBo), overflow = emptyList(), moreLabel = null))
+        assertThat(DirectionSlots.compute(three, defaultId = "en-bo", selectedId = null).fixed)
+            .containsExactly(enBo, boEn, boBo).inOrder()
+    }
+
+    @Test
     fun canonicalOrderIsByPosition() {
         val slots = DirectionSlots.compute(three.reversed(), defaultId = "en-bo", selectedId = null)
 
-        assertThat(slots.fixed).containsExactly(boEn, boBo, enBo).inOrder()
+        assertThat(slots.fixed).containsExactly(enBo, boEn, boBo).inOrder()
         assertThat(slots.overflow).isEmpty()
     }
 

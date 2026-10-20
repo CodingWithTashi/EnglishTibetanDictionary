@@ -163,6 +163,35 @@ class DirectionSwitcherTest {
     }
 
     @Test
+    fun `with the default first, an auto-detected direction slides the thumb to its segment`() {
+        // Default en-bo leads (DirectionSlots.compute); a Tibetan query then auto-selects bo-en.
+        val enBoFirst = DirectionSlots(fixed = listOf(enBo, boEn, boBo), overflow = emptyList())
+        var selected by mutableStateOf(enBo)
+        var auto by mutableStateOf(false)
+        compose.setContent {
+            DictTheme(darkTheme = false) { DirectionSwitcher(enBoFirst, selected, onSelect = {}, autoSelected = auto) }
+        }
+        val first = compose.onNodeWithTag(SEGMENT_PREFIX + "en-bo").getBoundsInRoot().left
+        assertThat(first).isLessThan(compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").getBoundsInRoot().left)
+        assertThat(compose.onNodeWithTag(THUMB).getBoundsInRoot().left).isEqualTo(first)
+        compose.onNodeWithTag(SEGMENT_PREFIX + "en-bo").assertIsSelected()
+
+        selected = boEn
+        auto = true
+        compose.mainClock.advanceTimeBy(ANIMATION_SETTLE_MS)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").assertIsSelected()
+        compose.onNodeWithTag(SEGMENT_PREFIX + "en-bo").assertIsNotSelected()
+        compose.onNodeWithTag(SWITCHER).assert(stateIs("བོད→ EN"))
+        val thumbEnd = compose.onNodeWithTag(THUMB).getBoundsInRoot().left
+        val target = compose.onNodeWithTag(SEGMENT_PREFIX + "bo-en").getBoundsInRoot().left
+        // Within a pixel: the row rounds each weighted segment to whole pixels, the thumb's offset rounds once.
+        assertThat(thumbEnd.value).isWithin(1f).of(target.value)
+        assertThat(thumbEnd).isGreaterThan(first)
+    }
+
+    @Test
     fun `auto-selection is announced politely`() {
         compose.setContent {
             DictTheme(darkTheme = false) { DirectionSwitcher(three, enBo, onSelect = {}, autoSelected = true) }
