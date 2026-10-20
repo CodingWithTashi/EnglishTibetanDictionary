@@ -18,4 +18,7 @@
 # Type-safe navigation routes (serialized by class name)
 -keep class com.kharagedition.tibetandictionary.navigation.** { *; }
 
-# Room, Hilt and Firebase ship consumer rules.
+# Room: Room.databaseBuilder(context, X::class.java, ...) loads X_Impl by name. room-runtime's consumer rule
+# (-keep class * extends androidx.room.RoomDatabase { void <init>(); }) keeps both names and the constructor;
+# entities and DAOs are only reached through generated code, so nothing more is needed here.
+# Hilt and Firebase (Analytics, Crashlytics) ship consumer rules as well.
