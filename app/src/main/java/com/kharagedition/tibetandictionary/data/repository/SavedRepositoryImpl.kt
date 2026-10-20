@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
 class SavedRepositoryImpl @Inject constructor(
     private val db: UserDatabase,
     private val clock: AppClock,
-    @IoDispatcher private val io: CoroutineDispatcher,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : SavedRepository {
     private val savedDao = db.savedEntryDao()
     private val folderDao = db.folderDao()

@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 class ActivityRepositoryImpl @Inject constructor(
     db: UserDatabase,
     private val clock: AppClock,
-    @IoDispatcher private val io: CoroutineDispatcher,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : ActivityRepository {
     private val dao = db.activityDayDao()
 

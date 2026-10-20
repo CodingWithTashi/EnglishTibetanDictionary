@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 class RecentSearchesRepositoryImpl @Inject constructor(
     db: UserDatabase,
     private val clock: AppClock,
-    @IoDispatcher private val io: CoroutineDispatcher,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : RecentSearchesRepository {
     private val dao = db.recentSearchDao()
 
