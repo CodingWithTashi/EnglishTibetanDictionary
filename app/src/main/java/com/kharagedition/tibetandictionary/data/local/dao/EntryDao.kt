@@ -112,12 +112,16 @@ interface EntryDao {
     /**
      * Reverse lookup: entries with a sense gloss matching [match], shortest gloss preview first. [match] must come from
      * `FtsQueryBuilder`; raw user text can throw `malformed MATCH expression`.
+     *
+     * `CROSS JOIN` fixes the join order to full-text index → `senses` → `entries`, so the MATCH runs once. Left to
+     * choose, the planner (older SQLite versions in particular) may drive the query from the `entries` direction index
+     * and run the MATCH once per row, the plan that made the headword query take 18 s on the shipped asset.
      */
     @Query(
         """
-        SELECT DISTINCT entries.* FROM entries
-        JOIN senses ON senses.entry_id = entries.id
-        JOIN senses_fts ON senses_fts.rowid = senses.id
+        SELECT DISTINCT entries.* FROM senses_fts
+        CROSS JOIN senses ON senses.id = senses_fts.rowid
+        CROSS JOIN entries ON entries.id = senses.entry_id
         WHERE senses_fts MATCH :match AND entries.direction_id = :dir
         ORDER BY length(entries.gloss_preview), entries.sort_order
         LIMIT :limit
@@ -136,7 +140,17 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE wotd_rank = :rank LIMIT 1")
     suspend fun byWotdRank(rank: Int): EntryEntity?
 
-    /** Entries of [dir] with `from <= wotd_rank < to`, in rank order. */
-    @Query("SELECT * FROM entries WHERE direction_id = :dir AND wotd_rank >= :from AND wotd_rank < :to ORDER BY wotd_rank")
+    /**
+     * Entries of [dir] with `from <= wotd_rank < to`, in rank order. The unary `+` keeps SQLite off the direction
+     * indices, which would walk every entry of the direction (29 ms on the shipped asset), and on
+     * `index_entries_wotd_rank`, which reads only the requested ranks (1 ms).
+     */
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE +direction_id = :dir AND wotd_rank >= :from AND wotd_rank < :to
+        ORDER BY wotd_rank
+        """,
+    )
     suspend fun wotdRange(dir: String, from: Int, to: Int): List<EntryEntity>
 }
