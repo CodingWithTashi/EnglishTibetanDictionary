@@ -16,8 +16,9 @@ from dictbuild.model import DIRECTIONS, RELATION_SEE_ALSO, RELATION_SYNONYM, Dir
 from dictbuild.writer import ContentRows
 
 # Expected counts after a full build (plan §5.3). The en-bo count follows the T1.2 ruling (one more
-# headword than the plan's 35,887 once "K2" keeps its digit).
-EXPECTED_ENTRIES = {"bo-en": (76_828, 76_828), "bo-bo": (55_124, 55_124), "en-bo": (35_880, 35_900)}
+# headword than the plan's 35,887 once "K2" keeps its digit). bo-en has one entry fewer than its
+# 76,828 source headwords: དཔལ་གྱི་ཁབ་ (row 23263, only "{Ship 64b.2}") has no sense and no link.
+EXPECTED_ENTRIES = {"bo-en": (76_827, 76_827), "bo-bo": (55_124, 55_124), "en-bo": (35_887, 35_888)}
 EXPECTED_SENSES = {"bo-en": (88_000, 88_938), "bo-bo": (65_000, 80_000), "en-bo": (55_000, 75_000)}
 EXPECTED_EXAMPLES = {"bo-bo": (18_000, 19_000), "en-bo": (2_000, 5_000)}
 EXPECTED_SEE_ALSO = (4_000, 5_000)
@@ -26,7 +27,7 @@ EXPECTED_SEE_ALSO_RESOLVED_PERCENT = (70.0, 100.0)
 # occurrences; 17 are headword-like terms (the rest are equations and expansions in example text),
 # so the range brackets 17 rather than the ruled 200–3,500.
 EXPECTED_SYNONYMS = (10, 40)
-EXPECTED_WYLIE = 131_952
+EXPECTED_WYLIE = 131_951  # every bo-en and bo-bo entry
 EXPECTED_TRUNCATED = (480, 600)
 EXPECTED_WOTD = (25_000, 60_000)
 

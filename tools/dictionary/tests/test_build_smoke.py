@@ -1,8 +1,10 @@
-"""End-to-end build (plan §5.3): `build_db.py --limit 300` against the real Monlam source."""
+"""End-to-end build (plan §5.3): `build_db.py` against a tiny fake source and, with `MLDIC_SOURCE`
+set to the real Monlam `MLDic.ml`, `--limit 300` against the real one."""
 
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -14,7 +16,25 @@ from dictbuild.model import DIRECTIONS, EntryRow, ParsedSense, RelatedEntryRow
 from dictbuild.schema import latest_schema_path, load_schema
 from dictbuild.writer import entry_part_of_speech, gloss_preview, write_database
 
-SOURCE = Path("/Users/kunchoktashi/Downloads/monlam-dictionary-master/app/src/main/assets/MLDic.ml")
+SOURCE_ENV = "MLDIC_SOURCE"
+SOURCE = Path(os.environ[SOURCE_ENV]) if os.environ.get(SOURCE_ENV) else None
+
+
+def fake_source(path: Path, rows: dict[str, list[tuple[int, str, str]]]) -> Path:
+    """A source database with the three Monlam tables holding `rows` (table → (_id, word, definition))."""
+    with closing(sqlite3.connect(path)) as db:
+        for table in ("entotb", "tben", "tbtb"):
+            db.execute(f"CREATE TABLE {table} (_id INTEGER PRIMARY KEY, word TEXT, definition TEXT)")
+            db.executemany(f"INSERT INTO {table} VALUES (?, ?, ?)", rows.get(table, []))
+        db.commit()
+    return path
+
+
+TINY_ROWS = {
+    "tben": [(1, "ཀ་", "pillar"), (2, "ཀ་བ་", "SA ka"), (3, "དཔལ་གྱི་ཁབ་", "{Ship 64b.2}")],
+    "tbtb": [(1, "ཀ་", "ཀ་བ།")],
+    "entotb": [(1, "pillar", "n. ཀ་བ།")],
+}
 
 
 def test_gloss_preview_keeps_short_glosses() -> None:
@@ -90,18 +110,73 @@ def test_missing_source_is_reported_with_its_path(tmp_path: Path, schema_dir: Pa
 
 def test_missing_schema_is_reported_with_its_path(tmp_path: Path, capsys) -> None:
     out = tmp_path / "d.db"
+    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
 
     code = build_db.main(
-        ["--source", str(SOURCE), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
+        ["--source", str(source), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
     )
 
     assert code != 0
     assert str(tmp_path) in capsys.readouterr().err
 
 
+def test_out_of_range_build_exits_2_and_leaves_out_untouched(tmp_path: Path, schema_dir: Path, capsys) -> None:
+    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
+    out = tmp_path / "assets" / "dictionary.db"
+    out.parent.mkdir()
+    out.write_bytes(b"shipped asset")
+    report = tmp_path / "report.json"
+
+    code = build_db.main(
+        [
+            "--source", str(source),
+            "--schema-dir", str(schema_dir),
+            "--out", str(out),
+            "--data-version", "t",
+            "--report", str(report),
+        ]
+    )  # fmt: skip
+
+    assert code == build_db.EXIT_OUT_OF_RANGE == 2
+    assert out.read_bytes() == b"shipped asset"
+    assert sorted(path.name for path in out.parent.iterdir()) == ["dictionary.db"]
+    assert f"{out} was not replaced" in capsys.readouterr().err
+    checks = json.loads(report.read_text(encoding="utf-8"))["range_checks"]
+    assert {check["name"] for check in checks if not check["ok"]} >= {"entries bo-en", "senses bo-bo"}
+
+
+def test_entry_without_senses_or_links_is_not_written(tmp_path: Path, schema_dir: Path) -> None:
+    source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
+    out = tmp_path / "dictionary.db"
+    report = tmp_path / "report.json"
+
+    code = build_db.main(
+        [
+            "--source", str(source),
+            "--schema-dir", str(schema_dir),
+            "--out", str(out),
+            "--data-version", "t",
+            "--report", str(report),
+            "--limit", "10",
+        ]
+    )  # fmt: skip
+
+    assert code == 0
+    with closing(sqlite3.connect(out)) as db:
+        headwords = [row[0] for row in db.execute("SELECT headword FROM entries WHERE direction_id = 'bo-en'")]
+        assert headwords == ["ཀ་", "ཀ་བ་"]  # དཔལ་གྱི་ཁབ་ ("{Ship 64b.2}") has nothing to show
+        assert db.execute("SELECT COUNT(*) FROM entries WHERE gloss_preview = ''").fetchone()[0] == 0
+    warnings = json.loads(report.read_text(encoding="utf-8"))["warnings"]
+    assert warnings["build:empty_entry_dropped"] == {"count": 1, "sample_source_ids": [3]}
+
+
 @pytest.mark.slow
-@pytest.mark.skipif(not SOURCE.is_file(), reason="Monlam source database not available")
+@pytest.mark.skipif(
+    SOURCE is None or not SOURCE.is_file(),
+    reason=f"set {SOURCE_ENV} to the Monlam MLDic.ml to run the end-to-end build on real data",
+)
 def test_build_limit_300(tmp_path: Path, schema_dir: Path) -> None:
+    assert SOURCE is not None
     out = tmp_path / "assets" / "dictionary.db"
     report = tmp_path / "report.json"
 

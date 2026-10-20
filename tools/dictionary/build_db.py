@@ -8,7 +8,8 @@ Steps: load the highest `<v>.json` schema → read the three source tables → p
 rows into entries → resolve related links across directions → assign word-of-the-day ranks →
 compute direction counts and meta → write the database (temp file, atomic rename) → report.
 Exit status: 0 on success, 1 when an input cannot be read or the database cannot be written,
-2 when a full build's counts leave the expected ranges (the database and report are still written).
+2 when a full build's counts leave the expected ranges: `--out` is then left as it was, and the
+database is written to a temporary directory for inspection (the report is still written).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from datetime import datetime, timezone
@@ -31,7 +33,7 @@ from dictbuild.model import DIRECTIONS, EntryDraft, ParsedRow  # noqa: E402
 from dictbuild.parsers.entotb import parse_entotb_row  # noqa: E402
 from dictbuild.parsers.tben import parse_tben_row  # noqa: E402
 from dictbuild.parsers.tbtb import parse_tbtb_row  # noqa: E402
-from dictbuild.related import HeadwordIndex, resolve_related  # noqa: E402
+from dictbuild.related import HeadwordIndex, RelatedStats, resolve_related  # noqa: E402
 from dictbuild.report import BuildReport  # noqa: E402
 from dictbuild.schema import Schema, latest_schema_path, load_schema  # noqa: E402
 from dictbuild.source import DIRECTION_BY_TABLE, SourceRow, open_source, read_rows  # noqa: E402
@@ -100,18 +102,22 @@ def main(argv: list[str] | None = None) -> int:
         checks = []  # a partial build cannot meet the full-build counts
     else:
         report.add_range_checks(checks)
+    failed = [check for check in checks if not check.ok]
+    # An out-of-range build never replaces --out (which may be the shipped asset).
+    out = Path(tempfile.mkdtemp(prefix="dictionary-out-of-range-")) / args.out.name if failed else args.out
     try:
-        write_database(args.out, schema, tables)
+        write_database(out, schema, tables)
     except (OSError, sqlite3.Error) as error:
-        return _fail(f"cannot write {args.out}: {error}")
+        return _fail(f"cannot write {out}: {error}")
     if args.report is not None:
         report.write(args.report)
 
     entries = ", ".join(f"{direction.id} {direction.entry_count}" for direction in tables["directions"])
-    print(f"build_db: wrote {args.out} (entries: {entries}; schema v{schema.version}; {converter.name})")
-    failed = [check for check in checks if not check.ok]
+    print(f"build_db: wrote {out} (entries: {entries}; schema v{schema.version}; {converter.name})")
     for check in failed:
         print(f"build_db: {check.name} = {check.value} is outside {check.minimum}–{check.maximum}", file=sys.stderr)
+    if failed:
+        print(f"build_db: {args.out} was not replaced", file=sys.stderr)
     return EXIT_OUT_OF_RANGE if failed else 0
 
 
@@ -141,8 +147,10 @@ def build(
         report.add_parsed(table, rows)
         drafts[DIRECTION_BY_TABLE[table]] = group_rows(DIRECTION_BY_TABLE[table], rows)
     ordered = [draft for direction in DIRECTIONS for draft in drafts[direction.id]]
-    report.add_related(resolve_related(ordered, index, converter))
-    ranks = assign_ranks(drafts[WOTD_DIRECTION_ID], wotd_seed)
+    stats = resolve_related(ordered, index, converter)
+    ordered = _drop_empty_entries(ordered, stats, report)
+    report.add_related(stats)
+    ranks = assign_ranks((draft for draft in ordered if draft.direction_id == WOTD_DIRECTION_ID), wotd_seed)
 
     content = assemble_rows(ordered, ranks)
     directions = direction_rows(content)
@@ -175,6 +183,25 @@ def build(
         "meta": meta,
     }
     return tables, check_ranges(directions, content, wylie_available=converter.available)
+
+
+def _drop_empty_entries(drafts: list[EntryDraft], stats: RelatedStats, report: BuildReport) -> list[EntryDraft]:
+    """Leave out entries with no sense and no link (nothing to show, an empty preview), with a warning.
+
+    A link that resolved to a dropped entry becomes unresolved again (the app then searches for it).
+    """
+    dropped = {draft.entry_id: draft for draft in drafts if not draft.senses and not draft.related}
+    if not dropped:
+        return drafts
+    kept = [draft for draft in drafts if draft.entry_id not in dropped]
+    for draft in kept:
+        for candidate in draft.related:
+            if candidate.target_entry_id in dropped:
+                candidate.target_entry_id = None
+                resolved, total = stats.by_relation[candidate.relation]
+                stats.by_relation[candidate.relation] = (resolved - 1, total)
+    report.add_warning("build:empty_entry_dropped", [draft.source_id for draft in dropped.values()])
+    return kept
 
 
 def _fail(message: str) -> int:

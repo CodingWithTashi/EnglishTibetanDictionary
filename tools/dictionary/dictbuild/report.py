@@ -47,6 +47,14 @@ class BuildReport:
                 if len(sample) < WARNING_SAMPLE_SIZE:
                     sample.append(row.source_id)
 
+    def add_warning(self, key: str, source_ids: Sequence[int]) -> None:
+        """Record a build-level warning (`key` such as "build:empty_entry_dropped") for these source rows."""
+        if not source_ids:
+            return
+        self._warnings[key] += len(source_ids)
+        sample = self._warning_samples.setdefault(key, [])
+        sample.extend(source_ids[: max(WARNING_SAMPLE_SIZE - len(sample), 0)])
+
     def add_related(self, stats: RelatedStats) -> None:
         self.related = {
             relation: {"total": total, "resolved": resolved}
