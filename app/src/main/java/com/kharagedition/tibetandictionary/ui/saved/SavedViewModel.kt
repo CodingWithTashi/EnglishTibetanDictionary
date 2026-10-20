@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.saved
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.R
@@ -45,10 +46,12 @@ import kotlinx.coroutines.launch
  * it was saved; today's word for the empty state. Rows come from the snapshots in user.db, so a word whose entry a
  * newer dictionary dropped still shows, and opening it explains instead of navigating. Changes go through
  * [SavedWordActions] (one at a time); a failure is recorded through [errors] and shown as a generic error toast.
+ * The typed query and the chosen folder live in [savedState], so they survive process death.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SavedViewModel @Inject constructor(
+    private val savedState: SavedStateHandle,
     private val saved: SavedRepository,
     private val saveActions: SavedWordActions,
     private val dictionary: DictionaryRepository,
@@ -73,8 +76,8 @@ class SavedViewModel @Inject constructor(
         ) : Sheet
     }
 
-    private val query = MutableStateFlow("")
-    private val selectedFolderId = MutableStateFlow<Long?>(null)
+    private val query: StateFlow<String> = savedState.getStateFlow(KEY_QUERY, "")
+    private val selectedFolderId: StateFlow<Long?> = savedState.getStateFlow(KEY_FOLDER, null)
     private val sheet = MutableStateFlow<Sheet?>(null)
 
     /** Words removed while the tab is open, so Undo can save them again. */
@@ -144,8 +147,8 @@ class SavedViewModel @Inject constructor(
 
     fun onEvent(event: SavedEvent) {
         when (event) {
-            is SavedEvent.QueryChanged -> query.value = event.query
-            is SavedEvent.SelectFolder -> selectedFolderId.value = event.folderId
+            is SavedEvent.QueryChanged -> savedState[KEY_QUERY] = event.query
+            is SavedEvent.SelectFolder -> savedState[KEY_FOLDER] = event.folderId
             SavedEvent.StartAddFolder -> sheet.value = Sheet.NewFolder()
             is SavedEvent.NewFolderNameChanged -> sheet.update { it?.withName(event.name) }
             is SavedEvent.AddFolder -> launchGuarded { addFolder(event.name) }
@@ -278,5 +281,9 @@ class SavedViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
+
+        /** [savedState] keys of the search-within query and the selected folder. */
+        const val KEY_QUERY = "saved_query"
+        const val KEY_FOLDER = "saved_folder_id"
     }
 }

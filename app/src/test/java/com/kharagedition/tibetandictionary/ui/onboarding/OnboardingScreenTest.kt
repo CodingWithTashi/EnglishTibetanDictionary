@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
@@ -58,7 +59,7 @@ class OnboardingScreenTest {
 
     /** The screen on a real view model over the fakes, as the route shows it. */
     private fun showWithViewModel(dictionary: FakeDictionaryRepository = FakeDictionaryRepository()) {
-        val viewModel = OnboardingViewModel(prefs, dictionary, RecordingErrorReporter())
+        val viewModel = OnboardingViewModel(SavedStateHandle(), prefs, dictionary, RecordingErrorReporter())
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
                 val state by viewModel.uiState.collectAsState()

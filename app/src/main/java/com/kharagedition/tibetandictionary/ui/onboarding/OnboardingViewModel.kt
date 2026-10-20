@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.onboarding
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
@@ -21,7 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 
 /**
@@ -30,10 +31,12 @@ import kotlinx.coroutines.launch
  * with Continue, and Skip stores what the remaining steps show. The last step also stores onboarding as done and
  * sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A write that fails
  * (DataStore's IOException) is recorded through [errors] and onboarding carries on: the choices still apply for this
- * session, and the user is not stuck on the first-run screens.
+ * session, and the user is not stuck on the first-run screens. The step and the choices not yet stored live in
+ * [savedState], so a process death mid-setup comes back to the same step.
  */
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
+    private val savedState: SavedStateHandle,
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
     private val errors: ErrorReporter,
@@ -47,7 +50,7 @@ class OnboardingViewModel @Inject constructor(
         val lineSpacing: Float? = null,
     )
 
-    private val draft = MutableStateFlow(Draft())
+    private val draft = MutableStateFlow(restoredDraft())
 
     /** Set by the first finish, so a double tap or a late Skip cannot finish twice. */
     private var finished = false
@@ -67,12 +70,12 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingEvent.Next -> next(state, event.fromStep)
             is OnboardingEvent.ContinueWithoutAccount -> next(state, event.fromStep)
             OnboardingEvent.Skip -> finish(state)
-            OnboardingEvent.Back -> draft.update { it.copy(step = (it.step - 1).coerceAtLeast(OnboardingStep.DIRECTION)) }
+            OnboardingEvent.Back -> updateDraft { it.copy(step = (it.step - 1).coerceAtLeast(OnboardingStep.DIRECTION)) }
             is OnboardingEvent.SelectDirection -> if (state.directions.any { it.id == event.id }) {
-                draft.update { it.copy(directionId = event.id) }
+                updateDraft { it.copy(directionId = event.id) }
             }
-            is OnboardingEvent.SetTextSize -> draft.update { it.copy(textSize = event.size) }
-            is OnboardingEvent.SetLineSpacing -> draft.update { it.copy(lineSpacing = LineSpacing.clamp(event.spacing)) }
+            is OnboardingEvent.SetTextSize -> updateDraft { it.copy(textSize = event.size) }
+            is OnboardingEvent.SetLineSpacing -> updateDraft { it.copy(lineSpacing = LineSpacing.clamp(event.spacing)) }
             // Accounts ship behind Features.ACCOUNTS; there is nothing to sign in to yet.
             OnboardingEvent.SignIn -> Unit
         }
@@ -85,7 +88,7 @@ class OnboardingViewModel @Inject constructor(
             finish(state)
         } else {
             viewModelScope.launch { recorded { prefs.store(state.step, state) } }
-            draft.update { it.copy(step = state.step + 1) }
+            updateDraft { it.copy(step = state.step + 1) }
         }
     }
 
@@ -98,6 +101,23 @@ class OnboardingViewModel @Inject constructor(
             effectChannel.send(OnboardingEffect.Finished)
         }
     }
+
+    /** Applies [transform] to the draft and keeps the result in [savedState]. */
+    private fun updateDraft(transform: (Draft) -> Draft) {
+        val updated = draft.updateAndGet(transform)
+        savedState[KEY_STEP] = updated.step
+        savedState[KEY_DIRECTION] = updated.directionId
+        savedState[KEY_TEXT_SIZE] = updated.textSize?.name
+        savedState[KEY_LINE_SPACING] = updated.lineSpacing
+    }
+
+    /** The draft kept in [savedState] by a view model the system killed, or a fresh one. */
+    private fun restoredDraft() = Draft(
+        step = (savedState.get<Int>(KEY_STEP) ?: OnboardingStep.DIRECTION).coerceIn(OnboardingStep.DIRECTION, STEP_COUNT),
+        directionId = savedState.get<String>(KEY_DIRECTION),
+        textSize = savedState.get<String>(KEY_TEXT_SIZE)?.let { name -> AppTextSize.entries.firstOrNull { it.name == name } },
+        lineSpacing = savedState.get<Float>(KEY_LINE_SPACING),
+    )
 
     /** Runs [block]; a failure is recorded and swallowed, so onboarding continues. Cancellation still propagates. */
     private suspend fun recorded(block: suspend () -> Unit) {
@@ -126,6 +146,12 @@ class OnboardingViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
+
+        /** [savedState] keys of the draft. */
+        const val KEY_STEP = "onboarding_step"
+        const val KEY_DIRECTION = "onboarding_direction"
+        const val KEY_TEXT_SIZE = "onboarding_text_size"
+        const val KEY_LINE_SPACING = "onboarding_line_spacing"
 
         /** Stores what [step] of [state] sets; the account step stores nothing. */
         suspend fun UserPreferencesRepository.store(step: Int, state: OnboardingUiState) {

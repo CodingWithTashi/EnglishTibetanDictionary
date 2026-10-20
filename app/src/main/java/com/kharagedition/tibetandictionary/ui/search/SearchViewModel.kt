@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.search
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.Features
@@ -59,13 +60,16 @@ import kotlinx.coroutines.launch
  * query is cleared. Opening a result records the query in recents; a query is counted for the streak the first
  * time it finds something. Failed searches are reported through [errors] and shown as no results.
  *
- * Starts with [initialQuery] and, when [voice] is set and speech recognition is available, with voice input.
+ * Starts with [initialQuery] and, when [voice] is set and speech recognition is available, with voice input. The
+ * typed query and the chosen direction live in [savedState], so a view model recreated after process death shows
+ * the same search again (and does not reopen voice input).
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel(assistedFactory = SearchViewModel.Factory::class)
 class SearchViewModel @AssistedInject constructor(
     @Assisted initialQuery: String,
     @Assisted voice: Boolean,
+    private val savedState: SavedStateHandle,
     private val dictionary: DictionaryRepository,
     private val recentSearches: RecentSearchesRepository,
     private val activity: ActivityRepository,
@@ -112,8 +116,15 @@ class SearchViewModel @AssistedInject constructor(
 
     private val micAvailable = Features.VOICE_SEARCH && speech.isAvailable()
 
-    private val field = MutableStateFlow(TextFieldValue(initialQuery, TextRange(initialQuery.length)))
-    private val selection = MutableStateFlow(Selection())
+    /** True when [savedState] already holds a search, i.e. this view model replaces one the system killed. */
+    private val restored = savedState.contains(KEY_QUERY)
+
+    private val field = MutableStateFlow(
+        (savedState.get<String>(KEY_QUERY) ?: initialQuery).let { TextFieldValue(it, TextRange(it.length)) },
+    )
+    private val selection = MutableStateFlow(
+        Selection(savedState.get<String>(KEY_DIRECTION), savedState.get<Boolean>(KEY_PINNED) ?: false),
+    )
 
     /** The latest search's outcome; null while the query is empty or before its first search finishes. */
     private val outcome = MutableStateFlow<Outcome?>(null)
@@ -172,7 +183,9 @@ class SearchViewModel @AssistedInject constructor(
             }
             .launchIn(viewModelScope)
 
-        val start = if (voice && micAvailable) SearchEffect.StartVoiceSearch else SearchEffect.FocusField
+        // Saved at once, so a view model recreated while voice input is still open does not open it again.
+        savedState[KEY_QUERY] = field.value.text
+        val start = if (voice && micAvailable && !restored) SearchEffect.StartVoiceSearch else SearchEffect.FocusField
         effectChannel.trySend(start)
     }
 
@@ -184,16 +197,16 @@ class SearchViewModel @AssistedInject constructor(
                 effectChannel.trySend(SearchEffect.FocusField)
             }
             SearchEvent.Back -> effectChannel.trySend(SearchEffect.NavigateBack)
-            is SearchEvent.SelectDirection -> selection.value = Selection(event.directionId, pinned = true)
+            is SearchEvent.SelectDirection -> select(Selection(event.directionId, pinned = true))
             is SearchEvent.OpenResult -> openResult(event.entryId)
             is SearchEvent.RecentTap -> {
                 changeQuery(TextFieldValue(event.query, TextRange(event.query.length)))
-                selection.value = Selection(event.directionId, pinned = false)
+                select(Selection(event.directionId, pinned = false))
             }
             SearchEvent.ClearRecents -> launchSafely { recentSearches.clear() }
             is SearchEvent.SuggestionTap -> effectChannel.trySend(SearchEffect.NavigateEntry(event.entryId))
             SearchEvent.TryAlternateDirection -> outcome.value?.alternateId?.let {
-                selection.value = Selection(it, pinned = true)
+                select(Selection(it, pinned = true))
             }
             SearchEvent.VoiceSearch -> effectChannel.trySend(SearchEffect.StartVoiceSearch)
             SearchEvent.LoadMore -> loadMore()
@@ -203,10 +216,18 @@ class SearchViewModel @AssistedInject constructor(
     /** Takes the field's new value; emptying it drops the shown outcome at once and unpins the direction. */
     private fun changeQuery(value: TextFieldValue) {
         field.value = value
+        savedState[KEY_QUERY] = value.text
         if (QueryNormalizer.normalize(value.text).isEmpty()) {
-            selection.update { it.copy(pinned = false) }
+            select(selection.value.copy(pinned = false))
             outcome.value = null
         }
+    }
+
+    /** Takes the user's direction [sel] and keeps it in [savedState]. */
+    private fun select(sel: Selection) {
+        selection.value = sel
+        savedState[KEY_DIRECTION] = sel.directionId
+        savedState[KEY_PINNED] = sel.pinned
     }
 
     /** The search for [query], or null when there is nothing to search (empty field, no visible direction). */
@@ -406,6 +427,11 @@ class SearchViewModel @AssistedInject constructor(
         const val SKELETON_DELAY_MS = 250L
         const val STOP_TIMEOUT_MS = 5_000L
         const val PAGE_SIZE = 50
+
+        /** [savedState] keys of the typed query and the user's direction (the route's own are "query", "voice"). */
+        const val KEY_QUERY = "search_query"
+        const val KEY_DIRECTION = "search_direction"
+        const val KEY_PINNED = "search_direction_pinned"
 
         /**
          * Normalised queries of fewer characters, counted as the user sees them (one letter, one Tibetan stack

@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.onboarding
 
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.Features
@@ -36,8 +37,9 @@ class OnboardingViewModelTest {
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(
         prefs: UserPreferencesRepository = this@OnboardingViewModelTest.prefs,
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): OnboardingViewModel {
-        val vm = OnboardingViewModel(prefs, dictionary, errors)
+        val vm = OnboardingViewModel(savedState, prefs, dictionary, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -68,6 +70,30 @@ class OnboardingViewModelTest {
         assertThat(errors.recorded.map { it.message }).containsExactly("disk full", "disk full")
         // The writes that worked are kept.
         assertThat(prefs.prefs.value.textSize).isEqualTo(AppTextSize.LARGE)
+    }
+
+    // Process death
+
+    @Test
+    fun `the step and the choices not yet stored survive process death`() = runTest {
+        val savedState = SavedStateHandle()
+        val vm = viewModel(savedState = savedState)
+        vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
+        vm.next()
+        vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.LARGE))
+        vm.onEvent(OnboardingEvent.SetLineSpacing(LineSpacing.MAX))
+
+        // What the system restores into the view model it recreates.
+        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
+
+        with(restored.state()) {
+            assertThat(step).isEqualTo(OnboardingStep.READING)
+            assertThat(selectedDirection).isEqualTo(SampleData.enBo)
+            assertThat(textSize).isEqualTo(AppTextSize.LARGE)
+            assertThat(lineSpacing).isEqualTo(LineSpacing.MAX)
+        }
+        // The reading step's choices are still unsaved until Continue.
+        assertThat(prefs.prefs.value.textSize).isEqualTo(AppTextSize.DEFAULT)
     }
 
     // Steps

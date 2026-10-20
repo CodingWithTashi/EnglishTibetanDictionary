@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.saved
 
 import androidx.compose.ui.text.AnnotatedString
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainDispatcherRule
@@ -63,8 +64,9 @@ class SavedViewModelTest {
         saved: SavedRepository = this@SavedViewModelTest.saved,
         wordOfTheDay: WordOfTheDayRepository = this@SavedViewModelTest.wordOfTheDay,
         dictionary: DictionaryRepository = this@SavedViewModelTest.dictionary,
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): SavedViewModel {
-        val vm = SavedViewModel(saved, SavedWordActions(saved, prefs), dictionary, wordOfTheDay, clock, errors)
+        val vm = SavedViewModel(savedState, saved, SavedWordActions(saved, prefs), dictionary, wordOfTheDay, clock, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -269,6 +271,24 @@ class SavedViewModelTest {
 
         vm.onEvent(SavedEvent.QueryChanged(""))
         assertThat(vm.uiState.value.ids()).containsExactly(1L, 3L, 8L).inOrder()
+    }
+
+    @Test
+    fun `the typed query and the selected folder survive process death`() = runTest {
+        saved.saved.value = eightWords
+        val savedState = SavedStateHandle()
+        val vm = viewModel(savedState = savedState)
+        vm.onEvent(SavedEvent.SelectFolder(1))
+        vm.onEvent(SavedEvent.QueryChanged("compassion"))
+
+        // What the system restores into the view model it recreates.
+        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
+
+        with(restored.uiState.value) {
+            assertThat(query).isEqualTo("compassion")
+            assertThat(selectedFolderId).isEqualTo(1L)
+            assertThat(ids()).containsExactly(3L, 8L).inOrder()
+        }
     }
 
     @Test

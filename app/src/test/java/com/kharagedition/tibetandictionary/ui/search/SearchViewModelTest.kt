@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.search
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.Event
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
@@ -60,11 +61,17 @@ class SearchViewModelTest {
         initialQuery: String = "",
         voice: Boolean = false,
         repository: DictionaryRepository = dictionary,
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): SearchViewModel {
-        val vm = SearchViewModel(initialQuery, voice, repository, recents, activity, prefs, { speechAvailable }, errors)
+        val vm = SearchViewModel(
+            initialQuery, voice, savedState, repository, recents, activity, prefs, { speechAvailable }, errors,
+        )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
+
+    /** What the system restores into a view model recreated after process death: a copy of [state]'s values. */
+    private fun restoredFrom(state: SavedStateHandle) = SavedStateHandle(state.keys().associateWith { state.get<Any?>(it) })
 
     /** [dictionary], with every search taking [delayMs]. */
     private fun slowDictionary(delayMs: Long) = object : DictionaryRepository by dictionary {
@@ -766,6 +773,78 @@ class SearchViewModelTest {
             assertThat(awaitItem()).isEqualTo(SearchEffect.StartVoiceSearch)
             vm.onEvent(SearchEvent.Back)
             assertThat(awaitItem()).isEqualTo(SearchEffect.NavigateBack)
+        }
+    }
+
+    // Process death
+
+    @Test
+    fun `the typed query and the pinned direction survive process death`() = runTest {
+        val savedState = SavedStateHandle()
+        val vm = viewModel(initialQuery = "bk", savedState = savedState)
+        vm.type("bkra")
+        vm.onEvent(SearchEvent.SelectDirection(enBo.id))
+        advanceUntilIdle()
+        dictionary.searches.clear()
+
+        val restored = viewModel(initialQuery = "bk", savedState = restoredFrom(savedState))
+        advanceUntilIdle()
+
+        with(restored.state) {
+            assertThat(query.text).isEqualTo("bkra")
+            assertThat(query.selection).isEqualTo(TextRange(4))
+            assertThat(selectedDirection).isEqualTo(enBo)
+            assertThat(autoSelected).isFalse()
+            assertThat(settledQuery).isEqualTo("bkra")
+        }
+        assertThat(searchedQueries()).containsExactly("bkra")
+    }
+
+    @Test
+    fun `a direction chosen from a recent search survives process death unpinned`() = runTest {
+        val savedState = SavedStateHandle()
+        val vm = viewModel(savedState = savedState)
+        vm.onEvent(SearchEvent.RecentTap("house", enBo.id))
+        advanceUntilIdle()
+
+        val restored = viewModel(savedState = restoredFrom(savedState))
+        advanceUntilIdle()
+
+        with(restored.state) {
+            assertThat(query.text).isEqualTo("house")
+            assertThat(selectedDirection).isEqualTo(enBo)
+            assertThat(results.map { it.entryId }).containsExactly(house.id)
+        }
+        // Unpinned: a query typed next may still move the direction, as before the restore.
+        restored.type("bkra")
+        advanceUntilIdle()
+        assertThat(restored.state.selectedDirection).isEqualTo(boEn)
+    }
+
+    @Test
+    fun `a cleared query stays cleared after process death`() = runTest {
+        val savedState = SavedStateHandle()
+        val vm = viewModel(initialQuery = "bkra", savedState = savedState)
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.Clear)
+
+        val restored = viewModel(initialQuery = "bkra", savedState = restoredFrom(savedState))
+        advanceUntilIdle()
+
+        assertThat(restored.state.query.text).isEmpty()
+        assertThat(restored.state.phase).isEqualTo(SearchPhase.Suggestions)
+    }
+
+    @Test
+    fun `a search recreated after process death focuses the field instead of reopening voice input`() = runTest {
+        val savedState = SavedStateHandle()
+        viewModel(voice = true, savedState = savedState).effects.test {
+            assertThat(awaitItem()).isEqualTo(SearchEffect.StartVoiceSearch)
+        }
+
+        viewModel(voice = true, savedState = restoredFrom(savedState)).effects.test {
+            assertThat(awaitItem()).isEqualTo(SearchEffect.FocusField)
+            expectNoEvents()
         }
     }
 }
