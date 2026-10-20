@@ -48,7 +48,7 @@
     <string name="example_abbr">དཔེར་ན།</string>
     <string name="report_correction_prefix">ནོར་འཁྲུལ་ཡོད་དམ།</string>
     <string name="report_correction">ནོར་བཅོས་ཞུ།</string>
-    <string name="entry_truncated">ཚིག་འདིའི་འགྲེལ་བཤད་མཉེན་ཆས་ནང་འཚུད་ཆེད་མདོར་བསྡུས་བྱས་ཡོད། འགྲེལ་བཤད་ཆ་ཚང་ཁུངས་ཀྱི་ཚིག་མཛོད་ནང་ཡོད།</string>
+    <string name="entry_truncated">ཚིག་འདིའི་འགྲེལ་བཤད་ཁུངས་ཀྱི་ཚིག་མཛོད་ནང་ཆ་ཚང་མེད།</string>
     <string name="entry_missing">ཚིག་འདི་ད་ལྟ་ཚིག་མཛོད་ནང་མི་འདུག</string>
 
     <!-- Saved -->

@@ -72,7 +72,7 @@ class EntryScreenTest {
         compose.onNodeWithText("· tashi").assertIsDisplayed()
         compose.onNodeWithText("adj. · n.").assertIsDisplayed()
         compose.onNodeWithText("auspicious, fortunate, favourable").assertExists()
-        compose.onNodeWithText("This entry was shortened", substring = true).assertExists()
+        compose.onNodeWithText("This entry is incomplete in the source dictionary.").assertExists()
     }
 
     @Test
@@ -121,7 +121,7 @@ class EntryScreenTest {
         compose.onNodeWithTag("entry_audio").assertDoesNotExist()
         compose.onNodeWithText("bkra shis").assertDoesNotExist()
         compose.onNodeWithText("See also").assertDoesNotExist()
-        compose.onNodeWithText("This entry was shortened", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("This entry is incomplete", substring = true).assertDoesNotExist()
     }
 
     @Test

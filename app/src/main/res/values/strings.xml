@@ -49,7 +49,7 @@
     <string name="example_abbr">e.g.</string>
     <string name="report_correction_prefix">Something wrong?</string>
     <string name="report_correction">Report a correction</string>
-    <string name="entry_truncated">This entry was shortened to fit the app. The full text is in the source dictionary.</string>
+    <string name="entry_truncated">This entry is incomplete in the source dictionary.</string>
     <string name="entry_missing">This entry is no longer in the dictionary.</string>
 
     <!-- Saved -->

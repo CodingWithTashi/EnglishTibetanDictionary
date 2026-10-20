@@ -173,7 +173,7 @@ internal fun EntryHeader(entry: EntryUi, onPlayAudio: () -> Unit) {
     }
 }
 
-/** Sense cards 8dp apart, then the truncation note (12 muted) when the entry was shortened. */
+/** Sense cards 8dp apart, then (12 muted) the note that the entry is incomplete in the source dictionary. */
 @Composable
 internal fun EntrySenses(entry: EntryUi) {
     Column(verticalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
