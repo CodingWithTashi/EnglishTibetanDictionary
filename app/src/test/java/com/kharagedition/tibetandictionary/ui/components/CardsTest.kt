@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -77,6 +78,51 @@ class CardsTest {
         assertColor(pixelAt(CALLER_PADDING + 4), DictColors.Light.surface1, "just inside the card")
     }
 
+    /** Colour of the pixel at ([xDp], [yDp]) from the top-left corner of the tagged element. */
+    private fun pixelAt(xDp: Float, yDp: Float): Color {
+        compose.waitForIdle()
+        val bounds = compose.onNodeWithTag(TAG).fetchSemanticsNode().boundsInWindow
+        val density = compose.activity.resources.displayMetrics.density
+        val window = compose.runOnUiThread { compose.activity.window.decorView.drawToBitmap() }
+        return Color(window.getPixel((bounds.left + xDp * density).toInt(), (bounds.top + yDp * density).toInt()))
+    }
+
+    private fun setWordOfTheDay(dark: Boolean) {
+        compose.setContent {
+            DictTheme(darkTheme = dark) {
+                Box(Modifier.background(Page).testTag(TAG)) { WordOfTheDayCard(PreviewSamples.wotd, {}, {}, {}, {}) }
+            }
+        }
+    }
+
+    @Test
+    fun `the word-of-the-day strand hangs whole from the card's top edge`() {
+        setWordOfTheDay(dark = false)
+        val colors = DictColors.Light
+        // The 1dp line is the card's first row, 20dp in from the card's edge (past the 16dp corner).
+        assertColor(pixelAt(STRAND_START + 2f, 0.5f), colors.flagLine.compositeOver(colors.surface1), "strand line")
+        assertColor(pixelAt(STRAND_START - 2f, 0.5f), colors.surface1, "card before the strand")
+        // Each 12×8 flag hangs from the line, whole: its first and last rows are drawn, the row below is the card.
+        val blue = STRAND_START + 6f + 6f
+        assertColor(pixelAt(blue, 1.5f), colors.flagBlue, "top row of the blue flag")
+        assertColor(pixelAt(blue, 8.5f), colors.flagBlue, "bottom row of the blue flag")
+        assertColor(pixelAt(blue, 9.5f), colors.surface1, "card below the blue flag")
+        assertColor(pixelAt(blue + 3 * 15f, 5f), colors.flagGreen, "green flag")
+        assertColor(pixelAt(blue + 4 * 15f, 5f), colors.flagYellow, "yellow flag")
+    }
+
+    @Test
+    fun `the white flag takes the page colour on the light card`() {
+        setWordOfTheDay(dark = false)
+        assertColor(pixelAt(WHITE_FLAG, 5f), DictColors.Light.background, "light white flag")
+    }
+
+    @Test
+    fun `the white flag keeps its own colour on the dark card`() {
+        setWordOfTheDay(dark = true)
+        assertColor(pixelAt(WHITE_FLAG, 5f), DictColors.Dark.flagWhite, "dark white flag")
+    }
+
     @Test
     fun `the account card opens the account and the signed-out card signs in`() {
         var opened = 0
@@ -100,6 +146,12 @@ class CardsTest {
     private companion object {
         const val TAG = "card"
         const val CALLER_PADDING = 24
+
+        /** The strand's line starts at the word-of-the-day card's 20dp body inset. */
+        const val STRAND_START = 20f
+
+        /** Centre of the second (white) flag: 6dp start pad, one 12dp flag and a 3dp gap, then half a flag. */
+        const val WHITE_FLAG = STRAND_START + 6f + 15f + 6f
 
         /** A page colour unlike any theme token, so the card's edge is unambiguous. */
         val Page = Color(0xFF00FF00)

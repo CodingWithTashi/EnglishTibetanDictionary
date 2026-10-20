@@ -54,11 +54,15 @@ private val FlagShape = RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp)
 /**
  * A strand of five lungta flags (blue, white, red, green, yellow) hanging from a 1dp line; the only place a
  * second colour appears. Decorative, so hidden from accessibility services.
+ *
+ * On the light word-of-the-day card the white flag takes the page colour, as in mockup 2a: `flagWhite` is too close
+ * to `surface1` to read there, so the strand would look like four flags and a gap.
  */
 @Composable
 fun FlagStrand(size: FlagStrandSize, modifier: Modifier = Modifier) {
     val colors = DictTheme.colors
-    val flags = listOf(colors.flagBlue, colors.flagWhite, colors.flagRed, colors.flagGreen, colors.flagYellow)
+    val white = if (size == FlagStrandSize.Card && !colors.isDark) colors.background else colors.flagWhite
+    val flags = listOf(colors.flagBlue, white, colors.flagRed, colors.flagGreen, colors.flagYellow)
     Column(
         modifier
             .then(if (size.width != null) Modifier.width(size.width) else Modifier.fillMaxWidth())
