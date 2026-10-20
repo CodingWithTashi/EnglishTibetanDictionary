@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 
 import build_db
-from dictbuild.model import DIRECTIONS, EntryRow, ParsedSense, RelatedEntryRow
+from dictbuild.model import DIRECTIONS, EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
 from dictbuild.schema import latest_schema_path, load_schema
-from dictbuild.writer import entry_part_of_speech, gloss_preview, write_database
+from dictbuild.writer import entry_part_of_speech, entry_preview, gloss_preview, write_database
 
 SOURCE_ENV = "MLDIC_SOURCE"
 SOURCE = Path(os.environ[SOURCE_ENV]) if os.environ.get(SOURCE_ENV) else None
@@ -62,6 +62,21 @@ def test_gloss_preview_cuts_tibetan_at_a_tsheg() -> None:
     assert len(preview) <= 120
     assert preview.endswith("་…")
     assert text.startswith(preview[:-1])
+
+
+def test_entry_preview_skips_senses_without_a_gloss() -> None:
+    def draft(*senses: ParsedSense, related: list[RelatedCandidate] | None = None) -> EntryDraft:
+        return EntryDraft(
+            direction_id="bo-bo", source_id=1, headword="ནུས་", group_key="ནུས་", senses=list(senses), related=related or []
+        )
+
+    examples_only = ParsedSense(gloss="", gloss_lang="bo", source_id=1, examples=[ParsedExample("ནུ་མ་མ་ནུས།")])
+    defined = ParsedSense(gloss="ནུས་པ།", gloss_lang="bo", source_id=1)
+
+    assert entry_preview(draft(examples_only, defined)) == "ནུས་པ།"
+    assert entry_preview(draft(examples_only)) == "ནུ་མ་མ་ནུས།"  # no gloss at all: the first example
+    assert entry_preview(draft(related=[RelatedCandidate("ཀ་བ་", "see_also")])) == "→ ཀ་བ་"
+    assert entry_preview(draft()) == ""
 
 
 def test_entry_part_of_speech_lists_distinct_codes_in_order() -> None:

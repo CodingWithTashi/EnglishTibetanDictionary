@@ -21,6 +21,10 @@ _LEADING_PARENTHETICAL = re.compile(r"^\((?P<inner>[^()]*)\)\s*")
 
 # Rule "`(དཔེར་ན།) …` → examples": the marker, tolerating a missing shad or inner spaces.
 _EXAMPLE_MARKER = re.compile(r"\(\s*དཔེར་ན[\u0f0b\u0f0d]?\s*\)")
+# A sense that is only a part of speech and examples ("2. (སྦྱོར་ཚིག) (དཔེར་ན།) …") keeps its part of
+# speech and examples with an empty gloss: the source gives no definition, and an example shown as the
+# gloss would read as one. Counted in the report.
+WARNING_SENSE_WITHOUT_GLOSS = "sense_without_gloss"
 
 
 def parse_tbtb_row(row: SourceRow, converter: WylieConverter) -> ParsedRow:
@@ -69,18 +73,14 @@ def _take_labels(text: str, parsed: ParsedRow) -> tuple[list[BoLabel], str]:
 
 
 def _sense(text: str, parsed: ParsedRow, *, sub_no: int | None, labels: list[BoLabel]) -> ParsedSense | None:
-    """One sense record, or None when it has no gloss (its examples then join the previous sense)."""
+    """One sense record, or None when it has neither gloss nor examples."""
     gloss, *example_texts = _EXAMPLE_MARKER.split(text)
     examples = [ParsedExample(tidy(example)) for example in example_texts if tidy(example)]
     gloss = tidy(gloss)
     if not gloss:
         if not examples:
             return None
-        if parsed.senses:
-            parsed.senses[-1].examples.extend(examples)
-            parsed.warnings.append("sense_dropped_empty")
-            return None
-        gloss, examples = tidy(text), []  # nothing to attach to: the example text is the gloss
+        parsed.warnings.append(WARNING_SENSE_WITHOUT_GLOSS)
     return ParsedSense(
         gloss=gloss,
         gloss_lang=GLOSS_LANG_BO,

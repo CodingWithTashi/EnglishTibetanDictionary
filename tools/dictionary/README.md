@@ -245,6 +245,9 @@ All splitters return `(None, leading text)` first when there is text before the 
 - Entry-level labels apply to every sense without its own, separately for part of speech and label.
 - `1>` sub-senses.
 - Each `(དཔེར་ན།)` starts one example.
+- A sense that is only a part of speech and examples (`2. (སྦྱོར་ཚིག) (དཔེར་ན།) …`) keeps its part of
+  speech and examples, with an empty gloss and the warning `sense_without_gloss`. The source gives no
+  definition, and an example shown as the gloss would read as one.
 - An unknown leading parenthetical stays in the gloss and goes into the report.
 
 **`tben` (Tibetan → English; glosses are English)**
@@ -273,6 +276,8 @@ All splitters return `(None, leading text)` first when there is text before the 
   renumbered continuously, links de-duplicated.
 - `entries.id` = the direction's id base + the first row's `_id`.
 - `entries.sense_count` counts distinct sense numbers.
+- `gloss_preview` is the first non-empty gloss, cut to 120 characters at a word or tsheg boundary. With
+  no gloss it is the first example; with no sense it lists the see-also targets (`→ ཁ་པགས་`).
 - Self-links are dropped.
 
 **Word of the day**

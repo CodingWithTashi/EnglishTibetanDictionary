@@ -169,20 +169,42 @@ def test_double_spaces_collapsed() -> None:
     assert row.senses[0].examples == [ParsedExample("འབྲུ་རིགས་ཀྱིས་བང་མཛོད་ཁ་ད་ཆད་དུ་ གང་བ།")]
 
 
-def test_example_only_sense_attaches_to_the_previous_sense() -> None:
+def test_example_only_sense_keeps_its_part_of_speech_and_examples() -> None:
     row = parse(
-        9004,
+        13733,
         "དང་",
-        "1. (སྦྲེལ་ཚིག) མིང་སྦྲེལ་བྱེད་ཀྱི་ཚིག་ཕྲད་དེ། (དཔེར་ན།) དགེ་རྒན་དང་སློབ་མ། "
-        "2. (སྦྱོར་ཚིག)  (དཔེར་ན།) སྒྲིག་ལམ་དང་མ་འགལ། 3. ཀ་བ།",
+        "1. (སྦྲེལ་ཚིག) མིང་དང་ཚིག་སྔ་ཕྱི་སྦྲེལ་བྱེད་ཀྱི་ཚིག་ཕྲད་དེ།   (དཔེར་ན།) དགེ་རྒན་དང་སློབ་མ། རྟ་དང་ལུག་ཅེས་པ་ལྟ་བུ།    "
+        "2. (སྦྱོར་ཚིག)  (དཔེར་ན།) སྒྲིག་ལམ་དང་མ་འགལ། རྩ་ཁྲིམས་དང་འགལ་མི་རུང་། "
+        "3. (གྲོགས་ཚིག) 1> སྐུལ་ཚིག་གི་མཐར་སྦྱར་ན་རེ་བ་ཞུ་བའི་དོན་ཏེ།  (དཔེར་ན།)  ཉོན་དང་། "
+        "2> རྒྱུ་རྐྱེན་ནམ་དུས་སྟོན་པའི་དོན་ཏེ།   (དཔེར་ན།) སྨན་འཐུངས་པ་དང་ནད་སོས།",
     )
 
     assert shape(row.senses) == [
-        (1, None, "conj", [], "མིང་སྦྲེལ་བྱེད་ཀྱི་ཚིག་ཕྲད་དེ།"),
-        (2, None, None, [], "ཀ་བ།"),
+        (1, None, "conj", [], "མིང་དང་ཚིག་སྔ་ཕྱི་སྦྲེལ་བྱེད་ཀྱི་ཚིག་ཕྲད་དེ།"),
+        (2, None, "conj", [], ""),  # the source gives no definition, only examples
+        (3, 1, "aux", [], "སྐུལ་ཚིག་གི་མཐར་སྦྱར་ན་རེ་བ་ཞུ་བའི་དོན་ཏེ།"),
+        (3, 2, "aux", [], "རྒྱུ་རྐྱེན་ནམ་དུས་སྟོན་པའི་དོན་ཏེ།"),
     ]
-    assert row.senses[0].examples == [ParsedExample("དགེ་རྒན་དང་སློབ་མ།"), ParsedExample("སྒྲིག་ལམ་དང་མ་འགལ།")]
-    assert "sense_dropped_empty" in row.warnings
+    assert [s.examples for s in row.senses[:2]] == [
+        [ParsedExample("དགེ་རྒན་དང་སློབ་མ། རྟ་དང་ལུག་ཅེས་པ་ལྟ་བུ།")],
+        [ParsedExample("སྒྲིག་ལམ་དང་མ་འགལ། རྩ་ཁྲིམས་དང་འགལ་མི་རུང་།")],
+    ]
+    assert row.warnings == ["sense_without_gloss"]
+
+
+def test_example_only_first_sense_keeps_an_empty_gloss() -> None:
+    row = parse(
+        17578,
+        "ནུས་",
+        "1. (ལས་ཚིག་རྗེས་མཐུན་པ)  (དཔེར་ན།) ནུ་མ་མ་ནུས་ན་ནུས་ཤིག་ལྟ་བུ།  "
+        "2. ལས་ཚིག་ད་ལྟ་བའི་མཐར་སྦྱར་ན་ལས་དེ་བྱེད་ཐུབ་པའི་དོན་ཏེ།",
+    )
+
+    assert shape(row.senses) == [
+        (1, None, "aux", [], ""),  # not "(དཔེར་ན།) ནུ་མ་…" as a gloss
+        (2, None, None, [], "ལས་ཚིག་ད་ལྟ་བའི་མཐར་སྦྱར་ན་ལས་དེ་བྱེད་ཐུབ་པའི་དོན་ཏེ།"),
+    ]
+    assert row.senses[0].examples == [ParsedExample("ནུ་མ་མ་ནུས་ན་ནུས་ཤིག་ལྟ་བུ།")]
 
 
 def test_wylie_from_the_headword() -> None:

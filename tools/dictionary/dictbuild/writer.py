@@ -32,7 +32,9 @@ from dictbuild.model import (
 from dictbuild.schema import Schema, set_user_version
 from dictbuild.text import SHAD, TSHEG
 
-# Rule "gloss_preview = first sense gloss truncated to ≤120 chars at a word/tsheg boundary + '…'".
+# Rule "gloss_preview = first sense gloss truncated to ≤120 chars at a word/tsheg boundary + '…'". A tbtb
+# sense that is only examples has an empty gloss, so the preview takes the first non-empty gloss (or,
+# with none, the first example).
 PREVIEW_LIMIT = 120
 ELLIPSIS = "…"
 _PREVIEW_TRIM = " ,;:"
@@ -85,7 +87,7 @@ def assemble_rows(drafts: Iterable[EntryDraft], wotd_ranks: Mapping[int, int]) -
                 source_id=draft.source_id,
                 headword=draft.headword,
                 wylie=draft.wylie,
-                gloss_preview=_preview(draft),
+                gloss_preview=entry_preview(draft),
                 part_of_speech=entry_part_of_speech(draft.senses),
                 sense_count=len({sense.sense_no for sense in draft.senses}),
                 is_truncated=draft.is_truncated,
@@ -193,9 +195,12 @@ def _fill(conn: sqlite3.Connection, schema: Schema, tables: Mapping[str, Sequenc
         raise sqlite3.IntegrityError(f"foreign key violations: {violations[:5]}")
 
 
-def _preview(draft: EntryDraft) -> str:
-    if draft.senses:
-        return gloss_preview(draft.senses[0].gloss)
+def entry_preview(draft: EntryDraft) -> str:
+    """The entry's `gloss_preview`: its first gloss, else its first example, else its see-also targets."""
+    if gloss := next((sense.gloss for sense in draft.senses if sense.gloss), None):
+        return gloss_preview(gloss)
+    if example := next((example.text for sense in draft.senses for example in sense.examples), None):
+        return gloss_preview(example)
     if draft.related:
         return gloss_preview(REDIRECT_PREFIX + ", ".join(candidate.headword for candidate in draft.related))
     return ""
