@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 
 import build_db
-from dictbuild.model import DIRECTIONS, EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
+from dictbuild.model import EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
+from dictbuild.packs import MONLAM
 from dictbuild.schema import latest_schema_path, load_schema
 from dictbuild.writer import entry_part_of_speech, entry_preview, gloss_preview, write_database
 
@@ -73,7 +74,13 @@ def test_gloss_preview_cuts_tibetan_at_a_tsheg() -> None:
 def test_entry_preview_skips_senses_without_a_gloss() -> None:
     def draft(*senses: ParsedSense, related: list[RelatedCandidate] | None = None) -> EntryDraft:
         return EntryDraft(
-            direction_id="bo-bo", source_id=1, headword="ནུས་", group_key="ནུས་", senses=list(senses), related=related or []
+            direction_id="bo-bo",
+            source_id=1,
+            entry_id=2_000_001,
+            headword="ནུས་",
+            group_key="ནུས་",
+            senses=list(senses),
+            related=related or [],
         )
 
     examples_only = ParsedSense(gloss="", gloss_lang="bo", source_id=1, examples=[ParsedExample("ནུ་མ་མ་ནུས།")])
@@ -110,7 +117,7 @@ def test_write_database_leaves_no_file_behind_on_failure(tmp_path: Path, schema_
         write_database(
             out,
             load_schema(latest_schema_path(schema_dir)),
-            {"directions": DIRECTIONS, "entries": [entry], "related_entries": [dangling]},
+            {"directions": MONLAM.directions, "entries": [entry], "related_entries": [dangling]},
         )
 
     assert list(tmp_path.iterdir()) == []
@@ -121,7 +128,7 @@ def test_missing_source_is_reported_with_its_path(tmp_path: Path, schema_dir: Pa
     out = tmp_path / "d.db"
 
     code = build_db.main(
-        ["--source", str(missing), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
+        ["--pack", "bo", "--source", str(missing), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
     )
 
     assert code != 0
@@ -134,7 +141,7 @@ def test_missing_schema_is_reported_with_its_path(tmp_path: Path, capsys) -> Non
     source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
 
     code = build_db.main(
-        ["--source", str(source), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
+        ["--pack", "bo", "--source", str(source), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
     )
 
     assert code != 0
@@ -153,7 +160,7 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "t",
@@ -185,7 +192,7 @@ def tiny_build_args(tmp_path: Path, schema_dir: Path, out: Path, *extra: str) ->
     if not source.exists():
         fake_source(source, TINY_ROWS)
     return [
-        "--source", str(source),
+        "--pack", "bo", "--source", str(source),
         "--schema-dir", str(schema_dir),
         "--out", str(out),
         "--data-version", "t",
@@ -333,7 +340,7 @@ def test_out_of_range_build_leaves_the_stats_xml_untouched(
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(tmp_path / "dictionary.db"),
             "--data-version", "t",
@@ -352,7 +359,7 @@ def test_entry_without_senses_or_links_is_not_written(tmp_path: Path, schema_dir
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "t",
@@ -382,7 +389,7 @@ def test_build_limit_300(tmp_path: Path, schema_dir: Path) -> None:
 
     code = build_db.main(
         [
-            "--source", str(SOURCE),
+            "--pack", "bo", "--source", str(SOURCE),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "2026.10.1-test",

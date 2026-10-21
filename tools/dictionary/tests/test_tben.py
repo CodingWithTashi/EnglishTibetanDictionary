@@ -8,6 +8,7 @@ import pytest
 
 from dictbuild.grouping import group_rows
 from dictbuild.model import ParsedRow, RelatedCandidate
+from dictbuild.packs import MONLAM
 from dictbuild.parsers.tben import is_wylie_syllable, parse_tben_row
 from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
@@ -353,7 +354,7 @@ def test_homonym_group_merge() -> None:
         parse(117, "ཀ་བ་ ༣", '"pillar, post, vein in abdomen, mother of bromton, column, stake, support, trident"'),
     ]
 
-    [entry] = group_rows("bo-en", rows)
+    [entry] = group_rows(MONLAM, "bo-en", rows)
 
     assert (entry.headword, entry.source_id, entry.entry_id) == ("ཀ་བ་", 114, 1_000_114)
     assert entry.source_ids == [114, 115, 116, 117]
@@ -373,7 +374,7 @@ def test_numbered_group_without_plain_row() -> None:
         parse(1081, "ཀུན་སློང་ ༤", '"up-lifting, consequences, emergence, motivation"'),
     ]
 
-    [entry] = group_rows("bo-en", rows)
+    [entry] = group_rows(MONLAM, "bo-en", rows)
 
     assert (entry.headword, entry.source_id, entry.entry_id) == ("ཀུན་སློང་", 1079, 1_001_079)
     assert [s.sense_no for s in entry.senses] == [1, 2, 3]

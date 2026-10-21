@@ -9,11 +9,15 @@ runs 1, 2, 3, … over all of the entry's rows, sub-senses keeping their shared 
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from dictbuild.model import EntryDraft, ParsedRow, RelatedCandidate
 
+if TYPE_CHECKING:
+    from dictbuild.packs import Pack
 
-def group_rows(direction_id: str, rows: Iterable[ParsedRow]) -> list[EntryDraft]:
+
+def group_rows(pack: Pack, direction_id: str, rows: Iterable[ParsedRow]) -> list[EntryDraft]:
     """Merge rows by group key, in order of first appearance; rows without a headword are skipped."""
     entries: dict[str, EntryDraft] = {}
     for row in rows:
@@ -24,6 +28,7 @@ def group_rows(direction_id: str, rows: Iterable[ParsedRow]) -> list[EntryDraft]
             entry = entries[row.group_key] = EntryDraft(
                 direction_id=direction_id,
                 source_id=row.source_id,
+                entry_id=pack.entry_id_for(direction_id, row.source_id),
                 headword=row.headword,
                 group_key=row.group_key,
                 wylie=row.wylie,

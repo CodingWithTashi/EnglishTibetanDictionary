@@ -7,6 +7,7 @@ import importlib.util
 import pytest
 
 from dictbuild.model import EntryDraft, RelatedCandidate
+from dictbuild.packs import MONLAM
 from dictbuild.related import HeadwordIndex, resolve_related
 from dictbuild.source import SourceRow
 from dictbuild.wylie import NullConverter, PyewtsConverter
@@ -16,6 +17,7 @@ def draft(direction_id: str, source_id: int, headword: str, *related: RelatedCan
     return EntryDraft(
         direction_id=direction_id,
         source_id=source_id,
+        entry_id=MONLAM.entry_id_for(direction_id, source_id),
         headword=headword,
         group_key=headword.lower(),
         related=list(related),
@@ -25,6 +27,7 @@ def draft(direction_id: str, source_id: int, headword: str, *related: RelatedCan
 @pytest.fixture
 def index() -> HeadwordIndex:
     return HeadwordIndex.from_source_rows(
+        MONLAM,
         {
             "tben": [SourceRow(5, "ཀ་བ་", ""), SourceRow(6, "ཀ་བ་ ༡", ""), SourceRow(9, "ཁ།", "")],
             "tbtb": [SourceRow(3, "ཀ་བ་", ""), SourceRow(4, "ག་", "")],

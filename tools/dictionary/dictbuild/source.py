@@ -7,8 +7,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-# Source table → dictionary direction id.
-DIRECTION_BY_TABLE: dict[str, str] = {"tben": "bo-en", "tbtb": "bo-bo", "entotb": "en-bo"}
+# The tables `read_rows` accepts (the table name is spliced into the SQL).
+MONLAM_TABLES = ("tben", "tbtb", "entotb")
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +26,8 @@ def open_source(path: Path | str) -> sqlite3.Connection:
 
 def read_rows(conn: sqlite3.Connection, table: str, *, limit: int | None = None) -> Iterator[SourceRow]:
     """Rows of a source table in `_id` order (Monlam order); NULL text reads as ""."""
-    if table not in DIRECTION_BY_TABLE:
-        raise ValueError(f"unknown source table {table!r}; expected one of {sorted(DIRECTION_BY_TABLE)}")
+    if table not in MONLAM_TABLES:
+        raise ValueError(f"unknown source table {table!r}; expected one of {sorted(MONLAM_TABLES)}")
     sql = f"SELECT _id, word, definition FROM {table} ORDER BY _id"
     params: tuple[int, ...] = ()
     if limit is not None:

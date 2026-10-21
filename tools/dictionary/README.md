@@ -46,6 +46,7 @@ Tests that need `pyewts` skip without it.
 
 ```sh
 .venv/bin/python -I build_db.py \
+  --pack bo \
   --source /path/to/MLDic.ml \
   --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
   --out ../../app/src/main/assets/dictionary/dictionary.db \
@@ -95,6 +96,7 @@ The asset and the stats file are committed (`app/src/main/assets/dictionary/dict
 
    ```sh
    .venv/bin/python -I build_db.py --require-wylie \
+     --pack bo \
      --source /path/to/MLDic.ml \
      --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
      --out ../../app/src/main/assets/dictionary/dictionary.db \
@@ -132,7 +134,7 @@ The database is built in memory, compacted with `VACUUM INTO` a temporary file n
 |---|---|
 | 0 | Success. |
 | 1 | The schema or source cannot be read, `--built-at` or `SOURCE_DATE_EPOCH` is not a time, or the database or `--stats-xml` cannot be written. The message names the path. `--out` and `--stats-xml` are left as they were. |
-| 2 | A full build's counts leave the expected ranges in `dictbuild/stats.py`. Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
+| 2 | A full build's counts leave the expected ranges in the pack's `expected` (`dictbuild/packs.py`). Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
 
 `--limit N` parses only the first N rows of each table, for quick checks. It skips the range
 checks, so it never exits 2.
@@ -169,6 +171,7 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | Module | Responsibility |
 |---|---|
 | `dictbuild/schema.py` | Load the Room schema export, run its DDL, set `user_version`, generate `INSERT`s |
+| `dictbuild/packs.py` | `Pack` (directions, tables, parsers, lookup order, meta, expected ranges) and `MONLAM`; `--pack` picks one |
 | `dictbuild/source.py` | Open the source read-only and read rows in `_id` order |
 | `dictbuild/text.py` | Shared text rules (see below) |
 | `dictbuild/wylie.py` | `WylieConverter` protocol: `PyewtsConverter`, `NullConverter`, `load_converter(require)`; the Wylie-term test (`is_wylie_term`) shared by `SA` lists and the word of the day |

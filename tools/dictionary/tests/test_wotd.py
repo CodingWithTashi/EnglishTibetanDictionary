@@ -7,9 +7,24 @@ import importlib.util
 import pytest
 
 from dictbuild.model import EntryDraft, ParsedSense, RelatedCandidate
+from dictbuild.packs import MONLAM
 from dictbuild.related import HeadwordIndex
-from dictbuild.wotd import assign_ranks, is_eligible
+from dictbuild.wotd import assign_ranks as _assign_ranks
+from dictbuild.wotd import is_eligible as _is_eligible
 from dictbuild.wylie import PyewtsConverter, WylieConverter
+
+
+def is_eligible(entry: EntryDraft, converter: WylieConverter | None = None, index: HeadwordIndex | None = None) -> bool:
+    return _is_eligible(entry, converter, index, wotd_direction_id=MONLAM.wotd_direction_id)
+
+
+def assign_ranks(
+    entries: list[EntryDraft],
+    seed: int,
+    converter: WylieConverter | None = None,
+    index: HeadwordIndex | None = None,
+) -> dict[int, int]:
+    return _assign_ranks(entries, seed, converter, index, wotd_direction_id=MONLAM.wotd_direction_id)
 
 
 def entry(
@@ -28,6 +43,7 @@ def entry(
     return EntryDraft(
         direction_id=direction_id,
         source_id=source_id,
+        entry_id=MONLAM.entry_id_for(direction_id, source_id),
         headword=headword,
         group_key=headword,
         senses=senses,
