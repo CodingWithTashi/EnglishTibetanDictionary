@@ -11,7 +11,10 @@ import com.kharagedition.tibetandictionary.data.local.entity.FolderEntity
 import com.kharagedition.tibetandictionary.data.local.entity.RecentSearchEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SavedEntryEntity
 
-/** User state (`user.db`): saved words, folders, recent searches and daily activity. Schema changes need migrations. */
+/**
+ * User state (`user.db`): saved words, folders and recent searches (each scoped to a dictionary pack) and daily
+ * activity (shared). Schema changes need migrations ([UserDatabaseMigrations]).
+ */
 @Database(
     entities = [
         FolderEntity::class,
@@ -32,7 +35,7 @@ abstract class UserDatabase : RoomDatabase() {
     abstract fun activityDayDao(): ActivityDayDao
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         const val DB_NAME = "user.db"
     }
 }

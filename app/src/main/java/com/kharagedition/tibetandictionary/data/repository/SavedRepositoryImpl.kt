@@ -8,6 +8,7 @@ import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.entity.FolderEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SavedEntryEntity
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
@@ -32,10 +33,16 @@ class SavedRepositoryImpl @Inject constructor(
     private val savedDao = db.savedEntryDao()
     private val folderDao = db.folderDao()
 
-    override fun observeAll(): Flow<List<SavedEntry>> = savedDao.observeAll().mapToDomain()
+    override fun observeAll(): Flow<List<SavedEntry>> = savedDao.observeAll(DictionaryPack.TIBETAN.id).mapToDomain()
 
     override fun observeFolder(folderId: Long?): Flow<List<SavedEntry>> =
-        (if (folderId == null) savedDao.observeUnfiled() else savedDao.observeInFolder(folderId)).mapToDomain()
+        (
+            if (folderId == null) {
+                savedDao.observeUnfiled(DictionaryPack.TIBETAN.id)
+            } else {
+                savedDao.observeInFolder(DictionaryPack.TIBETAN.id, folderId)
+            }
+        ).mapToDomain()
 
     /**
      * Matches [query] anywhere in the headword, Wylie or gloss preview. The query is normalised as the dictionary
@@ -45,15 +52,17 @@ class SavedRepositoryImpl @Inject constructor(
      * `%` and `_` in [query] match themselves.
      */
     override fun search(query: String): Flow<List<SavedEntry>> =
-        savedDao.search(TibetanScript.stripTrailingTsheg(QueryNormalizer.normalize(query))).mapToDomain()
+        savedDao.search(DictionaryPack.TIBETAN.id, TibetanScript.stripTrailingTsheg(QueryNormalizer.normalize(query)))
+            .mapToDomain()
 
     override fun observeIsSaved(entryId: Long): Flow<Boolean> =
         savedDao.observeIsSaved(entryId).distinctUntilChanged().flowOn(io)
 
     override fun observeSavedIds(): Flow<Set<Long>> =
-        savedDao.observeIds().map { it.toSet() }.distinctUntilChanged().flowOn(io)
+        savedDao.observeIds(DictionaryPack.TIBETAN.id).map { it.toSet() }.distinctUntilChanged().flowOn(io)
 
-    override fun observeCount(): Flow<Int> = savedDao.observeCount().distinctUntilChanged().flowOn(io)
+    override fun observeCount(): Flow<Int> =
+        savedDao.observeCount(DictionaryPack.TIBETAN.id).distinctUntilChanged().flowOn(io)
 
     /**
      * Saves a snapshot of [entry]. Saving an entry that is already saved refreshes the snapshot, folder and times
@@ -66,7 +75,14 @@ class SavedRepositoryImpl @Inject constructor(
             db.withTransaction {
                 val existing = savedDao.get(entry.id)
                 if (existing != null) savedDao.delete(entry.id)
-                savedDao.insert(entry.toSavedEntity(now, existingFolderOrNull(folderId), note = existing?.note))
+                savedDao.insert(
+                    entry.toSavedEntity(
+                        packId = DictionaryPack.TIBETAN.id,
+                        now = now,
+                        folderId = existingFolderOrNull(folderId),
+                        note = existing?.note,
+                    ),
+                )
             }
         }
     }
@@ -99,7 +115,10 @@ class SavedRepositoryImpl @Inject constructor(
     }
 
     override fun observeFolders(): Flow<List<Folder>> =
-        combine(folderDao.observeAll(), folderDao.observeCounts()) { folders, counts ->
+        combine(
+            folderDao.observeAll(DictionaryPack.TIBETAN.id),
+            folderDao.observeCounts(DictionaryPack.TIBETAN.id),
+        ) { folders, counts ->
             val countByFolder = counts.associate { it.folderId to it.count }
             folders.map { it.toDomain(count = countByFolder[it.id] ?: 0) }
         }.distinctUntilChanged().flowOn(io)
@@ -117,8 +136,9 @@ class SavedRepositoryImpl @Inject constructor(
                     val now = clock.now().toEpochMilli()
                     folderDao.insert(
                         FolderEntity(
+                            packId = DictionaryPack.TIBETAN.id,
                             name = trimmed,
-                            position = folderDao.nextPosition(),
+                            position = folderDao.nextPosition(DictionaryPack.TIBETAN.id),
                             createdAt = now,
                             updatedAt = now,
                         ),
@@ -153,13 +173,16 @@ class SavedRepositoryImpl @Inject constructor(
         map { rows -> rows.map { it.toDomain() } }.flowOn(io)
 
     /** [folderId] if that folder exists, else null (unfiled), so a stale id cannot break the foreign key. */
-    private suspend fun existingFolderOrNull(folderId: Long?): Long? = folderId?.takeIf { folderDao.exists(it) }
+    private suspend fun existingFolderOrNull(folderId: Long?): Long? =
+        folderId?.takeIf { folderDao.exists(it, DictionaryPack.TIBETAN.id) }
 
     private fun validFolderName(name: String): String =
         name.trim().also { require(it.isNotEmpty()) { "A folder name cannot be blank" } }
 
     private suspend fun requireNameFree(trimmedName: String, exceptId: Long?) {
-        require(!folderDao.existsByNameIgnoreCase(trimmedName, exceptId)) { duplicateMessage(trimmedName) }
+        require(!folderDao.existsByNameIgnoreCase(DictionaryPack.TIBETAN.id, trimmedName, exceptId)) {
+            duplicateMessage(trimmedName)
+        }
     }
 
     private fun duplicateMessage(name: String) = "A folder named \"$name\" already exists"

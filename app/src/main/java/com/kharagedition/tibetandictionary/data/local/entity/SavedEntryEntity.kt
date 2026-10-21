@@ -7,8 +7,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * A saved word (user.db). Headword, Wylie and gloss are snapshots taken at save time, so Saved never joins across
- * databases. Deleting the folder leaves the entry saved with no folder. Times are epoch milliseconds.
+ * A saved word (user.db) from one dictionary pack. Headword, Wylie and gloss are snapshots taken at save time, so
+ * Saved never joins across databases. Deleting the folder leaves the entry saved with no folder. Times are epoch
+ * milliseconds.
  */
 @Entity(
     tableName = "saved_entries",
@@ -20,10 +21,12 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.SET_NULL,
         ),
     ],
-    indices = [Index(value = ["folder_id"]), Index(value = ["saved_at"])],
+    indices = [Index(value = ["folder_id"]), Index(value = ["saved_at"]), Index(value = ["pack_id", "saved_at"])],
 )
 data class SavedEntryEntity(
     @PrimaryKey @ColumnInfo(name = "entry_id") val entryId: Long,
+    /** The [com.kharagedition.tibetandictionary.data.model.DictionaryPack] id. */
+    @ColumnInfo(name = "pack_id") val packId: String,
     @ColumnInfo(name = "direction_id") val directionId: String,
     @ColumnInfo(name = "headword") val headword: String,
     @ColumnInfo(name = "wylie") val wylie: String?,

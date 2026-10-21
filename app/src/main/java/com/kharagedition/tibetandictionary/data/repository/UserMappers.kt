@@ -10,6 +10,7 @@ import com.kharagedition.tibetandictionary.data.model.SavedEntry
 
 internal fun SavedEntryEntity.toDomain(): SavedEntry = SavedEntry(
     entryId = entryId,
+    packId = packId,
     directionId = directionId,
     headword = headword,
     wylie = wylie,
@@ -23,6 +24,7 @@ internal fun SavedEntryEntity.toDomain(): SavedEntry = SavedEntry(
 /** The row [this] was read from, filed in [folderId]. */
 internal fun SavedEntry.toEntity(folderId: Long? = this.folderId): SavedEntryEntity = SavedEntryEntity(
     entryId = entryId,
+    packId = packId,
     directionId = directionId,
     headword = headword,
     wylie = wylie,
@@ -33,9 +35,18 @@ internal fun SavedEntry.toEntity(folderId: Long? = this.folderId): SavedEntryEnt
     updatedAt = updatedAt,
 )
 
-/** Snapshots [this] for user.db at [now] (epoch milliseconds); [note] is carried over when re-saving. */
-internal fun EntrySummary.toSavedEntity(now: Long, folderId: Long?, note: String? = null): SavedEntryEntity = SavedEntryEntity(
+/**
+ * Snapshots [this] for user.db in pack [packId] at [now] (epoch milliseconds); [note] is carried over when
+ * re-saving.
+ */
+internal fun EntrySummary.toSavedEntity(
+    packId: String,
+    now: Long,
+    folderId: Long?,
+    note: String? = null,
+): SavedEntryEntity = SavedEntryEntity(
     entryId = id,
+    packId = packId,
     directionId = directionId,
     headword = headword,
     wylie = wylie,

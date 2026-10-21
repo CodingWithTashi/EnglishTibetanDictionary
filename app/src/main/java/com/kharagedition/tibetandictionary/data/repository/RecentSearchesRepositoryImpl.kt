@@ -4,6 +4,7 @@ import com.kharagedition.tibetandictionary.core.di.IoDispatcher
 import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.entity.RecentSearchEntity
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.RecentSearch
 import javax.inject.Inject
@@ -24,7 +25,7 @@ class RecentSearchesRepositoryImpl @Inject constructor(
     private val dao = db.recentSearchDao()
 
     override fun observe(limit: Int): Flow<List<RecentSearch>> =
-        dao.observeRecent(limit).map { rows -> rows.map { it.toDomain() } }.flowOn(io)
+        dao.observeRecent(DictionaryPack.TIBETAN.id, limit).map { rows -> rows.map { it.toDomain() } }.flowOn(io)
 
     /** Blank and one-character queries (after trimming) are not worth remembering and are ignored. */
     override suspend fun record(query: String, directionId: String, opened: EntrySummary?) {
@@ -33,6 +34,7 @@ class RecentSearchesRepositoryImpl @Inject constructor(
         withContext(io) {
             dao.record(
                 RecentSearchEntity(
+                    packId = DictionaryPack.TIBETAN.id,
                     query = trimmed,
                     directionId = directionId,
                     entryId = opened?.id,
@@ -48,7 +50,7 @@ class RecentSearchesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clear() {
-        withContext(io) { dao.clear() }
+        withContext(io) { dao.clear(DictionaryPack.TIBETAN.id) }
     }
 
     private companion object {

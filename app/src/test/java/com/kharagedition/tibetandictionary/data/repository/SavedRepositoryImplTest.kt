@@ -57,6 +57,7 @@ class SavedRepositoryImplTest {
         assertThat(repo.observeAll().first()).containsExactly(
             SavedEntry(
                 entryId = tashi.id,
+                packId = "bo",
                 directionId = tashi.directionId,
                 headword = tashi.headword,
                 wylie = tashi.wylie,

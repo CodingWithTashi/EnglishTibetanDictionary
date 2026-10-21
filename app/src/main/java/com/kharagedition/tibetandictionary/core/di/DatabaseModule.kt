@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.data.install.AssetSizeProvider
 import com.kharagedition.tibetandictionary.data.install.AssetSource
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
+import com.kharagedition.tibetandictionary.data.local.UserDatabaseMigrations
 import com.kharagedition.tibetandictionary.data.local.dao.ActivityDayDao
 import com.kharagedition.tibetandictionary.data.local.dao.DirectionDao
 import com.kharagedition.tibetandictionary.data.local.dao.EntryDao
@@ -55,7 +56,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideUserDatabase(@ApplicationContext context: Context): UserDatabase =
-        Room.databaseBuilder(context, UserDatabase::class.java, UserDatabase.DB_NAME).build()
+        Room.databaseBuilder(context, UserDatabase::class.java, UserDatabase.DB_NAME)
+            .addMigrations(UserDatabaseMigrations.MIGRATION_1_2)
+            .build()
 
     @Provides fun provideDirectionDao(db: DictionaryDatabase): DirectionDao = db.directionDao()
 

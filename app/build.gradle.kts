@@ -95,6 +95,10 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    // MigrationTestHelper (Robolectric) reads the exported Room schemas as assets. Unit tests only see the tested
+    // variant's merged assets (src/test/assets is not packaged for them), so the schemas join the debug assets.
+    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
 }
 
 kotlin {
