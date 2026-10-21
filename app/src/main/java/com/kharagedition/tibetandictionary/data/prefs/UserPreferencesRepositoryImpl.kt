@@ -9,10 +9,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.kharagedition.tibetandictionary.core.di.DefaultDictionaryPack
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
-import com.kharagedition.tibetandictionary.core.di.DefaultDictionaryPack
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.IOException
 import javax.inject.Inject
@@ -41,12 +41,19 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setLineSpacing(spacing: Float) = put(LINE_SPACING, LineSpacing.clamp(spacing))
     override suspend fun setDictionaryPack(pack: DictionaryPack) = put(DICTIONARY_PACK, pack.id)
     override suspend fun setDefaultDirectionId(id: String) {
-        store.edit { it[directionKey(it.packOrDefault())] = id }
+        store.edit {
+            val pack = it.packOrDefault()
+            it[directionKey(pack)] = id
+            if (pack == DictionaryPack.TIBETAN) it.remove(DEFAULT_DIRECTION_ID)
+        }
     }
     override suspend fun setLastUsedFolderId(id: Long?) {
         store.edit {
-            val key = folderKey(it.packOrDefault())
+            val pack = it.packOrDefault()
+            val key = folderKey(pack)
             if (id == null) it.remove(key) else it[key] = id
+            // Once Tibetan writes its own value, the pre-pack key must not resurface.
+            if (pack == DictionaryPack.TIBETAN) it.remove(LAST_USED_FOLDER_ID)
         }
     }
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) {

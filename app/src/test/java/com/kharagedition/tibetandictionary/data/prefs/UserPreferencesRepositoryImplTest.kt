@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -234,6 +235,25 @@ class UserPreferencesRepositoryImplTest {
         val dz = repo.snapshot()
         assertThat(dz.defaultDirectionId).isEqualTo("dz-en")
         assertThat(dz.lastUsedFolderId).isNull()
+    }
+
+    @Test
+    fun clearingLegacyFolderUnderTibetanStaysCleared() = runTest {
+        store.edit { it[longPreferencesKey("last_used_folder_id")] = 3L }
+
+        repo.setLastUsedFolderId(null)
+
+        assertThat(repo.snapshot().lastUsedFolderId).isNull()
+    }
+
+    @Test
+    fun writingDirectionUnderTibetanDropsLegacyKey() = runTest {
+        store.edit { it[stringPreferencesKey("default_direction_id")] = "bo-bo" }
+
+        repo.setDefaultDirectionId("en-bo")
+
+        assertThat(store.data.first().contains(stringPreferencesKey("default_direction_id"))).isFalse()
+        assertThat(repo.snapshot().defaultDirectionId).isEqualTo("en-bo")
     }
 
     @Test

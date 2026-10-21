@@ -32,13 +32,13 @@ class FakeUserPreferencesRepository(initial: UserPrefs = UserPrefs()) : UserPref
             lastUsedFolderId = folderByPack[pack],
         )
     }
-    override suspend fun setDefaultDirectionId(id: String) = prefs.update {
-        directionByPack[it.dictionaryPack] = id
-        it.copy(defaultDirectionId = id)
+    override suspend fun setDefaultDirectionId(id: String) {
+        directionByPack[prefs.value.dictionaryPack] = id
+        prefs.update { it.copy(defaultDirectionId = id) }
     }
-    override suspend fun setLastUsedFolderId(id: Long?) = prefs.update {
-        folderByPack[it.dictionaryPack] = id
-        it.copy(lastUsedFolderId = id)
+    override suspend fun setLastUsedFolderId(id: Long?) {
+        folderByPack[prefs.value.dictionaryPack] = id
+        prefs.update { it.copy(lastUsedFolderId = id) }
     }
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) = prefs.update {
         it.copy(wotdNotificationEnabled = enabled, wotdNotificationMinute = WotdNotificationMinute.clamp(minuteOfDay))
