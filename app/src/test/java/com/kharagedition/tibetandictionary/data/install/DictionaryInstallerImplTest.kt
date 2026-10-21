@@ -11,9 +11,11 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.di.DatabaseModule
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.direction
 import com.kharagedition.tibetandictionary.data.local.entity.MetaEntity
 import com.kharagedition.tibetandictionary.data.local.entry
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -21,7 +23,6 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -46,10 +47,11 @@ class DictionaryInstallerImplTest {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val target: File get() = context.getDatabasePath(DictionaryDatabase.DB_NAME)
+    private val target: File get() = context.getDatabasePath(DictionaryPack.TIBETAN.dbName)
     private val tmpCopy: File get() = File(target.path + ".tmp")
     private val errors = RecordingErrorReporter()
     private val openDbs = mutableListOf<DictionaryDatabase>()
+    private lateinit var lastDatabases: DictionaryDatabases
 
     /** A valid dictionary.db written by Room (so its user_version is [DictionaryDatabase.VERSION]): 3 entries. */
     private lateinit var goodAsset: File
@@ -148,7 +150,7 @@ class DictionaryInstallerImplTest {
         // A stale dictionary_asset_bytes only skews the progress; the SQLite header check guards the copy.
         for (recordedBytes in listOf(goodAsset.length() - 3, goodAsset.length() + 5)) {
             closeOpenDbs()
-            context.deleteDatabase(DictionaryDatabase.DB_NAME)
+            context.deleteDatabase(DictionaryPack.TIBETAN.dbName)
             errors.recorded.clear()
             val asset = FakeAssetSource(goodAsset, knownLength = false)
             val installer = installer(asset, StandardTestDispatcher(testScheduler), AssetSizeProvider { recordedBytes })
@@ -233,6 +235,26 @@ class DictionaryInstallerImplTest {
         assertThat(asset.openCount).isEqualTo(1)
         assertThat(siblingsLeftWhenRoomOpened).isEmpty()
         assertThat(userVersion(target)).isEqualTo(DictionaryDatabase.VERSION)
+    }
+
+    @Test
+    fun readyActivatesTheTibetanPackAndAFailedInstallActivatesNothing() = runTest {
+        val truncated = tmp.newFile("truncated.db").apply {
+            writeBytes(goodAsset.readBytes().copyOf(goodAsset.length().toInt() / 2))
+        }
+        val asset = FakeAssetSource(truncated)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled()
+
+        assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
+        assertThat(lastDatabases.active.value).isNull()
+
+        asset.file = goodAsset
+        installer.ensureInstalled()
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
     }
 
     @Test
@@ -444,11 +466,12 @@ class DictionaryInstallerImplTest {
     ): DictionaryInstallerImpl {
         // The production builder (createFromAsset + destructive fallback): there is no asset under Robolectric, so a
         // test passes only if Room finds the installed file and skips its own copy.
-        val db by lazy {
+        val production = DatabaseModule.provideDictionaryDatabases(context)
+        lastDatabases = DictionaryDatabases { pack ->
             beforeRoomOpens()
-            DatabaseModule.provideDictionaryDatabase(context).also { openDbs += it }
+            production.get(pack).also { openDbs += it }
         }
-        return DictionaryInstallerImpl(context, asset, recordedSize, Provider { db }, io, errors)
+        return DictionaryInstallerImpl(context, asset, recordedSize, lastDatabases, io, errors)
     }
 
     private fun closeOpenDbs() {

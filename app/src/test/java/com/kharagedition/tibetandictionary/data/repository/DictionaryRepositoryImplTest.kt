@@ -27,6 +27,7 @@ import com.kharagedition.tibetandictionary.data.MiniDictionary.TRAG
 import com.kharagedition.tibetandictionary.data.TestDb
 import com.kharagedition.tibetandictionary.data.TestDb.directionRow
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.entity.MetaEntity
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.example
@@ -34,6 +35,7 @@ import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
 import com.kharagedition.tibetandictionary.data.local.related
 import com.kharagedition.tibetandictionary.data.local.sense
 import com.kharagedition.tibetandictionary.data.model.Attribution
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Example
@@ -66,9 +68,7 @@ class DictionaryRepositoryImplTest {
     }
 
     private fun TestScope.repository() = DictionaryRepositoryImpl(
-        directionDao = db.directionDao(),
-        entryDao = db.entryDao(),
-        metaDao = db.metaDao(),
+        databases = databasesOf(DictionaryPack.TIBETAN to db).apply { activate(DictionaryPack.TIBETAN) },
         io = StandardTestDispatcher(testScheduler),
     )
 

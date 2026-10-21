@@ -4,6 +4,8 @@ import android.content.Context
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
@@ -11,7 +13,6 @@ import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import javax.inject.Inject
-import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -59,7 +60,7 @@ class DictionaryInstallerImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val assetSource: AssetSource,
     private val recordedAssetSize: AssetSizeProvider,
-    private val dbProvider: Provider<DictionaryDatabase>,
+    private val databases: DictionaryDatabases,
     @param:IoDispatcher private val io: CoroutineDispatcher,
     private val errors: ErrorReporter,
 ) : DictionaryInstaller {
@@ -88,12 +89,14 @@ class DictionaryInstallerImpl @Inject constructor(
     }
 
     private suspend fun install(): InstallState = try {
-        val target = context.getDatabasePath(DictionaryDatabase.DB_NAME)
+        val target = context.getDatabasePath(DictionaryPack.TIBETAN.dbName)
         if (readUserVersion(target) != DictionaryDatabase.VERSION) {
             deleteDatabaseFiles(target)
             copyAsset(target)
         }
-        InstallState.Ready(openAndCount(target))
+        val entryCount = openAndCount(target)
+        databases.activate(DictionaryPack.TIBETAN)
+        InstallState.Ready(entryCount)
     } catch (t: Throwable) {
         // A real cancellation propagates; a CancellationException while still active (Room can throw a stray
         // java.util.concurrent one) is an ordinary failure. Throwable, not Exception: the splash waits on this state.
@@ -179,7 +182,7 @@ class DictionaryInstallerImpl @Inject constructor(
      * On failure (other than the caller being cancelled) it deletes [target] so a retry copies the asset again.
      */
     private suspend fun openAndCount(target: File): Int = try {
-        val db = dbProvider.get()
+        val db = databases.get(DictionaryPack.TIBETAN)
         val dataVersion = db.metaDao().get(DATA_VERSION_KEY)
         check(!dataVersion.isNullOrBlank()) { "dictionary.db has no meta.$DATA_VERSION_KEY" }
         db.directionDao().observeVisible().first().sumOf { it.entryCount }

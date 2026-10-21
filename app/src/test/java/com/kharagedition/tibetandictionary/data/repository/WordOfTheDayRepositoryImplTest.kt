@@ -12,8 +12,10 @@ import com.kharagedition.tibetandictionary.data.MiniDictionary.TRAG
 import com.kharagedition.tibetandictionary.data.TestDb
 import com.kharagedition.tibetandictionary.data.TestDb.directionRow
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.time.LocalDate
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -39,7 +41,10 @@ class WordOfTheDayRepositoryImplTest {
     }
 
     private fun TestScope.repository() =
-        WordOfTheDayRepositoryImpl(db.entryDao(), db.metaDao(), StandardTestDispatcher(testScheduler))
+        WordOfTheDayRepositoryImpl(
+            databasesOf(DictionaryPack.TIBETAN to db).apply { activate(DictionaryPack.TIBETAN) },
+            StandardTestDispatcher(testScheduler),
+        )
 
     private fun expectedId(day: LocalDate): Long =
         byRank[Math.floorMod(day.toEpochDay() + seed, TestDb.WOTD_COUNT.toLong()).toInt()]

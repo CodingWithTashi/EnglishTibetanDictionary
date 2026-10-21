@@ -8,17 +8,13 @@ import com.kharagedition.tibetandictionary.data.install.ApkAssetSource
 import com.kharagedition.tibetandictionary.data.install.AssetSizeProvider
 import com.kharagedition.tibetandictionary.data.install.AssetSource
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.UserDatabaseMigrations
 import com.kharagedition.tibetandictionary.data.local.dao.ActivityDayDao
-import com.kharagedition.tibetandictionary.data.local.dao.DirectionDao
-import com.kharagedition.tibetandictionary.data.local.dao.EntryDao
 import com.kharagedition.tibetandictionary.data.local.dao.FolderDao
-import com.kharagedition.tibetandictionary.data.local.dao.MetaDao
 import com.kharagedition.tibetandictionary.data.local.dao.RecentSearchDao
-import com.kharagedition.tibetandictionary.data.local.dao.RelatedEntryDao
 import com.kharagedition.tibetandictionary.data.local.dao.SavedEntryDao
-import com.kharagedition.tibetandictionary.data.local.dao.SenseDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,17 +27,19 @@ import javax.inject.Singleton
 object DatabaseModule {
 
     /**
-     * The prebuilt dictionary: copied from the asset on first open. A version mismatch drops the file and copies the
-     * new asset again (it holds no user data). TRUNCATE journal: the file is only read at runtime.
+     * One prebuilt dictionary file per pack, copied from its asset on first open. A version mismatch drops the file and
+     * copies the new asset again (it holds no user data). TRUNCATE journal: the files are only read at runtime.
      */
     @Provides
     @Singleton
-    fun provideDictionaryDatabase(@ApplicationContext context: Context): DictionaryDatabase =
-        Room.databaseBuilder(context, DictionaryDatabase::class.java, DictionaryDatabase.DB_NAME)
-            .createFromAsset(DictionaryDatabase.ASSET_PATH)
-            .fallbackToDestructiveMigration(dropAllTables = true)
-            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-            .build()
+    fun provideDictionaryDatabases(@ApplicationContext context: Context): DictionaryDatabases =
+        DictionaryDatabases { pack ->
+            Room.databaseBuilder(context, DictionaryDatabase::class.java, pack.dbName)
+                .createFromAsset(pack.assetPath)
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+                .build()
+        }
 
     /** What the dictionary installer copies onto the device before Room opens it. */
     @Provides
@@ -59,16 +57,6 @@ object DatabaseModule {
         Room.databaseBuilder(context, UserDatabase::class.java, UserDatabase.DB_NAME)
             .addMigrations(UserDatabaseMigrations.MIGRATION_1_2)
             .build()
-
-    @Provides fun provideDirectionDao(db: DictionaryDatabase): DirectionDao = db.directionDao()
-
-    @Provides fun provideEntryDao(db: DictionaryDatabase): EntryDao = db.entryDao()
-
-    @Provides fun provideSenseDao(db: DictionaryDatabase): SenseDao = db.senseDao()
-
-    @Provides fun provideRelatedEntryDao(db: DictionaryDatabase): RelatedEntryDao = db.relatedEntryDao()
-
-    @Provides fun provideMetaDao(db: DictionaryDatabase): MetaDao = db.metaDao()
 
     @Provides fun provideFolderDao(db: UserDatabase): FolderDao = db.folderDao()
 

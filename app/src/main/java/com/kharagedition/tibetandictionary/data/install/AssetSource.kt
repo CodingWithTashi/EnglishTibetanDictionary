@@ -1,7 +1,7 @@
 package com.kharagedition.tibetandictionary.data.install
 
 import android.content.Context
-import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
 import java.io.InputStream
@@ -29,16 +29,16 @@ fun interface AssetSizeProvider {
     fun expectedBytes(): Long?
 }
 
-/** Reads [DictionaryDatabase.ASSET_PATH] from the APK. */
+/** Reads [DictionaryPack.TIBETAN]'s asset from the APK. */
 @Singleton
 class ApkAssetSource @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) : AssetSource {
-    override fun open(): InputStream = context.assets.open(DictionaryDatabase.ASSET_PATH)
+    override fun open(): InputStream = context.assets.open(DictionaryPack.TIBETAN.assetPath)
 
     /** `openFd` works only for assets stored uncompressed; a compressed one throws, which means "unknown". */
     override fun length(): Long? = try {
-        context.assets.openFd(DictionaryDatabase.ASSET_PATH).use { fd -> fd.length.takeIf { it >= 0 } }
+        context.assets.openFd(DictionaryPack.TIBETAN.assetPath).use { fd -> fd.length.takeIf { it >= 0 } }
     } catch (_: IOException) {
         null
     }

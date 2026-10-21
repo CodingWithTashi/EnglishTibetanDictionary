@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 import java.nio.ByteBuffer
 import kotlinx.serialization.json.Json
@@ -71,7 +72,7 @@ class DictionaryAssetVersionTest {
             .isEqualTo(assetFile().length())
     }
 
-    private fun assetFile(): File = projectFile("src/main/assets/${DictionaryDatabase.ASSET_PATH}")
+    private fun assetFile(): File = projectFile("src/main/assets/${DictionaryPack.TIBETAN.assetPath}")
 
     /**
      * [path] relative to the app module, looked up from the working directory and its parents: Gradle runs unit tests

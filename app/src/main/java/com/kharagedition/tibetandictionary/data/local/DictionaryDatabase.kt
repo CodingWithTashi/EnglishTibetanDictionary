@@ -19,7 +19,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SenseFtsEntity
 
 /**
- * The bundled, read-only dictionary (`dictionary.db`, copied from assets). Its exported schema
+ * A bundled, read-only dictionary (one file per pack, e.g. `dictionary-bo.db`, copied from assets). Its exported schema
  * (`app/schemas/…DictionaryDatabase/<VERSION>.json`) is the DDL the Python pipeline executes; [VERSION] equals the
  * asset's `PRAGMA user_version` and is bumped on every data release.
  */
@@ -48,13 +48,11 @@ abstract class DictionaryDatabase : RoomDatabase() {
 
     abstract fun metaDao(): MetaDao
 
-    /** Fixture inserts for tests; the app never writes dictionary.db. */
+    /** Fixture inserts for tests; the app never writes a dictionary. */
     @VisibleForTesting
     abstract fun testWriteDao(): TestWriteDao
 
     companion object {
         const val VERSION = 1
-        const val DB_NAME = "dictionary.db"
-        const val ASSET_PATH = "dictionary/bo.db"
     }
 }
