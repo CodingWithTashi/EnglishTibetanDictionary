@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.di.DataStoreModule
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepositoryImpl
 import com.kharagedition.tibetandictionary.ui.app.APP_ROOT_TAG
 import kotlinx.coroutines.runBlocking
@@ -36,7 +37,7 @@ class ColdStartThemeTest {
     private val app = ApplicationProvider.getApplicationContext<DictionaryApplication>()
 
     /** The app's own prefs file (the DataStore delegate keeps one instance per process). */
-    private val prefs = UserPreferencesRepositoryImpl(DataStoreModule.provideUserPrefsDataStore(app))
+    private val prefs = UserPreferencesRepositoryImpl(DataStoreModule.provideUserPrefsDataStore(app), DictionaryPack.TIBETAN)
 
     /** The night mode and the DataStore instance are process-wide: leave them as other tests expect them. */
     @After

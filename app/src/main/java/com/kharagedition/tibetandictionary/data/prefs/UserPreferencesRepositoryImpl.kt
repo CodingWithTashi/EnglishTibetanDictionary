@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.core.di.DefaultDictionaryPack
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.map
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
     private val store: DataStore<Preferences>,
+    @DefaultDictionaryPack private val defaultPack: DictionaryPack,
 ) : UserPreferencesRepository {
 
     override val prefs: Flow<UserPrefs> = store.data
@@ -36,9 +39,15 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setAppearance(appearance: Appearance) = put(APPEARANCE, appearance.name)
     override suspend fun setTextSize(size: AppTextSize) = put(TEXT_SIZE, size.name)
     override suspend fun setLineSpacing(spacing: Float) = put(LINE_SPACING, LineSpacing.clamp(spacing))
-    override suspend fun setDefaultDirectionId(id: String) = put(DEFAULT_DIRECTION_ID, id)
+    override suspend fun setDictionaryPack(pack: DictionaryPack) = put(DICTIONARY_PACK, pack.id)
+    override suspend fun setDefaultDirectionId(id: String) {
+        store.edit { it[directionKey(it.packOrDefault())] = id }
+    }
     override suspend fun setLastUsedFolderId(id: Long?) {
-        store.edit { if (id == null) it.remove(LAST_USED_FOLDER_ID) else it[LAST_USED_FOLDER_ID] = id }
+        store.edit {
+            val key = folderKey(it.packOrDefault())
+            if (id == null) it.remove(key) else it[key] = id
+        }
     }
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) {
         store.edit {
@@ -52,16 +61,26 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         store.edit { it[key] = value }
     }
 
+    private fun Preferences.packOrDefault(): DictionaryPack =
+        DictionaryPack.fromId(this[DICTIONARY_PACK]) ?: defaultPack
+
     private fun Preferences.toUserPrefs(): UserPrefs {
         val defaults = UserPrefs()
+        val pack = packOrDefault()
+        val isTibetan = pack == DictionaryPack.TIBETAN
         return UserPrefs(
             onboarded = this[ONBOARDED] ?: defaults.onboarded,
             appLanguage = AppLanguage.fromTag(this[APP_LANGUAGE]),
             appearance = Appearance.fromName(this[APPEARANCE]),
             textSize = AppTextSize.fromName(this[TEXT_SIZE]),
             lineSpacing = LineSpacing.clamp(this[LINE_SPACING] ?: defaults.lineSpacing),
-            defaultDirectionId = this[DEFAULT_DIRECTION_ID] ?: defaults.defaultDirectionId,
-            lastUsedFolderId = this[LAST_USED_FOLDER_ID],
+            dictionaryPack = pack,
+            dictionaryPackChosen = DictionaryPack.fromId(this[DICTIONARY_PACK]) != null,
+            // The single keys written before packs existed belong to the Tibetan pack.
+            defaultDirectionId = this[directionKey(pack)]
+                ?: (if (isTibetan) this[DEFAULT_DIRECTION_ID] else null)
+                ?: pack.defaultDirectionId,
+            lastUsedFolderId = this[folderKey(pack)] ?: (if (isTibetan) this[LAST_USED_FOLDER_ID] else null),
             wotdNotificationEnabled = this[WOTD_NOTIFICATION_ENABLED] ?: defaults.wotdNotificationEnabled,
             wotdNotificationMinute = WotdNotificationMinute.clamp(
                 this[WOTD_NOTIFICATION_MINUTE] ?: defaults.wotdNotificationMinute,
@@ -76,8 +95,11 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val APPEARANCE = stringPreferencesKey("appearance")
         val TEXT_SIZE = stringPreferencesKey("text_size")
         val LINE_SPACING = floatPreferencesKey("line_spacing")
+        val DICTIONARY_PACK = stringPreferencesKey("dictionary_pack")
         val DEFAULT_DIRECTION_ID = stringPreferencesKey("default_direction_id")
         val LAST_USED_FOLDER_ID = longPreferencesKey("last_used_folder_id")
+        fun directionKey(pack: DictionaryPack) = stringPreferencesKey("default_direction_id_${pack.id}")
+        fun folderKey(pack: DictionaryPack) = longPreferencesKey("last_used_folder_id_${pack.id}")
         val WOTD_NOTIFICATION_ENABLED = booleanPreferencesKey("wotd_notification_enabled")
         val WOTD_NOTIFICATION_MINUTE = intPreferencesKey("wotd_notification_minute")
         val LEGACY_CLEANUP_DONE = booleanPreferencesKey("legacy_cleanup_done")
