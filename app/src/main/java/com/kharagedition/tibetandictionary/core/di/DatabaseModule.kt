@@ -46,10 +46,10 @@ object DatabaseModule {
     @Provides
     fun provideAssetSource(source: ApkAssetSource): AssetSource = source
 
-    /** The asset's size as the data build recorded it (`dictionary_stats.xml`); 0 there means unknown. */
+    /** The asset's size as the data build recorded it (`dictionary_stats_bo.xml`); 0 there means unknown. */
     @Provides
     fun provideAssetSizeProvider(@ApplicationContext context: Context): AssetSizeProvider = AssetSizeProvider {
-        context.resources.getInteger(R.integer.dictionary_asset_bytes).toLong().takeIf { it > 0 }
+        context.resources.getInteger(R.integer.dictionary_asset_bytes_bo).toLong().takeIf { it > 0 }
     }
 
     @Provides

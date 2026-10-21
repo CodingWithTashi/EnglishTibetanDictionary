@@ -55,6 +55,6 @@ abstract class DictionaryDatabase : RoomDatabase() {
     companion object {
         const val VERSION = 1
         const val DB_NAME = "dictionary.db"
-        const val ASSET_PATH = "dictionary/dictionary.db"
+        const val ASSET_PATH = "dictionary/bo.db"
     }
 }

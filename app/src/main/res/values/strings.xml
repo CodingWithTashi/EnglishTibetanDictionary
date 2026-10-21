@@ -99,10 +99,10 @@
     <string name="more_apps">More apps</string>
     <string name="support">Support &amp; donate</string>
     <string name="privacy">Privacy</string>
-    <!-- %1$s: version name, %2$s: entry count, already formatted for the app language -->
-    <string name="version_line">Tibetan Dictionary %1$s · %2$s entries · offline</string>
-    <!-- version_line when the entry count is unknown. %1$s: version name -->
-    <string name="version_line_no_count">Tibetan Dictionary %1$s · offline</string>
+    <!-- %1$s: pack name, %2$s: version name, %3$s: entry count, already formatted for the app language -->
+    <string name="version_line">%1$s %2$s · %3$s entries · offline</string>
+    <!-- version_line when the entry count is unknown. %1$s: pack name, %2$s: version name -->
+    <string name="version_line_no_count">%1$s %2$s · offline</string>
 
     <!-- Onboarding -->
     <!-- "continue" is a reserved Java keyword, so the key carries a trailing underscore. -->
@@ -152,18 +152,37 @@
     <string name="direction_desc_bo_en">Tibetan to English</string>
     <string name="direction_desc_bo_bo">Tibetan definitions</string>
     <string name="direction_desc_en_bo">English to Tibetan</string>
+    <string name="direction_desc_dz_en">Dzongkha to English</string>
+    <string name="direction_desc_dz_dz">Dzongkha definitions</string>
+    <string name="direction_desc_en_dz">English to Dzongkha</string>
+
+    <!-- Dictionary packs. pack_gloss_* is the name in the other language. pack_desc_*: %1$s is the entry count -->
+    <string name="pack_name_bo">Tibetan Dictionary</string>
+    <string name="pack_name_dz">Dzongkha Dictionary</string>
+    <string name="pack_gloss_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
+    <string name="pack_gloss_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
+    <string name="pack_desc_bo">Monlam · Tibetan ↔ English · %1$s entries</string>
+    <string name="pack_desc_dz">DDC · Dzongkha ↔ English · %1$s entries</string>
+    <string name="dictionary">Dictionary</string>
+    <string name="onboarding_dictionary_title">Which dictionary do you want?</string>
+    <string name="onboarding_dictionary_body">The app opens with this dictionary. You can switch any time in Profile.</string>
+    <!-- %1$s: pack name -->
+    <string name="switching_dictionary">Preparing %1$s · offline</string>
+    <string name="keep_current_dictionary">Keep current dictionary</string>
 
     <!-- About -->
-    <string name="about_data">Dictionary data: Monlam Tibetan Dictionary by Lobsang Monlam (GPL-3)</string>
+    <!-- %1$s: dictionary title, %2$s: author, %3$s: licence -->
+    <string name="about_data">Dictionary data: %1$s by %2$s (%3$s)</string>
     <string name="about_fonts">Fonts: Jomolhari and Noto Sans (SIL Open Font License)</string>
     <!-- About row and screen title: the full licence texts of the data and fonts -->
     <string name="licences">Licences</string>
     <!-- Licences screen headings; the licence names stay in English -->
     <string name="licence_data">Dictionary data · GNU General Public License, version 3</string>
+    <string name="licence_data_dz">Dictionary data · Dzongkha Development Commission, used with permission</string>
     <string name="licence_font_jomolhari">Jomolhari font · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">Noto Sans font · SIL Open Font License 1.1</string>
-    <!-- %1$s: Play Store link -->
-    <string name="share_app_text">Look up Tibetan and English words offline with Tibetan Dictionary: %1$s</string>
+    <!-- %1$s: pack name, %2$s: Play Store link -->
+    <string name="share_app_text">Look up words offline with %1$s: %2$s</string>
 
     <!-- Entry (T3.1) -->
     <!-- Body of the notice shown when an entry is not in the installed dictionary -->

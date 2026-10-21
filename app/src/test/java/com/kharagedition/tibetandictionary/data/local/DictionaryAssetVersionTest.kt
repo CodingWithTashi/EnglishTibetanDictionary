@@ -16,9 +16,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Guards the shipped asset `src/main/assets/dictionary/dictionary.db` and the files that must agree with it: its
+ * Guards the shipped asset `src/main/assets/dictionary/bo.db` and the files that must agree with it: its
  * `PRAGMA user_version` (header bytes 60–63, big-endian) is [DictionaryDatabase.VERSION], the highest exported
- * schema has that version, and `res/values/dictionary_stats.xml` holds the asset's total entry count and its size in
+ * schema has that version, and `res/values/dictionary_stats_bo.xml` holds the asset's total entry count and its size in
  * bytes (the installer's expected length, since the asset ships compressed). When one fails, rebuild the asset and
  * the stats file together (tools/dictionary/README.md, "Shipping a data release").
  *
@@ -60,14 +60,14 @@ class DictionaryAssetVersionTest {
         }
 
         assertThat(total).isGreaterThan(0)
-        assertThat(context.resources.getInteger(R.integer.dictionary_entry_count)).isEqualTo(total)
+        assertThat(context.resources.getInteger(R.integer.dictionary_entry_count_bo)).isEqualTo(total)
     }
 
     @Test
     fun statsResourceHoldsTheAssetsSize() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
-        assertThat(context.resources.getInteger(R.integer.dictionary_asset_bytes).toLong())
+        assertThat(context.resources.getInteger(R.integer.dictionary_asset_bytes_bo).toLong())
             .isEqualTo(assetFile().length())
     }
 

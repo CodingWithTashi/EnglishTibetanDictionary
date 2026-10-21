@@ -126,7 +126,7 @@ fun AboutScreen(
                 MixedText(versionLine(state.versionName, state.entryCount), type.secondary, type.tibetanInline15, color = colors.muted)
             }
             Column(verticalArrangement = Arrangement.spacedBy(LineGap)) {
-                MixedText(stringResource(R.string.about_data), type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
+                MixedText(stringResource(R.string.about_data, "Monlam Tibetan Dictionary", "Lobsang Monlam", "GPL-3"), type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
                 if (state.attribution != null) {
                     MixedText(state.attribution, type.secondary, type.tibetanInline15, color = colors.muted)
                 }

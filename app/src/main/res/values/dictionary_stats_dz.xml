@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Facts about the Dzongkha asset (app/src/main/assets/dictionary/dz.db). Placeholders until the data build
+    (task T1.6) writes this file together with the asset; do not edit by hand. 0 means unknown.
+-->
+<resources>
+    <integer name="dictionary_entry_count_dz">0</integer>
+    <integer name="dictionary_asset_bytes_dz">0</integer>
+</resources>

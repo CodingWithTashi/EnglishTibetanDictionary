@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dictionary pack a fresh install opens with (DictionaryPack.id). The mcc402 (Bhutan) override picks dz. -->
+<resources>
+    <string name="default_dictionary_pack" translatable="false">bo</string>
+</resources>

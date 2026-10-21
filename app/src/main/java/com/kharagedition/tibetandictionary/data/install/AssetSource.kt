@@ -22,7 +22,7 @@ interface AssetSource {
 
 /**
  * The asset's size in bytes as the data build recorded it (`R.integer.dictionary_asset_bytes` in
- * `res/values/dictionary_stats.xml`), or null when unknown. The installer uses it when [AssetSource.length] is null,
+ * `res/values/dictionary_stats_bo.xml`), or null when unknown. The installer uses it when [AssetSource.length] is null,
  * for copy progress and the final length check.
  */
 fun interface AssetSizeProvider {

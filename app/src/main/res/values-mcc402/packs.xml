@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bhutan SIMs default to the Dzongkha pack. -->
+<resources>
+    <string name="default_dictionary_pack" translatable="false">dz</string>
+</resources>

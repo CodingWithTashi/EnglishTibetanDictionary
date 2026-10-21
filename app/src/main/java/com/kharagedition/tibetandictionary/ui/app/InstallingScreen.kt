@@ -65,7 +65,7 @@ fun InstallingScreen(
     state: AppRootState.Installing,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    bundledEntryCount: Int = integerResource(R.integer.dictionary_entry_count),
+    bundledEntryCount: Int = integerResource(R.integer.dictionary_entry_count_bo),
 ) {
     Box(
         modifier

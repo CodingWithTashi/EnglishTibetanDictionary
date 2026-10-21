@@ -143,7 +143,7 @@ private fun ProfileEffects(effects: Flow<ProfileEffect>, onOpenAbout: () -> Unit
                 ProfileEffect.NavigateAbout -> openAbout()
                 is ProfileEffect.OpenUrl -> context.startActivitySafely(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
                 is ProfileEffect.ShareApp ->
-                    context.shareText(resources.getString(R.string.share_app_text, effect.listingUrl))
+                    context.shareText(resources.getString(R.string.share_app_text, resources.getString(R.string.pack_name_bo), effect.listingUrl))
                 is ProfileEffect.Toast -> toastScope.launch { toaster.show(effect.message.resolve(resources)) }
             }
         }

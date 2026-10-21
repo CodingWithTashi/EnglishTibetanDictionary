@@ -90,8 +90,8 @@
     <string name="more_apps">མཉེན་ཆས་གཞན།</string>
     <string name="support">རྒྱབ་སྐྱོར།</string>
     <string name="privacy">སྒེར་གསང་།</string>
-    <string name="version_line">བོད་ཡིག་ཚིག་མཛོད། %1$s · ཚིག %2$s · དྲ་རྒྱ་མི་དགོས།</string>
-    <string name="version_line_no_count">བོད་ཡིག་ཚིག་མཛོད། %1$s · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="version_line">%1$s %2$s · ཚིག %3$s · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="version_line_no_count">%1$s %2$s · དྲ་རྒྱ་མི་དགོས།</string>
 
     <!-- Onboarding -->
     <string name="continue_">མུ་མཐུད།</string>
@@ -137,15 +137,32 @@
     <string name="direction_desc_bo_en">བོད་ཡིག་ནས་དབྱིན་ཡིག</string>
     <string name="direction_desc_bo_bo">བོད་ཡིག་ཚིག་འགྲེལ།</string>
     <string name="direction_desc_en_bo">དབྱིན་ཡིག་ནས་བོད་ཡིག</string>
+    <string name="direction_desc_dz_en">རྫོང་ཁ་ནས་དབྱིན་ཡིག</string>
+    <string name="direction_desc_dz_dz">རྫོང་ཁའི་ཚིག་འགྲེལ།</string>
+    <string name="direction_desc_en_dz">དབྱིན་ཡིག་ནས་རྫོང་ཁ</string>
+
+    <!-- Dictionary packs -->
+    <string name="pack_name_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
+    <string name="pack_name_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
+    <string name="pack_gloss_bo">Tibetan Dictionary</string>
+    <string name="pack_gloss_dz">Dzongkha Dictionary</string>
+    <string name="pack_desc_bo">སྨོན་ལམ། · བོད་ཡིག ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
+    <string name="pack_desc_dz">DDC · རྫོང་ཁ ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
+    <string name="dictionary">ཚིག་མཛོད།</string>
+    <string name="onboarding_dictionary_title">ཚིག་མཛོད་གང་དགོས་སམ།</string>
+    <string name="onboarding_dictionary_body">མཉེན་ཆས་འདི་ཚིག་མཛོད་འདིས་འགོ་འཛུགས། སྒེར་གྱི་སྒྲིག་འགོད་ནས་དུས་ནམ་ཡང་བརྗེ་ཆོག</string>
+    <string name="switching_dictionary">%1$s གྲ་སྒྲིག་བྱེད་བཞིན། · དྲ་རྒྱ་མི་དགོས།</string>
+    <string name="keep_current_dictionary">ད་ལྟའི་ཚིག་མཛོད་ཉར།</string>
 
     <!-- About -->
-    <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། བློ་བཟང་སྨོན་ལམ་གྱིས་བསྒྲིགས་པའི་སྨོན་ལམ་བོད་ཡིག་ཚིག་མཛོད། (GPL-3)</string>
+    <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། %2$s ཀྱིས་བསྒྲིགས་པའི་ %1$s (%3$s)</string>
     <string name="about_fonts">ཡིག་གཟུགས། Jomolhari དང་ Noto Sans (SIL Open Font License)</string>
     <string name="licences">ཆོག་མཆན།</string>
     <string name="licence_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · GNU General Public License, version 3</string>
+    <string name="licence_data_dz">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · རྫོང་ཁ་གོང་འཕེལ་ལྷན་ཚོགས། ཆོག་མཆན་ཐོབ།</string>
     <string name="licence_font_jomolhari">ཡིག་གཟུགས། Jomolhari · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">ཡིག་གཟུགས། Noto Sans · SIL Open Font License 1.1</string>
-    <string name="share_app_text">བོད་ཡིག་ཚིག་མཛོད་ཐོག་དྲ་རྒྱ་མེད་པར་བོད་ཡིག་དང་དབྱིན་ཡིག་གི་ཚིག་འཚོལ། %1$s</string>
+    <string name="share_app_text">%1$s ཐོག་དྲ་རྒྱ་མེད་པར་ཚིག་འཚོལ། %2$s</string>
 
     <!-- Entry (T3.1) -->
     <string name="entry_missing_body">ཚིག་མཛོད་གསར་བསྒྱུར་སྐབས་བསལ་ཡོད་སྲིད། དེའི་ཚབ་ཏུ་ཚིག་དེ་འཚོལ་ཞིབ་བྱོས།</string>

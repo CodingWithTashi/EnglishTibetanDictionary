@@ -12,11 +12,12 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
  */
 @Composable
 internal fun versionLine(versionName: String, entryCount: Int?): String {
+    val packName = stringResource(R.string.pack_name_bo)
     val language = DictTheme.language
     val version = if (language.usesTibetanDigits) TibetanNumerals.toTibetan(versionName) else versionName
     return if (entryCount == null) {
-        stringResource(R.string.version_line_no_count, version)
+        stringResource(R.string.version_line_no_count, packName, version)
     } else {
-        stringResource(R.string.version_line, version, TibetanNumerals.formatCount(entryCount, language))
+        stringResource(R.string.version_line, packName, version, TibetanNumerals.formatCount(entryCount, language))
     }
 }

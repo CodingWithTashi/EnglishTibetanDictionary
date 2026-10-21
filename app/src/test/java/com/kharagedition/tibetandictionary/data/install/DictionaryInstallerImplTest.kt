@@ -123,7 +123,7 @@ class DictionaryInstallerImplTest {
 
     @Test
     fun unknownLengthUsesTheRecordedSizeForProgress() = runTest {
-        // The asset ships compressed, so openFd cannot size it; the build recorded its size in dictionary_stats.xml.
+        // The asset ships compressed, so openFd cannot size it; the build recorded its size in dictionary_stats_bo.xml.
         val asset = FakeAssetSource(goodAsset, knownLength = false)
         val recorded = AssetSizeProvider { goodAsset.length() }
         val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
