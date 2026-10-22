@@ -32,6 +32,7 @@ DDC_POS_CODES: dict[str, str | None] = {
     "combining form": "comb",
     "combining form n.": "comb",
     "PHR V.": "v",
+    "num.": "num",
     "IDM": None,
     "prefix": "prefix",
     "suffix": "suffix",

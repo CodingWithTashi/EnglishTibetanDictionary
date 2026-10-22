@@ -35,16 +35,22 @@ _LEADING_LABEL = re.compile(r"^\s*<abbr><i>(?P<label>[^<]*)</i></abbr>")
 _SENSE_NUMBER = re.compile(r"<b>\s*(?P<number>[0-9]{1,2})\s*</b>")
 
 _TIBETAN_RUN = r"[ༀ-࿿]+(?:\s+[ༀ-࿿]+)*"
+_NESTED_ABBR = re.compile(r"<abbr><i>\s*(<abbr><i>[^<]*</i></abbr>)\s*</i></abbr>")
+_TENSE = r"(?:fut|prs|pst|imp)\."
 _FORMS = r"\(\s*(?P<forms>(?:<abbr><i>\s*(?:fut|prs|pst|imp)\.\s*</i></abbr>[\s,]*)+)\)"
 # Inline items of a sense, in one pass so notes keep their source order. A shad or tsheg left after a
 # `</kref>` separates the links and is not gloss text.
 _ITEM = re.compile(
     rf"{_FORMS}"
+    # A verb form that differs from the headword: `pst. བཏང་།`, in an `<abbr>` or as bare text.
+    rf"|<abbr><i>\s*(?P<tense>{_TENSE})\s*</i></abbr>\s*(?P<form>{_TIBETAN_RUN})?"
+    rf"|(?<![A-Za-z])(?P<bare_tense>{_TENSE})\s*(?P<bare_form>{_TIBETAN_RUN})"
+    r"|<abbr><i>\s*hon\.\s*</i></abbr>\s*(?P<honform>form)\b"
     r"|<abbr><i>\s*opp\.\s*</i></abbr>\s*<kref type=\"ant\">(?P<opp>.*?)</kref>[་།\s]*"
     r"|<kref type=\"(?P<type>\w+)\">(?P<target>.*?)</kref>[་།\s]*"
     rf"|<abbr><i>\s*(?P<label>syn\.?|hon\. for ?m|hon\. form|hon\.|short|also|opp\.)\s*</i></abbr>\s*(?P<arg>{_TIBETAN_RUN})?"
 )
-_NOTE_LABEL = re.compile(r"syn\.?|hon\. for ?m|hon\. form|hon\.|short|also|opp\.")
+_NOTE_LABEL = re.compile(rf"{_TENSE}|syn\.?|hon\. for ?m|hon\. form|hon\.|short|also|opp\.")
 _FORM_ABBREVIATION = re.compile(r"<i>\s*([a-z]+\.)\s*</i>")
 _RELATION_BY_TYPE = {"syn": RELATION_SYNONYM, "ant": RELATION_ANTONYM}
 
@@ -59,14 +65,16 @@ def parse_dz_en_row(row: SourceRow, converter: WylieConverter, index: HeadwordIn
         homonym=homonym,
         wylie=converter.to_wylie(headword) if headword else None,
     )
-    carried: list[str] = []  # notes of text before the first `<pos>` (`also X`, `opp. X`) go to the next sense
     for _, rest in split_k_blocks(row.definition):
-        runs = _pos_runs(_DEF_TAG.sub("", rest))
+        carried: list[str] = []  # notes of text before the first `<pos>` go to the next sense of this block only
+        runs = _pos_runs(_NESTED_ABBR.sub(r"\1", _DEF_TAG.sub("", rest)))
         for position, (pos_label, markup) in enumerate(runs):
             code, known = pos_code(pos_label)
             if not known:
                 parsed.unknown_labels.append(pos_label)
-            carried = _parse_run(markup, code, parsed, carried, optional=not pos_label and position < len(runs) - 1)
+            # Text before the first `<pos>` that holds only notes and links is not a lost sense.
+            notes_only_lead = not pos_label and position < len(runs) - 1
+            carried = _parse_run(markup, code, parsed, carried, optional=notes_only_lead)
     return parsed
 
 
@@ -81,8 +89,10 @@ def _pos_runs(markup: str) -> list[tuple[str, str]]:
     lead = markup[: matches[0].start()] if matches else markup
     if strip_tags(lead):
         label = ""
-        if not matches and (found := _LEADING_LABEL.match(lead)) and not _NOTE_LABEL.fullmatch(strip_tags(found.group("label"))):
-            label, lead = strip_tags(found.group("label")), lead[found.end() :]
+        if not matches and (found := _LEADING_LABEL.match(lead)):
+            candidate = strip_tags(found.group("label"))
+            if not _NOTE_LABEL.fullmatch(candidate):
+                label, lead = candidate, lead[found.end() :]
         runs.append((label, lead))
     for position, match in enumerate(matches):
         end = matches[position + 1].start() if position + 1 < len(matches) else len(markup)
@@ -118,6 +128,12 @@ def _add_sense(markup: str, code: str | None, carried: list[str], parsed: Parsed
     def item(match: re.Match[str]) -> str:
         if match.group("forms"):
             notes.append("forms: " + ", ".join(_FORM_ABBREVIATION.findall(match.group("forms"))))
+        elif tense := match.group("tense") or match.group("bare_tense"):
+            form = match.group("form") or match.group("bare_form")
+            if form:
+                notes.append(f"{tense} {form}")
+        elif match.group("honform") is not None:
+            notes.append("hon. form")
         elif (opposite := match.group("opp")) is not None:
             _link(opposite, RELATION_ANTONYM, parsed)
             if text := strip_tags(opposite):

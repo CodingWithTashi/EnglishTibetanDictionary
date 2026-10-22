@@ -84,7 +84,7 @@ def test_verb_forms_and_honorific_become_notes() -> None:
     (sense,) = row.senses
     assert sense.part_of_speech == "v"
     assert sense.notes == ["forms: fut., prs., pst., imp.", "hon. འབྱོན།"]
-    assert sense.gloss.startswith("go, proceed")
+    assert sense.gloss == "go, proceed, depart, draw, get, go off, head, leave, start, travel, undergo"
     assert "hon." not in sense.gloss and "fut." not in sense.gloss
 
 
@@ -148,6 +148,13 @@ def test_tags_glued_to_text_do_not_join_words() -> None:
 
 def test_pos_code() -> None:
     assert pos_code("noun") == ("n", True)
+    assert [pos_code(label) for label in ("n:", "PHR V.", "combining form n.", "excl.", "num.")] == [
+        ("n", True),
+        ("v", True),
+        ("comb", True),
+        ("interj", True),
+        ("num", True),
+    ]
     assert pos_code("IDM") == (None, True)
     assert pos_code("") == (None, True)
     assert pos_code("zzz.") == (None, False)
@@ -171,6 +178,92 @@ def test_notes_and_links_before_the_first_pos_go_to_the_first_sense() -> None:
 def test_syn_marker_without_pos_is_not_a_part_of_speech() -> None:
     row = parse("སྤུད་ཟླ", '<k>སྤུད་ཟླ</k> <def>  <abbr><i>syn.</i></abbr><kref type="syn"> སྤུན་ཆ</kref>། sibling</def> ')
     number = parse("ཁལ་གཅིག", "<k>ཁལ་གཅིག</k> <def>  <abbr><i>num.</i></abbr> twenty</def> ")
+    unknown = parse("ཁལ་གཅིག", "<k>ཁལ་གཅིག</k> <def>  <abbr><i>zzz.</i></abbr> twenty</def> ")
 
     assert row.unknown_labels == [] and [(s.part_of_speech, s.gloss) for s in row.senses] == [(None, "sibling")]
-    assert number.unknown_labels == ["num."] and number.senses[0].gloss == "twenty"
+    assert number.unknown_labels == [] and [(s.part_of_speech, s.gloss) for s in number.senses] == [("num", "twenty")]
+    assert unknown.unknown_labels == ["zzz."] and unknown.senses[0].gloss == "twenty"
+
+
+def test_verb_forms_that_differ_become_notes_and_not_a_sense() -> None:
+    row = parse(
+        "ཀྲིག་ཀྲི་གཏང་བ",
+        "<k>ཀྲིག་ཀྲི་གཏང་བ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  "
+        "<abbr><i>prs.</i></abbr>, <abbr><i>imp.</i></abbr>)  <abbr><i>pst.</i></abbr> བཏང་།  <b>1</b> appreciation, "
+        "satisfaction (ངལ་རངས་པ།)  <b>2</b> displeasure (ངལ་མ་རངས་པ།)</def> ",
+    )
+
+    assert [(s.sense_no, s.gloss, s.notes) for s in row.senses] == [
+        (1, "appreciation, satisfaction (ངལ་རངས་པ།)", ["forms: fut., prs., imp.", "pst. བཏང་།"]),
+        (2, "displeasure (ངལ་མ་རངས་པ།)", []),
+    ]
+
+
+def test_nested_abbr_pairs_and_honorific() -> None:
+    row = parse(
+        "ཁ་ཕྱེ",
+        "<k>ཁ་ཕྱེ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  <abbr><i>prs.</i></abbr>)  "
+        "<abbr><i>pst.</i></abbr> ཕྱེས།  <abbr><i><abbr><i>imp.</i></abbr></i></abbr> ཕྱེས། "
+        "<abbr><i>hon.</i></abbr> ཞལ་ཕྱེ། open, gape, prise, unfurl</def> ",
+    )
+
+    assert [(s.gloss, s.notes) for s in row.senses] == [
+        (
+            "open, gape, prise, unfurl",
+            ["forms: fut., prs.", "pst. ཕྱེས།", "imp. ཕྱེས།", "hon. ཞལ་ཕྱེ།"],
+        )
+    ]
+
+
+def test_pairs_across_newlines_and_a_form_without_shad() -> None:
+    row = parse(
+        "གཞན་ལས་མགྱོགསཔ་སྦེ་བརྒྱུག་པ",
+        "<k>གཞན་ལས་མགྱོགསཔ་སྦེ་བརྒྱུག་པ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>)  "
+        "<abbr><i>prs.</i></abbr> རྒྱུག \n <abbr><i>pst.</i></abbr> བརྒྱུགས།  "
+        "<abbr><i><abbr><i>imp.</i></abbr></i></abbr> རྒྱུགས། outrun</def> ",
+    )
+
+    assert [(s.gloss, s.notes) for s in row.senses] == [
+        ("outrun", ["forms: fut.", "prs. རྒྱུག", "pst. བརྒྱུགས།", "imp. རྒྱུགས།"])
+    ]
+
+
+def test_part_of_speech_in_a_bare_abbr() -> None:
+    row = parse(
+        "ཁྲག་ལོང",
+        "<k>ཁྲག་ལོང</k> <def> <abbr><i>verb</i></abbr>( <abbr><i>fut.</i></abbr>,  <abbr><i>prs.</i></abbr>)  "
+        "<abbr><i>pst.</i></abbr> ལོངས།  <abbr><i><abbr><i>imp.</i></abbr></i></abbr> ལོངས། exasperation, rage</def> ",
+    )
+
+    assert [(s.part_of_speech, s.gloss, s.notes) for s in row.senses] == [
+        ("v", "exasperation, rage", ["forms: fut., prs.", "pst. ལོངས།", "imp. ལོངས།"])
+    ]
+    assert row.unknown_labels == []
+
+
+def test_hon_form_is_one_note() -> None:
+    row = parse(
+        "སྐུ་དྲུང",
+        "<k>སྐུ་དྲུང</k> <def> <pos><abbr><i>adv.</i></abbr></pos>in the presence of (གདོང་ཁར།) "
+        '<abbr><i>hon.</i></abbr> form  <abbr><i>syn.</i></abbr> <kref type="syn"> ཞབས་སར</kref>། '
+        "<kref type=\"syn\"> སྐུ་མདུན</kref>། <pos><abbr><i>noun</i></abbr></pos>discipline master</def> ",
+    )
+    abbr = parse("ཁྱེད", "<k>ཁྱེད</k> <def> <pos><abbr><i>pron.</i></abbr></pos><abbr><i>hon. form</i></abbr> you</def>")
+
+    assert [(s.gloss, s.notes) for s in row.senses] == [
+        ("in the presence of (གདོང་ཁར།)", ["hon. form"]),
+        ("discipline master", []),
+    ]
+    assert [r.headword for r in row.related] == ["ཞབས་སར་", "སྐུ་མདུན་"]
+    assert [(s.gloss, s.notes) for s in abbr.senses] == [("you", ["hon. form"])]
+
+
+def test_notes_do_not_carry_across_k_blocks() -> None:
+    row = parse(
+        "ད་ལན",
+        '<k>ད་ལན</k> <def>  <abbr><i>hon.</i></abbr> ཀ། </def> \n<k>ད་ལན</k> <def> <pos><abbr><i>adv.</i></abbr></pos> '
+        '<abbr><i>syn.</i></abbr> <kref type="syn">ད་ལམ</kref>། hereby </def> ',
+    )
+
+    assert [(s.gloss, s.notes) for s in row.senses] == [("hereby", [])]
+    assert row.warnings == ["sense_without_gloss"]
