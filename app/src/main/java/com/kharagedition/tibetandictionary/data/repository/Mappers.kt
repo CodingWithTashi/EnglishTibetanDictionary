@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.data.local.relation.EntryWithDetails
 import com.kharagedition.tibetandictionary.data.local.relation.SenseWithExamples
 import com.kharagedition.tibetandictionary.data.model.Attribution
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.DirectionFeatures
 import com.kharagedition.tibetandictionary.data.model.Entry
@@ -76,8 +77,13 @@ internal fun List<MetaEntity>.toMetaMap(): Map<String, String?> = associate { it
  * Capabilities from the visible direction rows and `meta`: directions with no entries or an unknown script are
  * dropped; [DictionaryCapabilities.wotdDirectionId] is null unless `wotd_count` is a positive number.
  */
-internal fun capabilitiesOf(directions: List<DirectionEntity>, meta: Map<String, String?>): DictionaryCapabilities =
+internal fun capabilitiesOf(
+    pack: DictionaryPack,
+    directions: List<DirectionEntity>,
+    meta: Map<String, String?>,
+): DictionaryCapabilities =
     DictionaryCapabilities(
+        pack = pack,
         directions = directions.filter { it.entryCount > 0 }.mapNotNull { it.toDomain() },
         dataVersion = meta[MetaKeys.DATA_VERSION].orEmpty(),
         builtAt = parseInstant(meta[MetaKeys.BUILT_AT]),

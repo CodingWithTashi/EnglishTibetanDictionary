@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary
 
 import com.kharagedition.tibetandictionary.data.model.Attribution
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.DirectionFeatures
 import com.kharagedition.tibetandictionary.data.model.Entry
@@ -99,6 +100,7 @@ object SampleData {
     )
 
     val capabilities = DictionaryCapabilities(
+        pack = DictionaryPack.TIBETAN,
         directions = directions,
         dataVersion = "2026.10.1",
         builtAt = Instant.parse("2026-10-19T00:00:00Z"),

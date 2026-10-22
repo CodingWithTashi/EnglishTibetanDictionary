@@ -796,11 +796,13 @@ class DictionaryRepositoryImplTest {
 
         repo.capabilities.test {
             val bo = awaitItem()
+            assertThat(bo.pack).isEqualTo(DictionaryPack.TIBETAN)
             assertThat(bo.directions.map { it.id }).containsExactly(BO_EN, BO_BO, EN_BO).inOrder()
             assertThat(bo.wotdDirectionId).isEqualTo(BO_EN)
 
             databases.activate(DictionaryPack.DZONGKHA)
             val dz = awaitItem()
+            assertThat(dz.pack).isEqualTo(DictionaryPack.DZONGKHA)
             assertThat(dz.directions.map { it.id })
                 .containsExactly(MiniDzongkha.DZ_EN, MiniDzongkha.DZ_DZ, MiniDzongkha.EN_DZ).inOrder()
             assertThat(dz.wotdDirectionId).isEqualTo("dz-en")

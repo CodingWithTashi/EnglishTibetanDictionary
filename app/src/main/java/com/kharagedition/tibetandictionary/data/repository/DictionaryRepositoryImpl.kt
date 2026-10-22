@@ -43,7 +43,7 @@ class DictionaryRepositoryImpl @Inject constructor(
         databases.active.filterNotNull().flatMapLatest { pack ->
             val db = databases.get(pack)
             combine(db.directionDao().observeVisible(), db.metaDao().observeAll()) { directions, meta ->
-                capabilitiesOf(directions, meta.toMetaMap())
+                capabilitiesOf(pack, directions, meta.toMetaMap())
             }
         }
             .distinctUntilChanged()

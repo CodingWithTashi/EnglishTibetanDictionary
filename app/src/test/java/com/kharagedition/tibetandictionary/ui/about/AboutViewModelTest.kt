@@ -1,10 +1,10 @@
 package com.kharagedition.tibetandictionary.ui.about
 
+import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
-import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,12 +23,8 @@ class AboutViewModelTest {
 
     private val dictionary = FakeDictionaryRepository()
 
-    private val databases = DictionaryDatabases { error("not opened in About tests") }.apply {
-        activate(DictionaryPack.TIBETAN)
-    }
-
     private fun TestScope.state(): AboutUiState {
-        val vm = AboutViewModel(dictionary, databases)
+        val vm = AboutViewModel(dictionary)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return checkNotNull(vm.uiState.value)
     }
@@ -57,8 +53,8 @@ class AboutViewModelTest {
 
     @Test
     fun `About shows the active pack's attribution`() = runTest {
-        databases.activate(DictionaryPack.DZONGKHA)
         dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
             attribution = SampleData.attribution.copy(
                 sourceName = "DDC Dzongkha Dictionary",
                 author = "Dzongkha Development Commission",
@@ -72,5 +68,26 @@ class AboutViewModelTest {
         assertThat(state.sourceName).isEqualTo("DDC Dzongkha Dictionary")
         assertThat(state.author).isEqualTo("Dzongkha Development Commission")
         assertThat(state.licence).isEqualTo("Permission of the DDC")
+    }
+
+    @Test
+    fun `the pack and the entry count always come from the same pack while a switch settles`() = runTest {
+        val dzCapabilities = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
+        )
+        val vm = AboutViewModel(dictionary)
+
+        vm.uiState.test {
+            dictionary.capabilities.value = dzCapabilities
+            val seen = cancelAndConsumeRemainingEvents().mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }.filterNotNull()
+
+            assertThat(seen.first().pack).isEqualTo(DictionaryPack.TIBETAN)
+            for (state in seen) {
+                val count = if (state.pack == DictionaryPack.DZONGKHA) 81_474 else SampleData.capabilities.totalEntries
+                assertThat(state.entryCount).isEqualTo(count)
+            }
+            assertThat(seen.last().pack).isEqualTo(DictionaryPack.DZONGKHA)
+        }
     }
 }

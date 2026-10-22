@@ -2,8 +2,12 @@ package com.kharagedition.tibetandictionary.data.model
 
 import java.time.Instant
 
-/** What the installed dictionary data offers; data-dependent UI derives its visibility from this. */
+/**
+ * What the installed dictionary data offers; data-dependent UI derives its visibility from this. [pack] is the pack
+ * the rest was read from, so a screen showing the pack's name beside its numbers never mixes two packs.
+ */
 data class DictionaryCapabilities(
+    val pack: DictionaryPack,
     val directions: List<Direction>,
     val dataVersion: String,
     val builtAt: Instant?,

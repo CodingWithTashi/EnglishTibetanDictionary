@@ -15,7 +15,6 @@ import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
-import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
@@ -37,9 +36,6 @@ class ProfileViewModelTest {
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true))
     private val dictionary = FakeDictionaryRepository()
     private val locale = RecordingLocaleApplier()
-    private val databases = DictionaryDatabases { error("not opened in Profile tests") }.apply {
-        activate(DictionaryPack.TIBETAN)
-    }
     private val switcher = FakeDictionarySwitcher()
 
     /** Rate and Share app go to [PLAY_URL]; Support and Privacy have no URL, so they are hidden. */
@@ -66,7 +62,7 @@ class ProfileViewModelTest {
 
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(prefs: UserPreferencesRepository = this@ProfileViewModelTest.prefs): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary, databases, switcher, locale, linkTargets, errors)
+        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -127,7 +123,7 @@ class ProfileViewModelTest {
         val vm = viewModel()
         assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.TIBETAN)
 
-        databases.activate(DictionaryPack.DZONGKHA)
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
 
         assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.DZONGKHA)
     }
@@ -153,6 +149,30 @@ class ProfileViewModelTest {
 
         assertThat(vm.state().sheet).isNull()
         assertThat(switcher.requests).isEmpty()
+    }
+
+    // Dictionary pack
+
+    @Test
+    fun `the pack and the entry count always come from the same pack while a switch settles`() = runTest {
+        val dzCapabilities = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
+        )
+        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
+
+        vm.uiState.test {
+            // The pack and its numbers arrive together, whatever the order the sources settle in.
+            dictionary.capabilities.value = dzCapabilities
+            val seen = cancelAndConsumeRemainingEvents().mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }.filterNotNull()
+
+            assertThat(seen.first().dictionary).isEqualTo(DictionaryPack.TIBETAN)
+            for (state in seen) {
+                val count = if (state.dictionary == DictionaryPack.DZONGKHA) 81_474 else SampleData.capabilities.totalEntries
+                assertThat(state.entryCount).isEqualTo(count)
+            }
+            assertThat(seen.last().dictionary).isEqualTo(DictionaryPack.DZONGKHA)
+        }
     }
 
     // Default direction
@@ -390,7 +410,7 @@ class ProfileViewModelTest {
 
     @Test
     fun `Share app names the active pack`() = runTest {
-        databases.activate(DictionaryPack.DZONGKHA)
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
         val vm = viewModel()
         vm.state()
 

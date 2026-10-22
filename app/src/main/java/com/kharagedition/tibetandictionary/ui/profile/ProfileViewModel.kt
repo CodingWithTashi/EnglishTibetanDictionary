@@ -9,7 +9,6 @@ import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
-import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,7 +41,6 @@ import kotlinx.coroutines.launch
 class ProfileViewModel @Inject constructor(
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
-    databases: DictionaryDatabases,
     private val switcher: DictionarySwitcher,
     private val localeApplier: LocaleApplier,
     private val linkTargets: ProfileLinkTargets,
@@ -60,11 +57,10 @@ class ProfileViewModel @Inject constructor(
         combine(
             prefs.prefs,
             dictionary.capabilities,
-            databases.active.filterNotNull(),
             appLanguage,
             sheet,
-        ) { prefs, capabilities, pack, appLanguage, sheet ->
-            state(prefs, capabilities, pack, appLanguage ?: prefs.appLanguage, sheet)
+        ) { prefs, capabilities, appLanguage, sheet ->
+            state(prefs, capabilities, appLanguage ?: prefs.appLanguage, sheet)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun onEvent(event: ProfileEvent) {
@@ -132,7 +128,6 @@ class ProfileViewModel @Inject constructor(
     private fun state(
         prefs: UserPrefs,
         capabilities: DictionaryCapabilities,
-        pack: DictionaryPack,
         language: AppLanguage,
         sheet: ProfileSheet?,
     ): ProfileUiState {
@@ -142,7 +137,7 @@ class ProfileViewModel @Inject constructor(
             textSize = prefs.textSize,
             lineSpacing = prefs.lineSpacing,
             appearance = prefs.appearance,
-            dictionary = pack,
+            dictionary = capabilities.pack,
             defaultDirection = defaultDirection(visible, prefs.defaultDirectionId),
             directions = visible,
             language = language,
