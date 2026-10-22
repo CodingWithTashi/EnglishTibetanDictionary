@@ -69,11 +69,12 @@ private val MoreChevron = 16.dp
 private val MoreGap = 4.dp
 
 /** Languages whose token is not Latin-lettered (it touches the arrow). */
-private val NonLatinTokens = setOf("bo", "zh")
+private val NonLatinTokens = setOf("bo", "dz", "zh")
 
-/** Display token of a language code: bo → "བོད", en → "EN", zh → "中", anything else upper-cased. */
+/** Display token of a language code: bo → "བོད", dz → "རྫོང", en → "EN", zh → "中", anything else upper-cased. */
 private fun languageToken(code: String): String = when (code.lowercase()) {
     "bo" -> "བོད"
+    "dz" -> "རྫོང"
     "en" -> "EN"
     "zh" -> "中"
     else -> code.uppercase()

@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.fakes
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -10,9 +11,11 @@ import com.kharagedition.tibetandictionary.data.prefs.WotdNotificationMinute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
-/** In-memory [UserPreferencesRepository] with the same clamping as the real one. */
+/** In-memory [UserPreferencesRepository] with the same clamping and per-pack direction and folder as the real one. */
 class FakeUserPreferencesRepository(initial: UserPrefs = UserPrefs()) : UserPreferencesRepository {
     override val prefs = MutableStateFlow(initial)
+    private var directionByPack = mapOf(initial.dictionaryPack to initial.defaultDirectionId)
+    private var folderByPack = mapOf(initial.dictionaryPack to initial.lastUsedFolderId)
 
     override suspend fun snapshot(): UserPrefs = prefs.value
 
@@ -20,9 +23,34 @@ class FakeUserPreferencesRepository(initial: UserPrefs = UserPrefs()) : UserPref
     override suspend fun setAppLanguage(language: AppLanguage) = prefs.update { it.copy(appLanguage = language) }
     override suspend fun setAppearance(appearance: Appearance) = prefs.update { it.copy(appearance = appearance) }
     override suspend fun setTextSize(size: AppTextSize) = prefs.update { it.copy(textSize = size) }
-    override suspend fun setLineSpacing(spacing: Float) = prefs.update { it.copy(lineSpacing = LineSpacing.clamp(spacing)) }
-    override suspend fun setDefaultDirectionId(id: String) = prefs.update { it.copy(defaultDirectionId = id) }
-    override suspend fun setLastUsedFolderId(id: Long?) = prefs.update { it.copy(lastUsedFolderId = id) }
+    override suspend fun setLineSpacing(spacing: Float) =
+        prefs.update { it.copy(lineSpacing = LineSpacing.clamp(spacing)) }
+
+    /** Optional hook run first in [setDictionaryPack]; tests suspend or throw here. */
+    var beforeSetDictionaryPack: (suspend () -> Unit)? = null
+
+    override suspend fun setDictionaryPack(pack: DictionaryPack) {
+        beforeSetDictionaryPack?.invoke()
+        val defaultDirectionId = directionByPack[pack] ?: pack.defaultDirectionId
+        val lastUsedFolderId = folderByPack[pack]
+        prefs.update {
+            it.copy(
+                dictionaryPack = pack,
+                dictionaryPackChosen = true,
+                defaultDirectionId = defaultDirectionId,
+                lastUsedFolderId = lastUsedFolderId,
+            )
+        }
+    }
+
+    override suspend fun setDefaultDirectionId(id: String) {
+        directionByPack = directionByPack + (prefs.value.dictionaryPack to id)
+        prefs.update { it.copy(defaultDirectionId = id) }
+    }
+    override suspend fun setLastUsedFolderId(id: Long?) {
+        folderByPack = folderByPack + (prefs.value.dictionaryPack to id)
+        prefs.update { it.copy(lastUsedFolderId = id) }
+    }
     override suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int) = prefs.update {
         it.copy(wotdNotificationEnabled = enabled, wotdNotificationMinute = WotdNotificationMinute.clamp(minuteOfDay))
     }

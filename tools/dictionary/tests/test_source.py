@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from dictbuild.source import DIRECTION_BY_TABLE, SourceRow, open_source, read_rows
+from dictbuild.source import SourceRow, open_source, read_rows
 
 
 @pytest.fixture
@@ -57,6 +57,3 @@ def test_unknown_table_is_rejected(source_path: Path) -> None:
     with closing(open_source(source_path)) as conn, pytest.raises(ValueError):
         list(read_rows(conn, "sqlite_master"))
 
-
-def test_direction_by_table() -> None:
-    assert DIRECTION_BY_TABLE == {"tben": "bo-en", "tbtb": "bo-bo", "entotb": "en-bo"}

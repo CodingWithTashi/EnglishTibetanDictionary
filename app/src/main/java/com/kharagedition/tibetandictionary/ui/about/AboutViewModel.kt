@@ -11,18 +11,23 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** Reads what About shows from the installed dictionary; [uiState] is null until its capabilities load. */
+/** Reads what About shows from the active dictionary's capabilities; [uiState] is null until they load. */
 @HiltViewModel
-class AboutViewModel @Inject constructor(dictionary: DictionaryRepository) : ViewModel() {
+class AboutViewModel @Inject constructor(
+    dictionary: DictionaryRepository,
+) : ViewModel() {
 
-    val uiState: StateFlow<AboutUiState?> = dictionary.capabilities
-        .map { capabilities ->
-            AboutUiState(
-                versionName = BuildConfig.VERSION_NAME,
-                entryCount = capabilities.totalEntries.takeIf { it > 0 },
-                attribution = capabilities.attribution.text.takeIf { it.isNotBlank() },
-            )
-        }
+    val uiState: StateFlow<AboutUiState?> = dictionary.capabilities.map { capabilities ->
+        AboutUiState(
+            versionName = BuildConfig.VERSION_NAME,
+            entryCount = capabilities.totalEntries.takeIf { it > 0 },
+            pack = capabilities.pack,
+            sourceName = capabilities.attribution.sourceName,
+            author = capabilities.attribution.author,
+            licence = capabilities.attribution.license,
+            attribution = capabilities.attribution.text.takeIf { it.isNotBlank() },
+        )
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     private companion object {

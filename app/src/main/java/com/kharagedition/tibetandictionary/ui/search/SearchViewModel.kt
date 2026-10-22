@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
+import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.SearchHit
@@ -353,12 +354,15 @@ class SearchViewModel @AssistedInject constructor(
         }
     }
 
-    /** Opens a result; the query is recorded unless it is shorter than [MIN_RECORDED_LENGTH] characters. */
+    /**
+     * Opens a result; the query is recorded unless it is shorter than [MIN_RECORDED_LENGTH] characters and is not the
+     * opened headword itself (a one-stack word such as ཆུ is a whole word, not a letter typed on the way to one).
+     */
     private fun openResult(entryId: Long) {
         effectChannel.trySend(SearchEffect.NavigateEntry(entryId))
         val current = outcome.value ?: return
         val opened = current.hits.firstOrNull { it.entry.id == entryId }?.entry ?: return
-        if (graphemeCount(current.query) < MIN_RECORDED_LENGTH) return
+        if (graphemeCount(current.query) < MIN_RECORDED_LENGTH && !isHeadword(current.query, opened.headword)) return
         launchSafely { recentSearches.record(current.query, current.directionId, opened) }
     }
 
@@ -404,7 +408,7 @@ class SearchViewModel @AssistedInject constructor(
             script = shown?.script ?: DetectScript.detect(field.text),
             // Ordered by the stored default, which nothing on Search changes (taps and detection only select), so
             // the segments stay in place for the whole visit.
-            slots = DirectionSlots.compute(directions, defaultId, selected?.id),
+            slots = DirectionSlots.compute(directions, defaultId, selected?.id, caps.pack.defaultDirectionId),
             selectedDirection = selected,
             autoSelected = !selection.pinned && shown?.autoSelected == true,
             phase = phase,
@@ -444,7 +448,14 @@ class SearchViewModel @AssistedInject constructor(
         /** The user's selection when it is visible, else the default direction (falling back to the first). */
         fun selectedDirection(sel: Selection, caps: DictionaryCapabilities, defaultId: String): Direction? =
             caps.directions.firstOrNull { it.id == sel.directionId && it.entryCount > 0 }
-                ?: DirectionSlots.defaultDirection(caps.directions, defaultId)
+                ?: DirectionSlots.defaultDirection(caps.directions, defaultId, caps.pack.defaultDirectionId)
+
+        /**
+         * True when the normalised [query] is [headword] as the user would type it: compared after [QueryNormalizer]
+         * and without a final tsheg, so ཆུ and ཆུ་ both name the headword ཆུ་.
+         */
+        fun isHeadword(query: String, headword: String): Boolean =
+            query.trimEnd(TibetanScript.TSHEG) == QueryNormalizer.normalize(headword).trimEnd(TibetanScript.TSHEG)
 
         /** User-perceived characters in [text]: a Tibetan stack such as ཀྲ counts once. */
         fun graphemeCount(text: String): Int {

@@ -73,6 +73,7 @@ class SavedViewModelTest {
 
     private fun row(summary: EntrySummary, at: String, folderId: Long? = null) = SavedEntry(
         entryId = summary.id,
+        packId = "bo",
         directionId = summary.directionId,
         headword = summary.headword,
         wylie = summary.wylie,
@@ -86,6 +87,7 @@ class SavedViewModelTest {
     private fun word(id: Long, headword: String, wylie: String?, gloss: String, minutesAgo: Long, folderId: Long? = null) =
         SavedEntry(
             entryId = id,
+            packId = "bo",
             directionId = if (wylie != null) "bo-en" else "en-bo",
             headword = headword,
             wylie = wylie,

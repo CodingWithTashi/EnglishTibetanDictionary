@@ -6,12 +6,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -35,7 +38,7 @@ class UserPreferencesRepositoryImplTest {
     private val store: DataStore<Preferences> by lazy {
         PreferenceDataStoreFactory.create(scope = storeScope) { File(tmp.root, "user_prefs.preferences_pb") }
     }
-    private val repo by lazy { UserPreferencesRepositoryImpl(store) }
+    private val repo by lazy { UserPreferencesRepositoryImpl(store, DictionaryPack.TIBETAN) }
 
     @After
     fun tearDown() {
@@ -145,14 +148,16 @@ class UserPreferencesRepositoryImplTest {
 
     @Test
     fun readFailureWithIOExceptionGivesDefaults() = runTest {
-        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IOException("disk unavailable")))
+        val failing =
+            UserPreferencesRepositoryImpl(FailingDataStore(IOException("disk unavailable")), DictionaryPack.TIBETAN)
 
         assertThat(failing.snapshot()).isEqualTo(UserPrefs())
     }
 
     @Test
     fun readFailureWithOtherExceptionsIsRethrown() = runTest {
-        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IllegalStateException("bug")))
+        val failing =
+            UserPreferencesRepositoryImpl(FailingDataStore(IllegalStateException("bug")), DictionaryPack.TIBETAN)
 
         val error = runCatching { failing.snapshot() }.exceptionOrNull()
         assertThat(error).isInstanceOf(IllegalStateException::class.java)
@@ -170,6 +175,96 @@ class UserPreferencesRepositoryImplTest {
         assertThat(p.appLanguage).isEqualTo(AppLanguage.EN)
         assertThat(p.appearance).isEqualTo(Appearance.SYSTEM)
         assertThat(p.textSize).isEqualTo(AppTextSize.DEFAULT)
+    }
+
+    @Test
+    fun unsetPackResolvesToInjectedDefault() = runTest {
+        val dz = UserPreferencesRepositoryImpl(store, DictionaryPack.DZONGKHA)
+
+        val p = dz.snapshot()
+        assertThat(p.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(p.dictionaryPackChosen).isFalse()
+        assertThat(p.defaultDirectionId).isEqualTo("dz-en")
+    }
+
+    @Test
+    fun setDictionaryPackPersistsAndMarksChosen() = runTest {
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+
+        val p = repo.snapshot()
+        assertThat(p.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(p.dictionaryPackChosen).isTrue()
+    }
+
+    @Test
+    fun defaultDirectionIsPerPack() = runTest {
+        repo.setDefaultDirectionId("en-bo")
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+        assertThat(repo.snapshot().defaultDirectionId).isEqualTo("dz-en")
+
+        repo.setDefaultDirectionId("en-dz")
+        repo.setDictionaryPack(DictionaryPack.TIBETAN)
+        assertThat(repo.snapshot().defaultDirectionId).isEqualTo("en-bo")
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+        assertThat(repo.snapshot().defaultDirectionId).isEqualTo("en-dz")
+    }
+
+    @Test
+    fun lastUsedFolderIsPerPack() = runTest {
+        repo.setLastUsedFolderId(7L)
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+        assertThat(repo.snapshot().lastUsedFolderId).isNull()
+
+        repo.setLastUsedFolderId(9L)
+        repo.setDictionaryPack(DictionaryPack.TIBETAN)
+        assertThat(repo.snapshot().lastUsedFolderId).isEqualTo(7L)
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+        assertThat(repo.snapshot().lastUsedFolderId).isEqualTo(9L)
+    }
+
+    @Test
+    fun legacySingleKeysReadAsTibetanValues() = runTest {
+        store.edit {
+            it[stringPreferencesKey("default_direction_id")] = "bo-bo"
+            it[longPreferencesKey("last_used_folder_id")] = 3L
+        }
+
+        val bo = repo.snapshot()
+        assertThat(bo.defaultDirectionId).isEqualTo("bo-bo")
+        assertThat(bo.lastUsedFolderId).isEqualTo(3L)
+
+        repo.setDictionaryPack(DictionaryPack.DZONGKHA)
+        val dz = repo.snapshot()
+        assertThat(dz.defaultDirectionId).isEqualTo("dz-en")
+        assertThat(dz.lastUsedFolderId).isNull()
+    }
+
+    @Test
+    fun clearingLegacyFolderUnderTibetanStaysCleared() = runTest {
+        store.edit { it[longPreferencesKey("last_used_folder_id")] = 3L }
+
+        repo.setLastUsedFolderId(null)
+
+        assertThat(repo.snapshot().lastUsedFolderId).isNull()
+    }
+
+    @Test
+    fun writingDirectionUnderTibetanDropsLegacyKey() = runTest {
+        store.edit { it[stringPreferencesKey("default_direction_id")] = "bo-bo" }
+
+        repo.setDefaultDirectionId("en-bo")
+
+        assertThat(store.data.first().contains(stringPreferencesKey("default_direction_id"))).isFalse()
+        assertThat(repo.snapshot().defaultDirectionId).isEqualTo("en-bo")
+    }
+
+    @Test
+    fun unknownStoredPackFallsBackToDefault() = runTest {
+        store.edit { it[stringPreferencesKey("dictionary_pack")] = "xx" }
+
+        assertThat(repo.snapshot().dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(UserPreferencesRepositoryImpl(store, DictionaryPack.DZONGKHA).snapshot().dictionaryPack)
+            .isEqualTo(DictionaryPack.DZONGKHA)
     }
 }
 

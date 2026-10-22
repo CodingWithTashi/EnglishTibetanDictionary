@@ -4,19 +4,22 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
-import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
+import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
+import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import java.io.IOException
-import com.kharagedition.tibetandictionary.core.locale.AppLanguage
-import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
-import com.kharagedition.tibetandictionary.data.model.AppTextSize
-import com.kharagedition.tibetandictionary.data.model.Appearance
-import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
-import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
-import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -34,13 +37,14 @@ class ProfileViewModelTest {
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true))
     private val dictionary = FakeDictionaryRepository()
     private val locale = RecordingLocaleApplier()
+    private val switcher = FakeDictionarySwitcher()
 
     /** Rate and Share app go to [PLAY_URL]; Support and Privacy have no URL, so they are hidden. */
     private var linkTargets = ProfileLinkTargets(
         playStore = PLAY_URL,
         support = "",
         privacy = "",
-        otherApps = listOf(OtherApp.PRAYER, OtherApp.CALENDAR),
+        otherApps = OtherApp.entries,
     )
 
     /** A per-app language that starts at [current] (null = none set) and records every switch. */
@@ -59,7 +63,7 @@ class ProfileViewModelTest {
 
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(prefs: UserPreferencesRepository = this@ProfileViewModelTest.prefs): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary, locale, linkTargets, errors)
+        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -113,6 +117,98 @@ class ProfileViewModelTest {
         assertThat(vm.state().lineSpacing).isEqualTo(2.3f)
     }
 
+    // Dictionary
+
+    @Test
+    fun `dictionaryRowShowsActivePack`() = runTest {
+        val vm = viewModel()
+        assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.TIBETAN)
+
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
+
+        assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `setDictionaryClosesSheetAndRequestsSwitch`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        assertThat(vm.state().sheet).isEqualTo(ProfileSheet.DICTIONARY)
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.DZONGKHA))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(switcher.requests).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `setSameDictionaryDoesNotSwitch`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.TIBETAN))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(switcher.requests).isEmpty()
+    }
+
+    @Test
+    fun `setDictionaryWhileASwitchRunsClosesTheSheetAndRecordsNothing`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        val running = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.4f)
+        switcher.state.value = running
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.TIBETAN))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(errors.recorded).isEmpty()
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(switcher.state.value).isEqualTo(running)
+        assertThat(switcher.requests).isEmpty()
+    }
+
+    @Test
+    fun `setDictionaryToAnotherPackWhileASwitchRunsClosesTheSheetAndAsksForThatPack`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        val running = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.4f)
+        switcher.state.value = running
+
+        // The capabilities still report Tibetan, so the view model forwards the request; the switcher decides.
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.DZONGKHA))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(errors.recorded).isEmpty()
+        assertThat(switcher.requests).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    // Dictionary pack
+
+    @Test
+    fun `the pack and its entry count both come from the capabilities`() = runTest {
+        val dzCapabilities = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
+        )
+        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
+
+        vm.uiState.test {
+            dictionary.capabilities.value = dzCapabilities
+            val seen = cancelAndConsumeRemainingEvents()
+                .mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }
+                .filterNotNull()
+
+            assertThat(seen.first().dictionary).isEqualTo(DictionaryPack.TIBETAN)
+            for (state in seen) {
+                val isDz = state.dictionary == DictionaryPack.DZONGKHA
+                val count = if (isDz) 81_474 else SampleData.capabilities.totalEntries
+                assertThat(state.entryCount).isEqualTo(count)
+            }
+            assertThat(seen.last().dictionary).isEqualTo(DictionaryPack.DZONGKHA)
+        }
+    }
+
     // Default direction
 
     @Test
@@ -143,6 +239,22 @@ class ProfileViewModelTest {
             assertThat(state.defaultDirection).isEqualTo(SampleData.boEn)
             assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("zh-bo")
         }
+
+    @Test
+    fun `a default direction left over from the other pack shows the active pack's default`() = runTest {
+        val dzEn = SampleData.boEn.copy(id = "dz-en", position = 1)
+        val enDz = SampleData.enBo.copy(id = "en-dz", position = 0)
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(enDz, dzEn),
+        )
+        prefs.prefs.value = UserPrefs(defaultDirectionId = "bo-en")
+
+        val state = viewModel().state()
+
+        assertThat(state.defaultDirection).isEqualTo(dzEn)
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("bo-en")
+    }
 
     @Test
     fun `no default direction when no direction has entries`() = runTest {
@@ -307,7 +419,7 @@ class ProfileViewModelTest {
             privacy = "https://privacy.example",
             otherApps = OtherApp.entries,
         )
-        assertThat(all.visible).containsExactly(
+        assertThat(all.visibleFor(DictionaryPack.TIBETAN)).containsExactly(
             ProfileLink.ABOUT,
             ProfileLink.RATE,
             ProfileLink.SHARE,
@@ -317,7 +429,20 @@ class ProfileViewModelTest {
         ).inOrder()
 
         val none = ProfileLinkTargets(playStore = "", support = "", privacy = " ", otherApps = emptyList())
-        assertThat(none.visible).containsExactly(ProfileLink.ABOUT)
+        assertThat(none.visibleFor(DictionaryPack.TIBETAN)).containsExactly(ProfileLink.ABOUT)
+    }
+
+    @Test
+    fun `More apps lists the active dictionary's apps and hides when it has none`() {
+        val targets = ProfileLinkTargets(otherApps = OtherApp.entries)
+        assertThat(targets.otherAppsFor(DictionaryPack.TIBETAN))
+            .containsExactly(OtherApp.PRAYER, OtherApp.CALENDAR).inOrder()
+        assertThat(targets.otherAppsFor(DictionaryPack.DZONGKHA))
+            .containsExactly(OtherApp.DZONGKHA_KEYBOARD, OtherApp.BHUTANESE_CALENDAR).inOrder()
+
+        val tibetanOnly = ProfileLinkTargets(otherApps = listOf(OtherApp.PRAYER))
+        assertThat(tibetanOnly.visibleFor(DictionaryPack.TIBETAN)).contains(ProfileLink.MORE_APPS)
+        assertThat(tibetanOnly.visibleFor(DictionaryPack.DZONGKHA)).doesNotContain(ProfileLink.MORE_APPS)
     }
 
     @Test
@@ -342,7 +467,19 @@ class ProfileViewModelTest {
             assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(PLAY_URL))
 
             vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.TIBETAN))
+        }
+    }
+
+    @Test
+    fun `Share app names the active pack`() = runTest {
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+        vm.state()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.DZONGKHA))
         }
     }
 
@@ -370,6 +507,26 @@ class ProfileViewModelTest {
 
             assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(OtherApp.CALENDAR.url))
             assertThat(vm.state().sheet).isNull()
+        }
+    }
+
+    @Test
+    fun `with the Dzongkha dictionary active More apps lists the Dzongkha apps`() = runTest {
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.MORE_APPS))
+            assertThat(vm.state().otherApps)
+                .containsExactly(OtherApp.DZONGKHA_KEYBOARD, OtherApp.BHUTANESE_CALENDAR).inOrder()
+
+            vm.onEvent(ProfileEvent.OpenOtherApp(OtherApp.DZONGKHA_KEYBOARD))
+
+            assertThat(awaitItem()).isEqualTo(
+                ProfileEffect.OpenUrl(
+                    "https://play.google.com/store/apps/details?id=com.kharagedition.tibetankeyboard&listing=dzongkha",
+                ),
+            )
         }
     }
 

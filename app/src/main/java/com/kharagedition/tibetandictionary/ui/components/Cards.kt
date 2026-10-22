@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
@@ -296,29 +297,35 @@ fun TipBox(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-private const val SAMPLE_HEADWORD = "བཀྲ་ཤིས།"
-private const val SAMPLE_WYLIE = "bkra shis"
-private const val SAMPLE_GLOSS_1 = "auspicious, fortunate"
-private const val SAMPLE_GLOSS_2 = "good luck, blessing"
-private const val SAMPLE_TIBETAN_SENSE = "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།"
 private const val NBSP = "\u00A0"
 
 /**
- * A live sample entry drawn at [textSize] and [lineSpacing] (not the app's current settings), for the
- * onboarding step and the text-size sheet: headword 34/1.9, Wylie, numbered glosses 15/1.6 and a Tibetan sense
- * line 21/1.9.
+ * [pack]'s sample entry ([PackSample]) drawn at [textSize] and [lineSpacing] (not the app's current settings), for
+ * the onboarding step and the text-size sheet: headword 34/1.9, Wylie, the glosses 15/1.6 (numbered when there is
+ * more than one, as on an entry) and a line in the pack's language 21/1.9.
  */
 @Composable
-fun PreviewCard(textSize: AppTextSize, lineSpacing: Float, modifier: Modifier = Modifier) {
+fun PreviewCard(
+    textSize: AppTextSize,
+    lineSpacing: Float,
+    modifier: Modifier = Modifier,
+    pack: DictionaryPack = LocalActivePack.current,
+) {
     val colors = DictTheme.colors
     val type = remember(textSize, lineSpacing) { DictTypography(textSize.scale, LineSpacing.clamp(lineSpacing)) }
-    val glosses = remember(colors.accent) {
+    val sample = pack.sample
+    val glosses = remember(sample, colors.accent) {
         val number = SpanStyle(color = colors.accent, fontWeight = FontWeight.SemiBold)
         buildAnnotatedString {
-            withStyle(number) { append("1") }
-            append("$NBSP $SAMPLE_GLOSS_1 $NBSP")
-            withStyle(number) { append("2") }
-            append("$NBSP $SAMPLE_GLOSS_2")
+            if (sample.glosses.size == 1) {
+                append(sample.glosses.single())
+            } else {
+                sample.glosses.forEachIndexed { index, gloss ->
+                    if (index > 0) append(" $NBSP")
+                    withStyle(number) { append("${index + 1}") }
+                    append("$NBSP $gloss")
+                }
+            }
         }
     }
     Column(
@@ -328,10 +335,10 @@ fun PreviewCard(textSize: AppTextSize, lineSpacing: Float, modifier: Modifier = 
             .background(colors.surface1)
             .padding(horizontal = PreviewPaddingHorizontal, vertical = PreviewPaddingVertical),
     ) {
-        TibetanText(SAMPLE_HEADWORD, style = type.tibetanWotd, color = colors.ink)
-        WylieLine(SAMPLE_WYLIE, matchRange = null, Modifier.pullUp(WylieOverlap), style = type.wylie)
+        TibetanText(sample.headword, style = type.tibetanWotd, color = colors.ink)
+        WylieLine(sample.wylie, matchRange = null, Modifier.pullUp(WylieOverlap), style = type.wylie)
         Text(glosses, Modifier.padding(top = DictTheme.dimens.chipGap), colors.ink, style = type.body)
-        TibetanText(SAMPLE_TIBETAN_SENSE, Modifier.padding(top = WotdLineGap), style = type.tibetanPreviewSense, color = colors.ink)
+        TibetanText(sample.definition, Modifier.padding(top = WotdLineGap), style = type.tibetanPreviewSense, color = colors.ink)
     }
 }
 
@@ -357,6 +364,7 @@ private fun PreviewCardSizesPreview() {
     ComponentPreview {
         PreviewCard(AppTextSize.SMALL, LineSpacing.MIN)
         PreviewCard(AppTextSize.LARGEST, LineSpacing.MAX)
+        PreviewCard(AppTextSize.DEFAULT, LineSpacing.DEFAULT, pack = DictionaryPack.DZONGKHA)
     }
 }
 

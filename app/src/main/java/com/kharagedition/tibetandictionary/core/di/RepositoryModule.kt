@@ -2,6 +2,8 @@ package com.kharagedition.tibetandictionary.core.di
 
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstallerImpl
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcherImpl
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
@@ -30,4 +32,5 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindWordOfTheDayRepository(impl: WordOfTheDayRepositoryImpl): WordOfTheDayRepository
     @Binds @Singleton abstract fun bindUserPreferencesRepository(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
     @Binds @Singleton abstract fun bindDictionaryInstaller(impl: DictionaryInstallerImpl): DictionaryInstaller
+    @Binds @Singleton abstract fun bindDictionarySwitcher(impl: DictionarySwitcherImpl): DictionarySwitcher
 }

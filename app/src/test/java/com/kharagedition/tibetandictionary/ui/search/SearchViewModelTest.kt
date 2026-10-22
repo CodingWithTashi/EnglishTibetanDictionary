@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.SampleData.recentTashi
 import com.kharagedition.tibetandictionary.SampleData.tashi
 import com.kharagedition.tibetandictionary.SampleData.tashiBoBo
 import com.kharagedition.tibetandictionary.SampleData.tashiDelek
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.MatchField
 import com.kharagedition.tibetandictionary.data.model.Script
 import com.kharagedition.tibetandictionary.data.model.SearchHit
@@ -273,6 +274,22 @@ class SearchViewModelTest {
             assertThat(slots.fixed).containsExactly(boEn, boBo, enBo).inOrder()
         }
         assertThat(dictionary.searches).isEmpty()
+    }
+
+    @Test
+    fun `a default direction left over from the other pack selects the active pack's default`() = runTest {
+        val dzEn = boEn.copy(id = "dz-en", position = 1)
+        val enDz = enBo.copy(id = "en-dz", position = 0)
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(enDz, dzEn),
+        )
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("bo-en")
+        assertThat(vm.state.selectedDirection).isEqualTo(dzEn)
+        assertThat(vm.state.slots.fixed).containsExactly(dzEn, enDz).inOrder()
     }
 
     @Test
@@ -724,6 +741,34 @@ class SearchViewModelTest {
         vm.onEvent(SearchEvent.OpenResult(tashi.id))
         advanceUntilIdle()
         assertThat(recents.recents.value.map { it.query }).containsExactly("བཀྲ")
+    }
+
+    @Test
+    fun `a one-stack word is recorded when the opened entry is that word`() = runTest {
+        val water = tashi.copy(id = 1_020_001, headword = "ཆུ་", wylie = "chu", glossPreview = "water")
+        for (query in listOf("ཆུ", "ཆུ་")) {
+            dictionary.searchResults[query to boEn.id] = SearchResult(
+                query = query,
+                directionId = boEn.id,
+                script = Script.TIBETAN,
+                hits = listOf(SearchHit(water, MatchField.HEADWORD, null, null, null)),
+                hasMore = false,
+                suggestions = emptyList(),
+            )
+        }
+        val vm = viewModel()
+
+        // ཆུ is one character on screen but a whole word: opening ཆུ་ records it, typed with or without the tsheg.
+        vm.type("ཆུ")
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(water.id))
+        advanceUntilIdle()
+        vm.type("ཆུ་")
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(water.id))
+        advanceUntilIdle()
+
+        assertThat(recents.recents.value.map { it.query }).containsExactly("ཆུ་", "ཆུ").inOrder()
     }
 
     // Opening a result

@@ -27,6 +27,46 @@ object TestDb {
     suspend fun miniDictionary(wotdSeed: Long = 0, wotdCount: Int = WOTD_COUNT): DictionaryDatabase =
         inMemoryDictionaryDb().apply { seedMiniDictionary(wotdSeed, wotdCount) }
 
+    /** A new in-memory database holding [MiniDzongkha]: the three Dzongkha directions and one entry in each. */
+    suspend fun miniDzongkhaDictionary(): DictionaryDatabase =
+        inMemoryDictionaryDb().apply {
+            val write = testWriteDao()
+            write.insertDirections(
+                listOf(
+                    directionRow(
+                        MiniDzongkha.DZ_EN, position = 0, sourceScript = "tibt", entryCount = 1, wotdCount = 1,
+                    ).copy(idBase = 4_000_000L),
+                    directionRow(MiniDzongkha.DZ_DZ, position = 1, sourceScript = "tibt", entryCount = 1)
+                        .copy(idBase = 5_000_000L),
+                    directionRow(MiniDzongkha.EN_DZ, position = 2, sourceScript = "latn", entryCount = 1)
+                        .copy(idBase = 6_000_000L),
+                ),
+            )
+            write.insertMeta(
+                metaRows(wotdSeed = 0, wotdCount = 1).map {
+                    when (it.key) {
+                        "wotd_direction_id" -> it.copy(value = MiniDzongkha.DZ_EN)
+                        "source_name" -> it.copy(value = "Dzongkha Development Commission dictionary")
+                        else -> it
+                    }
+                },
+            )
+            write.insertEntries(
+                listOf(
+                    row(MiniDzongkha.CHU, MiniDzongkha.DZ_EN, "ཆུ་", 10, null, "water", wotdRank = 0),
+                    row(MiniDzongkha.CHU_DZ, MiniDzongkha.DZ_DZ, "ཆུ་", 10, null, "ཆུ་ཚོད།"),
+                    row(MiniDzongkha.WATER, MiniDzongkha.EN_DZ, "water", 10, null, "ཆུ་"),
+                ),
+            )
+            write.insertSenses(
+                listOf(
+                    sense(101, MiniDzongkha.CHU, senseNo = 1, gloss = "water"),
+                    sense(102, MiniDzongkha.CHU_DZ, senseNo = 1, gloss = "ཆུ་ཚོད།", glossLang = "dz"),
+                    sense(103, MiniDzongkha.WATER, senseNo = 1, gloss = "ཆུ་", glossLang = "dz"),
+                ),
+            )
+        }
+
     /**
      * A `directions` row with its counts; every count not given is 0 (the feature is absent). Built on
      * [com.kharagedition.tibetandictionary.data.local.direction], so `source_lang`/`target_lang` come from [id].
@@ -182,4 +222,15 @@ object MiniDictionary {
     const val PILLOW = 3_000_030L
     const val FORTUNE = 3_000_040L
     const val GOOD_FORTUNE = 3_000_050L
+}
+
+/** Ids of the [TestDb.miniDzongkhaDictionary] rows (`id_base` 4 000 000 / 5 000 000 / 6 000 000 + `sort_order`). */
+object MiniDzongkha {
+    const val DZ_EN = "dz-en"
+    const val DZ_DZ = "dz-dz"
+    const val EN_DZ = "en-dz"
+
+    const val CHU = 4_000_010L // ཆུ་ "water", word-of-the-day rank 0
+    const val CHU_DZ = 5_000_010L
+    const val WATER = 6_000_010L
 }

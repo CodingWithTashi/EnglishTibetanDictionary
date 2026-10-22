@@ -3,6 +3,8 @@ package com.kharagedition.tibetandictionary.data.model
 /** A saved word. Fields are snapshots taken at save time, so Saved never joins across databases. */
 data class SavedEntry(
     val entryId: Long,
+    /** The [DictionaryPack] id the word was saved from. */
+    val packId: String,
     val directionId: String,
     val headword: String,
     val wylie: String?,

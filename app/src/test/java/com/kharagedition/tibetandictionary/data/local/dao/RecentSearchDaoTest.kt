@@ -32,12 +32,12 @@ class RecentSearchDaoTest {
     @Test
     fun recordUpsertsAndTrims() = runTest {
         dao.record(recent("bkra", "bo-en", at = 1))
-        val firstId = dao.observeRecent(limit = 10).first().single().id
+        val firstId = dao.observeRecent("bo", limit = 10).first().single().id
 
         dao.record(recent("bkra", "bo-en", at = 2))
         dao.record(recent("bkra", "en-bo", at = 3))
 
-        val afterUpsert = dao.observeRecent(limit = 10).first()
+        val afterUpsert = dao.observeRecent("bo", limit = 10).first()
         assertThat(afterUpsert.map { it.query to it.directionId })
             .containsExactly("bkra" to "en-bo", "bkra" to "bo-en").inOrder()
         assertThat(afterUpsert.single { it.directionId == "bo-en" }.searchedAt).isEqualTo(2L)
@@ -45,14 +45,16 @@ class RecentSearchDaoTest {
 
         (1..60).forEach { n -> dao.record(recent("q$n", "bo-en", at = 100L + n)) }
 
-        val kept = dao.observeRecent(limit = 100).first()
+        val kept = dao.observeRecent("bo", limit = 100).first()
         assertThat(kept).hasSize(50)
         assertThat(kept.first().query).isEqualTo("q60")
         assertThat(kept.last().query).isEqualTo("q11")
-        assertThat(dao.observeRecent(limit = 3).first().map { it.query }).containsExactly("q60", "q59", "q58").inOrder()
+        assertThat(dao.observeRecent("bo", limit = 3).first().map { it.query })
+            .containsExactly("q60", "q59", "q58")
+            .inOrder()
 
         dao.record(recent("x", "bo-en", at = 1_000), keep = 5)
-        assertThat(dao.observeRecent(limit = 100).first().map { it.query })
+        assertThat(dao.observeRecent("bo", limit = 100).first().map { it.query })
             .containsExactly("x", "q60", "q59", "q58", "q57").inOrder()
     }
 
@@ -61,10 +63,10 @@ class RecentSearchDaoTest {
         dao.record(recent("bkra", "bo-en", at = 1, entryId = 1_000_010, headword = "བཀྲ་ཤིས་"))
 
         dao.record(recent("bkra", "bo-en", at = 2))
-        val kept = dao.observeRecent(limit = 10).first().single()
+        val kept = dao.observeRecent("bo", limit = 10).first().single()
 
         dao.record(recent("bkra", "bo-en", at = 3, entryId = 1_000_020, headword = "བཀྲ་"))
-        val replaced = dao.observeRecent(limit = 10).first().single()
+        val replaced = dao.observeRecent("bo", limit = 10).first().single()
 
         assertThat(kept.entryId).isEqualTo(1_000_010L)
         assertThat(kept.headword).isEqualTo("བཀྲ་ཤིས་")
@@ -77,15 +79,75 @@ class RecentSearchDaoTest {
     fun deleteAndClear() = runTest {
         dao.record(recent("a", "bo-en", at = 1))
         dao.record(recent("b", "bo-en", at = 2))
-        val a = dao.observeRecent(limit = 10).first().single { it.query == "a" }
+        val a = dao.observeRecent("bo", limit = 10).first().single { it.query == "a" }
 
         dao.delete(a.id)
-        assertThat(dao.observeRecent(limit = 10).first().map { it.query }).containsExactly("b")
+        assertThat(dao.observeRecent("bo", limit = 10).first().map { it.query }).containsExactly("b")
 
-        dao.clear()
-        assertThat(dao.observeRecent(limit = 10).first()).isEmpty()
+        dao.clear("bo")
+        assertThat(dao.observeRecent("bo", limit = 10).first()).isEmpty()
     }
 
-    private fun recent(query: String, directionId: String, at: Long, entryId: Long? = null, headword: String? = null) =
-        RecentSearchEntity(query = query, directionId = directionId, entryId = entryId, headword = headword, searchedAt = at)
+    @Test
+    fun observeRecentIsScopedToPack() = runTest {
+        dao.record(recent("bkra", "bo-en", at = 1))
+        dao.record(recent("tashi", "dz-en", at = 2, packId = "dz"))
+
+        assertThat(dao.observeRecent("bo", limit = 10).first().map { it.query }).containsExactly("bkra")
+        assertThat(dao.observeRecent("dz", limit = 10).first().map { it.query }).containsExactly("tashi")
+    }
+
+    @Test
+    fun trimKeepsOtherPacksRows() = runTest {
+        dao.record(recent("tashi", "dz-en", at = 0, packId = "dz"))
+
+        (1..51).forEach { n -> dao.record(recent("q$n", "bo-en", at = n.toLong())) }
+
+        val bo = dao.observeRecent("bo", limit = 100).first()
+        assertThat(bo).hasSize(50)
+        assertThat(bo.last().query).isEqualTo("q2")
+        assertThat(dao.observeRecent("dz", limit = 100).first().map { it.query }).containsExactly("tashi")
+    }
+
+    @Test
+    fun clearIsScopedToPack() = runTest {
+        dao.record(recent("bkra", "bo-en", at = 1))
+        dao.record(recent("tashi", "dz-en", at = 2, packId = "dz"))
+
+        dao.clear("dz")
+
+        assertThat(dao.observeRecent("dz", limit = 10).first()).isEmpty()
+        assertThat(dao.observeRecent("bo", limit = 10).first().map { it.query }).containsExactly("bkra")
+    }
+
+    @Test
+    fun sameQueryAndDirectionInBothPacksAreTwoRows() = runTest {
+        dao.record(recent("bkra", "bo-en", at = 1, entryId = 1_000_010, headword = "བཀྲ་ཤིས་"))
+
+        dao.record(recent("bkra", "bo-en", at = 2, packId = "dz"))
+
+        val bo = dao.observeRecent("bo", limit = 10).first().single()
+        val dz = dao.observeRecent("dz", limit = 10).first().single()
+        assertThat(dz.id).isNotEqualTo(bo.id)
+        assertThat(bo.searchedAt).isEqualTo(1L)
+        assertThat(bo.entryId).isEqualTo(1_000_010L)
+        assertThat(dz.searchedAt).isEqualTo(2L)
+        assertThat(dz.entryId).isNull()
+    }
+
+    private fun recent(
+        query: String,
+        directionId: String,
+        at: Long,
+        entryId: Long? = null,
+        headword: String? = null,
+        packId: String = "bo",
+    ) = RecentSearchEntity(
+        packId = packId,
+        query = query,
+        directionId = directionId,
+        entryId = entryId,
+        headword = headword,
+        searchedAt = at,
+    )
 }

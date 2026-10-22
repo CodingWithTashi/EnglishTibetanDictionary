@@ -6,11 +6,14 @@ import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
 import javax.inject.Singleton
 
 /**
@@ -24,6 +27,11 @@ private val Context.userPrefsDataStore: DataStore<Preferences> by preferencesDat
     corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
+/** The pack this build starts on until the user chooses one (`R.string.default_dictionary_pack`). */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DefaultDictionaryPack
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DataStoreModule {
@@ -31,4 +39,9 @@ object DataStoreModule {
     @Singleton
     fun provideUserPrefsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
         context.userPrefsDataStore
+
+    @Provides
+    @DefaultDictionaryPack
+    fun provideDefaultDictionaryPack(@ApplicationContext context: Context): DictionaryPack =
+        DictionaryPack.fromId(context.getString(R.string.default_dictionary_pack)) ?: DictionaryPack.TIBETAN
 }

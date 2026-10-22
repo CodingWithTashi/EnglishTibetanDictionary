@@ -142,7 +142,11 @@ def save(s, file, optimize=True):
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 
 
-def legacy_icon(res, size_px, tile_px, round_):
+# Launcher variants: (mipmap qualifier, folder of the foreground layer). Bhutan SIMs get the "རྫོང" foreground.
+VARIANTS = (("", "drawable"), ("-mcc402", "drawable-mcc402"))
+
+
+def legacy_icon(res, size_px, tile_px, round_, foreground_dir="drawable"):
     """The 72dp visible tile of the adaptive icon (background + foreground), masked like a legacy icon."""
     s = surface(size_px, size_px)
     c = s.getCanvas()
@@ -154,8 +158,8 @@ def legacy_icon(res, size_px, tile_px, round_):
         c.clipRRect(skia.RRect.MakeRectXY(rect, tile_px / 4, tile_px / 4), doAntiAlias=True)  # rx 40 of 160
     k = tile_px / 72
     c.translate(off - 18 * k, off - 18 * k)
-    for layer in ("ic_launcher_background", "ic_launcher_foreground"):
-        draw_vector(c, os.path.join(res, "drawable", layer + ".xml"), 108 * k)
+    draw_vector(c, os.path.join(res, "drawable", "ic_launcher_background.xml"), 108 * k)
+    draw_vector(c, os.path.join(res, foreground_dir, "ic_launcher_foreground.xml"), 108 * k)
     return s
 
 
@@ -165,23 +169,27 @@ def main():
     prev = sys.argv[2] if len(sys.argv) > 2 else os.path.join(here, "previews")
     os.makedirs(prev, exist_ok=True)
     # Legacy mipmaps (API 24-25): rounded tile 40dp / circle 44dp in the 48dp launcher square.
-    for name, d in DENSITIES.items():
-        folder = os.path.join(res, f"mipmap-{name}")
-        os.makedirs(folder, exist_ok=True)
-        save(legacy_icon(res, round(48 * d), round(40 * d), False), os.path.join(folder, "ic_launcher.png"))
-        save(legacy_icon(res, round(48 * d), round(44 * d), True), os.path.join(folder, "ic_launcher_round.png"))
+    for qualifier, foreground_dir in VARIANTS:
+        for name, d in DENSITIES.items():
+            folder = os.path.join(res, f"mipmap{qualifier}-{name}")
+            os.makedirs(folder, exist_ok=True)
+            save(legacy_icon(res, round(48 * d), round(40 * d), False, foreground_dir),
+                 os.path.join(folder, "ic_launcher.png"))
+            save(legacy_icon(res, round(48 * d), round(44 * d), True, foreground_dir),
+                 os.path.join(folder, "ic_launcher_round.png"))
 
     # Previews (not shipped; the default preview directory is git-ignored).
     big = 108 * 8
-    for shape in ("circle", "squircle"):
-        s = surface(big, big, 0xFFEFEBE4)
-        c = s.getCanvas()
-        r = skia.Rect.MakeXYWH(18 * 8, 18 * 8, 72 * 8, 72 * 8)
-        c.clipRRect(skia.RRect.MakeOval(r) if shape == "circle" else skia.RRect.MakeRectXY(r, 72 * 8 * .3, 72 * 8 * .3),
-                    doAntiAlias=True)
-        for layer in ("ic_launcher_background", "ic_launcher_foreground"):
-            draw_vector(c, os.path.join(res, "drawable", layer + ".xml"), big)
-        save(s, os.path.join(prev, f"adaptive-{shape}.png"))
+    for qualifier, foreground_dir in VARIANTS:
+        for shape in ("circle", "squircle"):
+            s = surface(big, big, 0xFFEFEBE4)
+            c = s.getCanvas()
+            r = skia.Rect.MakeXYWH(18 * 8, 18 * 8, 72 * 8, 72 * 8)
+            c.clipRRect(skia.RRect.MakeOval(r) if shape == "circle"
+                        else skia.RRect.MakeRectXY(r, 72 * 8 * .3, 72 * 8 * .3), doAntiAlias=True)
+            draw_vector(c, os.path.join(res, "drawable", "ic_launcher_background.xml"), big)
+            draw_vector(c, os.path.join(res, foreground_dir, "ic_launcher_foreground.xml"), big)
+            save(s, os.path.join(prev, f"adaptive{qualifier}-{shape}.png"))
     # Full 108 canvas with the safe-zone circle (33dp) and visible tile outlined.
     s = surface(big, big)
     c = s.getCanvas()
@@ -230,23 +238,30 @@ def main():
         c.restore()
         save(s, os.path.join(prev, f"splash-{tag}-gaussian-reference.png"))
         tile_root = ET.parse(tile).getroot()
-    # The tile as the installing screen draws it (84dp slot, 136dp drawable centred on it) at the same density.
-    for bg, tag in ((0xFFFBF8F3, "light"), (0xFF1B1715, "dark")):
-        size = round(tile_dp * dens)
-        s = surface(size, size, bg)
-        draw_vector(s.getCanvas(), tile, size)
-        save(s, os.path.join(prev, f"installing-tile-{tag}.png"))
+    # The tiles as the installing screen draws them (84dp slot, 136dp drawable centred on it) at the same density.
+    for tile_name in ("ic_splash_tile", "ic_splash_tile_dz"):
+        suffix = tile_name.removeprefix("ic_splash_tile").replace("_", "-")
+        for bg, tag in ((0xFFFBF8F3, "light"), (0xFF1B1715, "dark")):
+            size = round(tile_dp * dens)
+            s = surface(size, size, bg)
+            draw_vector(s.getCanvas(), os.path.join(res, "drawable", tile_name + ".xml"), size)
+            save(s, os.path.join(prev, f"installing-tile{suffix}-{tag}.png"))
     # Glyph fidelity: compact (qu2cu, 1 decimal, relative) vs exact fontTools outlines, at 16x the tile.
-    ref = json.load(open(os.path.join(here, "glyph_reference.json")))
-    root = ET.parse(os.path.join(res, "drawable", "ic_launcher_foreground.xml")).getroot()
-    compact = {}
-    group = root.find("group")
-    paths = [el for el in group if el.tag == "path"]
-    for el in paths[-len(ref):]:
-        compact[len(compact)] = el.get(A + "pathData")
+    references = json.load(open(os.path.join(here, "glyph_reference.json")))
     scale = 16
     report = {}
-    for (name, rd), cd in zip(ref.items(), compact.values()):
+    for foreground_dir, ref in references.items():
+        root = ET.parse(os.path.join(res, foreground_dir, "ic_launcher_foreground.xml")).getroot()
+        paths = [el for el in root.find("group") if el.tag == "path"]
+        compact = [el.get(A + "pathData") for el in paths[-len(ref):]]
+        report[foreground_dir] = glyph_report(ref, compact, scale)
+    print(json.dumps(report, indent=1))
+
+
+def glyph_report(ref, compact, scale):
+    """Pixels where each compact glyph path differs from its exact outline, drawn at `scale` times the tile."""
+    report = {}
+    for (name, rd), cd in zip(ref, compact):
         imgs = []
         for d in (rd, cd):
             s = surface(160 * scale, 160 * scale, 0xFFFFFFFF)
@@ -258,7 +273,7 @@ def main():
         ink = (imgs[0] < 128).sum()
         report[name] = {"ink_px": int(ink), "px_differing_gt_half": int((diff > 128).sum()),
                         "max_diff": int(diff.max())}
-    print(json.dumps(report, indent=1))
+    return report
 
 
 if __name__ == "__main__":

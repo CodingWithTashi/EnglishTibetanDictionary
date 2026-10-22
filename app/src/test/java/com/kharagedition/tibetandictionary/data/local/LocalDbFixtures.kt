@@ -8,12 +8,23 @@ import com.kharagedition.tibetandictionary.data.local.entity.EntryEntity
 import com.kharagedition.tibetandictionary.data.local.entity.ExampleEntity
 import com.kharagedition.tibetandictionary.data.local.entity.RelatedEntryEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import java.io.File
 
-/** In-memory dictionary.db with the production schema (Room creates the tables, indices and FTS sync triggers). */
+/** An in-memory dictionary database with the production schema (Room creates the tables, indices and FTS triggers). */
 fun inMemoryDictionaryDb(): DictionaryDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), DictionaryDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+
+/** One parameter set per [DictionaryPack], for the `@Parameters` provider of the per-pack asset tests. */
+fun packParameters(): List<Array<Any>> = DictionaryPack.entries.map { arrayOf(it) }
+
+/** A [DictionaryDatabases] whose `open` returns the given database for each listed pack; an unlisted pack fails. */
+fun databasesOf(vararg packs: Pair<DictionaryPack, DictionaryDatabase>): DictionaryDatabases {
+    val byPack = packs.toMap()
+    return DictionaryDatabases { pack -> checkNotNull(byPack[pack]) { "No test database for $pack" } }
+}
 
 fun inMemoryUserDb(): UserDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), UserDatabase::class.java)
@@ -111,3 +122,25 @@ fun related(
     relation = relation,
     position = position,
 )
+
+/**
+ * [path] relative to the app module, looked up from the working directory and its parents up to the project root (the
+ * directory holding `settings.gradle[.kts]`, which is the last one searched): Gradle runs unit tests in the module
+ * directory, an IDE run configuration may use the project root. Null when there is no such file.
+ */
+fun findProjectFile(path: String): File? {
+    val workingDir = File("").absoluteFile
+    val dirs = generateSequence(workingDir) { it.parentFile }
+    val upToRoot = sequence {
+        for (dir in dirs) {
+            yield(dir)
+            if (File(dir, "settings.gradle.kts").exists() || File(dir, "settings.gradle").exists()) break
+        }
+    }
+    return upToRoot
+        .flatMap { dir -> sequenceOf(File(dir, path), File(dir, "app/$path")) }
+        .firstOrNull { it.exists() }
+}
+
+/** The shipped asset of [pack] in the repository, or null when it is not there. */
+fun DictionaryPack.assetFileOrNull(): File? = findProjectFile("src/main/assets/$assetPath")

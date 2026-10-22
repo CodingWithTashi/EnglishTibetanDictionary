@@ -50,6 +50,8 @@ import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.components.AccountCard
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
@@ -58,6 +60,7 @@ import com.kharagedition.tibetandictionary.ui.components.DirectionLabel
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScale
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScalePreview
 import com.kharagedition.tibetandictionary.ui.components.LatinText
+import com.kharagedition.tibetandictionary.ui.components.LocalActivePack
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
@@ -70,6 +73,7 @@ import com.kharagedition.tibetandictionary.ui.components.SignedOutAccountCard
 import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.extendStart
 import com.kharagedition.tibetandictionary.ui.components.lineSpacingLabel
+import com.kharagedition.tibetandictionary.ui.components.sample
 import com.kharagedition.tibetandictionary.ui.components.textSizeLabel
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
@@ -92,10 +96,6 @@ private val SampleGap = 12.dp
 
 /** Footer links: 8dp each side (16 between labels); the row is pulled out by the same so the labels align. */
 private val LinkSide = 8.dp
-
-/** Reading sample (a size sample, not copy): a word and its gloss drawn at the current text settings. */
-private const val SAMPLE_HEADWORD = "བཀྲ་ཤིས།"
-private const val SAMPLE_GLOSS = "auspicious"
 
 /** Joins the text-size name and the line spacing in the text-size row's value ("Default · 1.9"). */
 private const val VALUE_SEPARATOR = " · "
@@ -143,7 +143,13 @@ private fun ProfileEffects(effects: Flow<ProfileEffect>, onOpenAbout: () -> Unit
                 ProfileEffect.NavigateAbout -> openAbout()
                 is ProfileEffect.OpenUrl -> context.startActivitySafely(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
                 is ProfileEffect.ShareApp ->
-                    context.shareText(resources.getString(R.string.share_app_text, effect.listingUrl))
+                    context.shareText(
+                        resources.getString(
+                            R.string.share_app_text,
+                            resources.getString(effect.pack.resources.name),
+                            effect.listingUrl,
+                        ),
+                    )
                 is ProfileEffect.Toast -> toastScope.launch { toaster.show(effect.message.resolve(resources)) }
             }
         }
@@ -159,7 +165,7 @@ private fun Context.shareText(text: String) {
  * The stateless Profile tab: title, the account card (with accounts), the Reading group, footer links and the
  * version line, with the open [ProfileUiState.sheet] on top.
  *
- * Test tags: `profile_screen`, `profile_row_{text_size|theme|direction|language}`,
+ * Test tags: `profile_screen`, `profile_row_{text_size|theme|dictionary|direction|language}`,
  * `profile_link_{about|rate|share|more|support|privacy}`.
  */
 @Composable
@@ -224,6 +230,13 @@ private fun ReadingGroup(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit)
                 )
             },
         )
+        SettingsRow(
+            label = stringResource(R.string.dictionary),
+            modifier = Modifier.testTag("profile_row_dictionary"),
+            value = stringResource(state.dictionary.resources.name),
+            onClick = { onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY)) },
+            trailing = SettingsTrailing.Chevron,
+        )
         state.defaultDirection?.let { direction ->
             SettingsRow(
                 label = stringResource(R.string.default_direction),
@@ -266,10 +279,14 @@ private fun notificationTime(minuteOfDay: Int): String {
     return if (DictTheme.language.usesTibetanDigits) TibetanNumerals.toTibetan(time) else time
 }
 
-/** A word and its gloss at the current text size and line spacing, under the text-size row. */
+/**
+ * The active pack's sample word and its gloss (a size sample, not copy) at the current text size and line spacing,
+ * under the text-size row.
+ */
 @Composable
 private fun ReadingSample() {
     val colors = DictTheme.colors
+    val sample = LocalActivePack.current.sample
     Row(
         Modifier
             .fillMaxWidth()
@@ -278,8 +295,8 @@ private fun ReadingSample() {
             .padding(horizontal = SamplePaddingHorizontal, vertical = SamplePaddingVertical),
         horizontalArrangement = Arrangement.spacedBy(SampleGap),
     ) {
-        TibetanText(SAMPLE_HEADWORD, Modifier.alignByBaseline(), style = DictTheme.type.tibetanSample, color = colors.ink)
-        LatinText(SAMPLE_GLOSS, Modifier.alignByBaseline(), style = DictTheme.type.bodySmall, color = colors.muted)
+        TibetanText(sample.headword, Modifier.alignByBaseline(), style = DictTheme.type.tibetanSample, color = colors.ink)
+        LatinText(sample.shortGloss, Modifier.alignByBaseline(), style = DictTheme.type.bodySmall, color = colors.muted)
     }
 }
 
@@ -302,7 +319,12 @@ private fun ProfileFooter(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit
                 }
             }
         }
-        MixedText(versionLine(state.versionName, state.entryCount), type.tiny, type.tibetanInline14, color = colors.faint)
+        MixedText(
+            versionLine(stringResource(state.dictionary.resources.name), state.versionName, state.entryCount),
+            type.tiny,
+            type.tibetanInline14,
+            color = colors.faint,
+        )
     }
 }
 
@@ -350,8 +372,8 @@ private val previewState = ProfileUiState(
     directions = PreviewSamples.directions,
     versionName = "3.0.0",
     entryCount = 180_412,
-    links = ProfileLinkTargets().visible,
-    otherApps = OtherApp.entries,
+    links = ProfileLinkTargets().visibleFor(DictionaryPack.TIBETAN),
+    otherApps = ProfileLinkTargets().otherAppsFor(DictionaryPack.TIBETAN),
 )
 
 @PreviewLightDark

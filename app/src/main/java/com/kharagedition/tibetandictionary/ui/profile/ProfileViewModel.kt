@@ -8,7 +8,9 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -39,6 +41,7 @@ import kotlinx.coroutines.launch
 class ProfileViewModel @Inject constructor(
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
+    private val switcher: DictionarySwitcher,
     private val localeApplier: LocaleApplier,
     private val linkTargets: ProfileLinkTargets,
     private val errors: ErrorReporter,
@@ -51,7 +54,12 @@ class ProfileViewModel @Inject constructor(
     val effects: Flow<ProfileEffect> = effectChannel.receiveAsFlow()
 
     val uiState: StateFlow<ProfileUiState?> =
-        combine(prefs.prefs, dictionary.capabilities, appLanguage, sheet) { prefs, capabilities, appLanguage, sheet ->
+        combine(
+            prefs.prefs,
+            dictionary.capabilities,
+            appLanguage,
+            sheet,
+        ) { prefs, capabilities, appLanguage, sheet ->
             state(prefs, capabilities, appLanguage ?: prefs.appLanguage, sheet)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
@@ -63,6 +71,7 @@ class ProfileViewModel @Inject constructor(
             is ProfileEvent.SetTextSize -> persist { setTextSize(event.size) }
             is ProfileEvent.SetLineSpacing -> persist { setLineSpacing(event.spacing) }
             is ProfileEvent.SetAppearance -> persist { setAppearance(event.appearance) }
+            is ProfileEvent.SetDictionary -> setDictionary(event.pack)
             is ProfileEvent.SetDefaultDirection -> {
                 sheet.value = null
                 persist { setDefaultDirectionId(event.direction.id) }
@@ -82,6 +91,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    private fun setDictionary(pack: DictionaryPack) {
+        // Close the sheet first: the switch shows a full-screen overlay, and the sheet is a window above it.
+        sheet.value = null
+        // The switch runs on the application scope, so leaving this screen cannot cancel it.
+        if (pack != uiState.value?.dictionary) switcher.switchTo(pack)
+    }
+
     private fun setLanguage(language: AppLanguage) {
         // Close the sheet first: switching the locale recreates the activity, and this state outlives it.
         sheet.value = null
@@ -98,11 +114,12 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun openLink(link: ProfileLink) {
-        if (link !in linkTargets.visible) return
+        val shown = uiState.value ?: return
+        if (link !in shown.links) return
         when (link) {
             ProfileLink.ABOUT -> send(ProfileEffect.NavigateAbout)
             ProfileLink.RATE -> send(ProfileEffect.OpenUrl(linkTargets.playStore))
-            ProfileLink.SHARE -> send(ProfileEffect.ShareApp(linkTargets.playStore))
+            ProfileLink.SHARE -> send(ProfileEffect.ShareApp(linkTargets.playStore, shown.dictionary))
             ProfileLink.MORE_APPS -> sheet.value = ProfileSheet.MORE_APPS
             ProfileLink.SUPPORT -> send(ProfileEffect.OpenUrl(linkTargets.support))
             ProfileLink.PRIVACY -> send(ProfileEffect.OpenUrl(linkTargets.privacy))
@@ -121,7 +138,8 @@ class ProfileViewModel @Inject constructor(
             textSize = prefs.textSize,
             lineSpacing = prefs.lineSpacing,
             appearance = prefs.appearance,
-            defaultDirection = defaultDirection(visible, prefs.defaultDirectionId),
+            dictionary = capabilities.pack,
+            defaultDirection = defaultDirection(visible, prefs.defaultDirectionId, capabilities.pack),
             directions = visible,
             language = language,
             wotdNotification = if (Features.WOTD_NOTIFICATION) {
@@ -131,8 +149,8 @@ class ProfileViewModel @Inject constructor(
             },
             versionName = BuildConfig.VERSION_NAME,
             entryCount = capabilities.totalEntries.takeIf { it > 0 },
-            links = linkTargets.visible,
-            otherApps = linkTargets.otherApps,
+            links = linkTargets.visibleFor(capabilities.pack),
+            otherApps = linkTargets.otherAppsFor(capabilities.pack),
             sheet = sheet,
         )
     }
@@ -166,9 +184,12 @@ class ProfileViewModel @Inject constructor(
 
         /**
          * The stored default when it is visible, else the first visible direction (a data release removed or emptied
-         * it). Display only: the stored preference is left as it is.
+         * it); a stored id of the other pack (right after a switch) falls back to [pack]'s own default first.
+         * Display only: the stored preference is left as it is.
          */
-        fun defaultDirection(visible: List<Direction>, storedId: String): Direction? =
-            visible.firstOrNull { it.id == storedId } ?: visible.firstOrNull()
+        fun defaultDirection(visible: List<Direction>, storedId: String, pack: DictionaryPack): Direction? =
+            visible.firstOrNull { it.id == storedId }
+                ?: visible.firstOrNull { it.id == pack.defaultDirectionId }
+                ?: visible.firstOrNull()
     }
 }

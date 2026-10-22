@@ -9,14 +9,19 @@ import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI_DELEK
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRA
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRAG
+import com.kharagedition.tibetandictionary.data.MiniDzongkha
 import com.kharagedition.tibetandictionary.data.TestDb
 import com.kharagedition.tibetandictionary.data.TestDb.directionRow
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.settle
 import java.time.LocalDate
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
@@ -39,7 +44,10 @@ class WordOfTheDayRepositoryImplTest {
     }
 
     private fun TestScope.repository() =
-        WordOfTheDayRepositoryImpl(db.entryDao(), db.metaDao(), StandardTestDispatcher(testScheduler))
+        WordOfTheDayRepositoryImpl(
+            databasesOf(DictionaryPack.TIBETAN to db).apply { activate(DictionaryPack.TIBETAN) },
+            StandardTestDispatcher(testScheduler),
+        )
 
     private fun expectedId(day: LocalDate): Long =
         byRank[Math.floorMod(day.toEpochDay() + seed, TestDb.WOTD_COUNT.toLong()).toInt()]
@@ -111,6 +119,31 @@ class WordOfTheDayRepositoryImplTest {
         repo.observe(date).test {
             assertThat(awaitItem()).isNull()
             cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun wordOfTheDayFollowsTheActivePack() = runTest {
+        db = TestDb.miniDictionary(wotdSeed = seed)
+        val dzDb = TestDb.miniDzongkhaDictionary()
+        try {
+            val databases = databasesOf(DictionaryPack.TIBETAN to db, DictionaryPack.DZONGKHA to dzDb)
+            val repo = WordOfTheDayRepositoryImpl(databases, StandardTestDispatcher(testScheduler))
+
+            // Nothing is emitted, and nothing throws, until a pack is active.
+            repo.observe(date).test {
+                settle()
+                expectNoEvents()
+                databases.activate(DictionaryPack.TIBETAN)
+                assertThat(awaitItem()?.summary?.id).isEqualTo(expectedId(date))
+
+                databases.activate(DictionaryPack.DZONGKHA)
+                assertThat(awaitItem()?.summary?.id).isEqualTo(MiniDzongkha.CHU)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertThat(repo.forDate(date)?.summary?.id).isEqualTo(MiniDzongkha.CHU)
+        } finally {
+            dzDb.close()
         }
     }
 }

@@ -11,9 +11,11 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.di.DatabaseModule
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.direction
 import com.kharagedition.tibetandictionary.data.local.entity.MetaEntity
 import com.kharagedition.tibetandictionary.data.local.entry
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -21,7 +23,6 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import javax.inject.Provider
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -46,12 +47,16 @@ class DictionaryInstallerImplTest {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val target: File get() = context.getDatabasePath(DictionaryDatabase.DB_NAME)
+    private val target: File get() = context.getDatabasePath(DictionaryPack.TIBETAN.dbName)
     private val tmpCopy: File get() = File(target.path + ".tmp")
     private val errors = RecordingErrorReporter()
     private val openDbs = mutableListOf<DictionaryDatabase>()
+    private lateinit var lastDatabases: DictionaryDatabases
+    private val roomOpens = CopyOnWriteArrayList<DictionaryPack>()
 
-    /** A valid dictionary.db written by Room (so its user_version is [DictionaryDatabase.VERSION]): 3 entries. */
+    private fun fileOf(pack: DictionaryPack): File = context.getDatabasePath(pack.dbName)
+
+    /** A valid pack database written by Room (so its user_version is [DictionaryDatabase.VERSION]): 3 entries. */
     private lateinit var goodAsset: File
 
     @Before
@@ -72,7 +77,7 @@ class DictionaryInstallerImplTest {
 
         installer.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(InstallState.Checking)
-            launch { installer.ensureInstalled() }
+            launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
 
             val states = awaitSettled()
             val progress = states.filterIsInstance<InstallState.Copying>().map { it.progress }
@@ -80,7 +85,7 @@ class DictionaryInstallerImplTest {
             assertThat(progress.last()).isEqualTo(1f)
             assertThat(progress.size).isAtLeast(3)
             assertThat(progress).isInStrictOrder()
-            assertThat(states.last()).isEqualTo(InstallState.Ready(3))
+            assertThat(states.last()).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         }
         assertThat(userVersion(target)).isEqualTo(DictionaryDatabase.VERSION)
         assertThat(tmpCopy.exists()).isFalse()
@@ -93,44 +98,44 @@ class DictionaryInstallerImplTest {
 
         installer.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(InstallState.Checking)
-            launch { installer.ensureInstalled() }
+            launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
 
             assertThat(awaitSettled()).containsExactly(
-                InstallState.Copying(0f),
-                InstallState.Copying(1f),
-                InstallState.Ready(3),
+                InstallState.Copying(DictionaryPack.TIBETAN, 0f),
+                InstallState.Copying(DictionaryPack.TIBETAN, 1f),
+                InstallState.Ready(DictionaryPack.TIBETAN, 3),
             ).inOrder()
         }
     }
 
     @Test
     fun aRecordedSizeOfZeroCountsAsUnknown() = runTest {
-        // dictionary_asset_bytes = 0 means "unknown": no intermediate progress, and the install still completes.
+        // The recorded asset size of 0 means "unknown": no intermediate progress, and the install still completes.
         val asset = FakeAssetSource(goodAsset, knownLength = false)
         val installer = installer(asset, StandardTestDispatcher(testScheduler), AssetSizeProvider { 0L })
 
         installer.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(InstallState.Checking)
-            launch { installer.ensureInstalled() }
+            launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
 
             assertThat(awaitSettled()).containsExactly(
-                InstallState.Copying(0f),
-                InstallState.Copying(1f),
-                InstallState.Ready(3),
+                InstallState.Copying(DictionaryPack.TIBETAN, 0f),
+                InstallState.Copying(DictionaryPack.TIBETAN, 1f),
+                InstallState.Ready(DictionaryPack.TIBETAN, 3),
             ).inOrder()
         }
     }
 
     @Test
     fun unknownLengthUsesTheRecordedSizeForProgress() = runTest {
-        // The asset ships compressed, so openFd cannot size it; the build recorded its size in dictionary_stats.xml.
+        // The asset ships compressed, so openFd cannot size it; the build recorded its size in dictionary_stats_bo.xml.
         val asset = FakeAssetSource(goodAsset, knownLength = false)
         val recorded = AssetSizeProvider { goodAsset.length() }
         val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
 
         installer.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(InstallState.Checking)
-            launch { installer.ensureInstalled() }
+            launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
 
             val states = awaitSettled()
             val progress = states.filterIsInstance<InstallState.Copying>().map { it.progress }
@@ -138,27 +143,27 @@ class DictionaryInstallerImplTest {
             assertThat(progress.last()).isEqualTo(1f)
             assertThat(progress.size).isAtLeast(3)
             assertThat(progress).isInStrictOrder()
-            assertThat(states.last()).isEqualTo(InstallState.Ready(3))
+            assertThat(states.last()).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         }
         assertThat(errors.recorded).isEmpty()
     }
 
     @Test
     fun aRecordedSizeThatIsOffIsReportedButTheInstallSucceeds() = runTest {
-        // A stale dictionary_asset_bytes only skews the progress; the SQLite header check guards the copy.
+        // A stale recorded asset size only skews the progress; the SQLite header check guards the copy.
         for (recordedBytes in listOf(goodAsset.length() - 3, goodAsset.length() + 5)) {
             closeOpenDbs()
-            context.deleteDatabase(DictionaryDatabase.DB_NAME)
+            context.deleteDatabase(DictionaryPack.TIBETAN.dbName)
             errors.recorded.clear()
             val asset = FakeAssetSource(goodAsset, knownLength = false)
             val installer = installer(asset, StandardTestDispatcher(testScheduler), AssetSizeProvider { recordedBytes })
 
-            installer.ensureInstalled()
+            installer.ensureInstalled(DictionaryPack.TIBETAN)
 
-            assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+            assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
             assertThat(target.length()).isEqualTo(goodAsset.length())
             assertThat(errors.recorded.map { it.message }).containsExactly(
-                "dictionary_asset_bytes is $recordedBytes but the asset has ${goodAsset.length()} bytes",
+                "dictionary_asset_bytes_bo is $recordedBytes but the asset has ${goodAsset.length()} bytes",
             )
         }
     }
@@ -172,7 +177,7 @@ class DictionaryInstallerImplTest {
         val recorded = AssetSizeProvider { goodAsset.length() } // the build recorded the full size
         val installer = installer(asset, StandardTestDispatcher(testScheduler), recorded)
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -186,9 +191,9 @@ class DictionaryInstallerImplTest {
         val installer =
             installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler), AssetSizeProvider { 1L })
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
     }
 
     @Test
@@ -196,11 +201,11 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset)
         val dispatcher = StandardTestDispatcher(testScheduler)
         val first = installer(asset, dispatcher)
-        first.ensureInstalled()
-        assertThat(first.state.value).isEqualTo(InstallState.Ready(3))
+        first.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(first.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
 
         // Calling again on the same instance is a no-op.
-        first.ensureInstalled()
+        first.ensureInstalled(DictionaryPack.TIBETAN)
         assertThat(asset.openCount).isEqualTo(1)
 
         // Next launch: a new installer finds the matching file and goes straight to Ready.
@@ -208,9 +213,9 @@ class DictionaryInstallerImplTest {
         val second = installer(asset, dispatcher)
         second.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(InstallState.Checking)
-            launch { second.ensureInstalled() }
+            launch { second.ensureInstalled(DictionaryPack.TIBETAN) }
 
-            assertThat(awaitSettled()).containsExactly(InstallState.Ready(3))
+            assertThat(awaitSettled()).containsExactly(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         }
         assertThat(asset.openCount).isEqualTo(1)
     }
@@ -227,12 +232,32 @@ class DictionaryInstallerImplTest {
             siblingsLeftWhenRoomOpened = siblings.filter { it.exists() }.map { it.name }
         }
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         assertThat(asset.openCount).isEqualTo(1)
         assertThat(siblingsLeftWhenRoomOpened).isEmpty()
         assertThat(userVersion(target)).isEqualTo(DictionaryDatabase.VERSION)
+    }
+
+    @Test
+    fun readyActivatesTheTibetanPackAndAFailedInstallActivatesNothing() = runTest {
+        val truncated = tmp.newFile("truncated.db").apply {
+            writeBytes(goodAsset.readBytes().copyOf(goodAsset.length().toInt() / 2))
+        }
+        val asset = FakeAssetSource(truncated)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
+        assertThat(lastDatabases.active.value).isNull()
+
+        asset.file = goodAsset
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
     }
 
     @Test
@@ -243,7 +268,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(truncated)
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val failed = installer.state.value
         assertThat(failed).isInstanceOf(InstallState.Failed::class.java)
@@ -254,14 +279,14 @@ class DictionaryInstallerImplTest {
         asset.file = goodAsset
         installer.state.test(timeout = 10.seconds) {
             assertThat(awaitItem()).isEqualTo(failed)
-            launch { installer.ensureInstalled() }
+            launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
 
             // A retry keeps Failed until the copy starts: no Checking in between (the shell would show it as
             // "installer did not start").
             val states = awaitSettled()
-            assertThat(states.first()).isEqualTo(InstallState.Copying(0f))
+            assertThat(states.first()).isEqualTo(InstallState.Copying(DictionaryPack.TIBETAN, 0f))
             assertThat(states).doesNotContain(InstallState.Checking)
-            assertThat(states.last()).isEqualTo(InstallState.Ready(3))
+            assertThat(states.last()).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         }
         assertThat(tmpCopy.exists()).isFalse()
     }
@@ -271,7 +296,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset).apply { failAfterBytes = 1 } // throws on the read after the first chunk
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -282,8 +307,8 @@ class DictionaryInstallerImplTest {
         assertThat(target.exists()).isFalse()
 
         asset.failAfterBytes = null
-        installer.ensureInstalled()
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         assertThat(asset.openCount).isEqualTo(2)
     }
 
@@ -293,7 +318,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset).apply { pauseAfterBytes = 1 } // waits on the read after the first chunk
         val installer = installer(asset, Dispatchers.IO)
 
-        val job = launch { installer.ensureInstalled() }
+        val job = launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
         runCurrent()
         assertThat(asset.midStream.await(10, TimeUnit.SECONDS)).isTrue()
         assertThat(installer.state.value).isInstanceOf(InstallState.Copying::class.java)
@@ -312,8 +337,8 @@ class DictionaryInstallerImplTest {
         assertThat(errors.recorded).isEmpty()
 
         // The retry screen's "Try again" then installs normally.
-        installer.ensureInstalled()
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
     }
 
     @Test
@@ -322,9 +347,9 @@ class DictionaryInstallerImplTest {
         val stray = CancellationException("stray")
         val installer = installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler)) { throw stray }
 
-        installer.ensureInstalled() // returns normally: the caller was not cancelled
+        installer.ensureInstalled(DictionaryPack.TIBETAN) // returns normally: the caller was not cancelled
 
-        assertThat(installer.state.value).isEqualTo(InstallState.Failed(stray))
+        assertThat(installer.state.value).isEqualTo(InstallState.Failed(DictionaryPack.TIBETAN, stray))
         assertThat(errors.recorded).containsExactly(stray)
     }
 
@@ -333,7 +358,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset).apply { declaredLength = goodAsset.length() + 1 }
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -350,16 +375,16 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset)
         val installer = installer(asset, StandardTestDispatcher(testScheduler)) { if (failOpen) throw boom }
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
-        assertThat(installer.state.value).isEqualTo(InstallState.Failed(boom))
+        assertThat(installer.state.value).isEqualTo(InstallState.Failed(DictionaryPack.TIBETAN, boom))
         assertThat(errors.recorded).containsExactly(boom)
         val leftovers = listOf("", "-journal", "-wal", "-shm", ".tmp").map { File(target.path + it) }
         assertThat(leftovers.filter { it.exists() }).isEmpty()
 
         failOpen = false
-        installer.ensureInstalled()
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         assertThat(asset.openCount).isEqualTo(2)
     }
 
@@ -368,7 +393,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(buildFixtureAsset("blank-version.db", dataVersion = " "))
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -381,11 +406,30 @@ class DictionaryInstallerImplTest {
     }
 
     @Test
+    fun retryAfterAVerificationFailureOpensAFreshRoomInstance() = runTest {
+        val blank = buildFixtureAsset("blank-version.db", dataVersion = " ")
+        val asset = FakeAssetSource(blank)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
+        assertThat(roomOpens).containsExactly(DictionaryPack.TIBETAN)
+
+        asset.file = goodAsset
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+        assertThat(roomOpens).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.TIBETAN)
+        assertThat(openDbs).hasSize(2)
+        assertThat(openDbs[1]).isNotSameInstanceAs(openDbs[0])
+    }
+
+    @Test
     fun assetWithWrongVersionFails() = runTest {
         val stale = withUserVersion(goodAsset, DictionaryDatabase.VERSION + 1)
         val installer = installer(FakeAssetSource(stale), StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -400,7 +444,7 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset).apply { openFailure = boom }
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
 
-        installer.ensureInstalled()
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
 
         val state = installer.state.value
         assertThat(state).isInstanceOf(InstallState.Failed::class.java)
@@ -412,8 +456,176 @@ class DictionaryInstallerImplTest {
         assertThat(tmpCopy.exists()).isFalse()
 
         asset.openFailure = null
-        installer.ensureInstalled()
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+    }
+
+    @Test
+    fun aFailingDiscardIsSuppressedUnderTheOriginalFailure() = runTest {
+        val boom = IOException("cannot open")
+        val installer = installer(
+            FakeAssetSource(goodAsset),
+            StandardTestDispatcher(testScheduler),
+            beforeRoomOpens = {
+                // Discarding the active pack throws; the open then fails with the original error.
+                lastDatabases.activate(DictionaryPack.TIBETAN)
+                throw boom
+            },
+        )
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        val cause = (state as InstallState.Failed).cause
+        assertThat(cause).isSameInstanceAs(boom)
+        assertThat(cause.suppressed.map { it::class }).contains(IllegalStateException::class)
+    }
+
+    @Test
+    fun installsTheRequestedPackOnly() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+
+        assertThat(fileOf(DictionaryPack.DZONGKHA).exists()).isTrue()
+        assertThat(fileOf(DictionaryPack.TIBETAN).exists()).isFalse()
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.DZONGKHA, 3))
+        assertThat(asset.openedPacks).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun secondPackInstallsNextToTheFirst() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        val bo = fileOf(DictionaryPack.TIBETAN)
+        val (modified, length) = bo.lastModified() to bo.length()
+
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+
+        assertThat(fileOf(DictionaryPack.DZONGKHA).exists()).isTrue()
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(bo.lastModified()).isEqualTo(modified)
+        assertThat(bo.length()).isEqualTo(length)
+        assertThat(asset.openedPacks).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
+    }
+
+    @Test
+    fun failedCopyOfSecondPackLeavesFirstPackInstalled() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        val bo = fileOf(DictionaryPack.TIBETAN)
+        val (modified, length) = bo.lastModified() to bo.length()
+        val boDb = lastDatabases.get(DictionaryPack.TIBETAN)
+        asset.failingPack = DictionaryPack.DZONGKHA
+        asset.failAfterBytes = 100L * 1024
+
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).pack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(lastDatabases.get(DictionaryPack.TIBETAN)).isSameInstanceAs(boDb)
+        assertThat(bo.lastModified()).isEqualTo(modified)
+        assertThat(bo.length()).isEqualTo(length)
+        assertThat(fileOf(DictionaryPack.DZONGKHA).exists()).isFalse()
+        assertThat(File(fileOf(DictionaryPack.DZONGKHA).path + ".tmp").exists()).isFalse()
+    }
+
+    @Test
+    fun alreadyActivePackReturnsWithoutReopening() = runTest {
+        val asset = FakeAssetSource(goodAsset)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        val opensAfterFirst = roomOpens.size
+        val (modified, length) = target.lastModified() to target.length()
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(roomOpens).hasSize(opensAfterFirst)
+        assertThat(asset.openCount).isEqualTo(1)
+        assertThat(target.lastModified()).isEqualTo(modified)
+        assertThat(target.length()).isEqualTo(length)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+    }
+
+    @Test
+    fun retryOfTheActivePackAfterAFailedOtherPackKeepsTheLiveFile() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        val boDb = lastDatabases.get(DictionaryPack.TIBETAN)
+        asset.failingPack = DictionaryPack.DZONGKHA
+        asset.failAfterBytes = 1
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+        assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
+        val opens = roomOpens.size
+        val (modified, length) = target.lastModified() to target.length()
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN) // "keep current"
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+        assertThat(roomOpens).hasSize(opens)
+        assertThat(lastDatabases.get(DictionaryPack.TIBETAN)).isSameInstanceAs(boDb)
+        assertThat(target.lastModified()).isEqualTo(modified)
+        assertThat(target.length()).isEqualTo(length)
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(asset.openedPacks).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
+    }
+
+    @Test
+    fun activePackWhoseCountFailsIsFailedButItsFileStays() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        asset.failingPack = DictionaryPack.DZONGKHA
+        asset.failAfterBytes = 1
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+        val (modified, length) = target.lastModified() to target.length()
+        closeOpenDbs() // a closed Room instance throws on the next query
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).pack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(errors.recorded).contains(state.cause)
+        assertThat(target.exists()).isTrue()
+        assertThat(target.lastModified()).isEqualTo(modified)
+        assertThat(target.length()).isEqualTo(length)
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(asset.openedPacks).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
+    }
+
+    @Test
+    fun firstRunSweepsLegacyAndTempFiles() = runTest {
+        val dir = checkNotNull(target.parentFile).also { it.mkdirs() }
+        val leftovers = listOf("dictionary.db", "dictionary.db-journal", "dictionary-dz.db.tmp", "dictionary-bo.db.tmp")
+            .map { File(dir, it).apply { writeText("old") } }
+        val installer = installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(leftovers.filter { it.exists() }).isEmpty()
+        assertThat(target.exists()).isTrue()
+    }
+
+    @Test
+    fun firstRunSweepKeepsARealPackFile() = runTest {
+        val dz = fileOf(DictionaryPack.DZONGKHA)
+        checkNotNull(dz.parentFile).mkdirs()
+        goodAsset.copyTo(dz)
+        val installer = installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(dz.exists()).isTrue()
+        assertThat(dz.length()).isEqualTo(goodAsset.length())
     }
 
     @OptIn(ExperimentalCoroutinesApi::class) // runCurrent
@@ -422,10 +634,10 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(goodAsset).apply { gate = CountDownLatch(1) }
         val installer = installer(asset, Dispatchers.IO)
 
-        val first = launch { installer.ensureInstalled() }
+        val first = launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
         runCurrent()
         assertThat(asset.entered.await(10, TimeUnit.SECONDS)).isTrue()
-        val second = launch { installer.ensureInstalled() }
+        val second = launch { installer.ensureInstalled(DictionaryPack.TIBETAN) }
         runCurrent()
         assertThat(second.isActive).isTrue()
 
@@ -433,7 +645,7 @@ class DictionaryInstallerImplTest {
         joinAll(first, second)
 
         assertThat(asset.openCount).isEqualTo(1)
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(3))
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
     }
 
     private fun installer(
@@ -444,11 +656,13 @@ class DictionaryInstallerImplTest {
     ): DictionaryInstallerImpl {
         // The production builder (createFromAsset + destructive fallback): there is no asset under Robolectric, so a
         // test passes only if Room finds the installed file and skips its own copy.
-        val db by lazy {
+        // Each open builds its own holder: a discarded instance is closed, and a shared holder would hand it out again.
+        lastDatabases = DictionaryDatabases { pack ->
+            roomOpens += pack
             beforeRoomOpens()
-            DatabaseModule.provideDictionaryDatabase(context).also { openDbs += it }
+            DatabaseModule.provideDictionaryDatabases(context).get(pack).also { openDbs += it }
         }
-        return DictionaryInstallerImpl(context, asset, recordedSize, Provider { db }, io, errors)
+        return DictionaryInstallerImpl(context, asset, recordedSize, lastDatabases, io, errors)
     }
 
     private fun closeOpenDbs() {

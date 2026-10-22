@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -14,21 +15,31 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainActivity
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.core.di.DatabaseModule
 import com.kharagedition.tibetandictionary.core.di.RepositoryModule
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.install.InstallState
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.local.UserDatabase
+import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
+import com.kharagedition.tibetandictionary.data.local.inMemoryUserDb
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
-import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import dagger.hilt.android.testing.BindValue
@@ -37,6 +48,8 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -49,9 +62,12 @@ import org.robolectric.annotation.Config
  * The shell on a Hilt graph with fake repositories and an installed dictionary: start destination, app links and
  * back between routes. Every destination but Learn is the real screen (entry 42 is not one of the sample entries, so
  * it shows the missing notice).
+ *
+ * [DatabaseModule] is uninstalled too, so the graph holds a [DictionaryDatabases] the tests can [activate][
+ * DictionaryDatabases.activate] to simulate a finished pack switch; nothing in this graph reads Room through it.
  */
 @HiltAndroidTest
-@UninstallModules(RepositoryModule::class)
+@UninstallModules(RepositoryModule::class, DatabaseModule::class)
 @RunWith(AndroidJUnit4::class)
 @Config(application = HiltTestApplication::class)
 class AppNavHostTest {
@@ -65,7 +81,16 @@ class AppNavHostTest {
     private val fakePrefs = FakeUserPreferencesRepository()
 
     @BindValue @JvmField
-    val installer: DictionaryInstaller = FakeInstaller().apply { state.value = InstallState.Ready(totalEntries = 3) }
+    val installer: DictionaryInstaller =
+        FakeInstaller().apply { state.value = InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 3) }
+
+    @BindValue @JvmField
+    val databases: DictionaryDatabases = DictionaryDatabases { inMemoryDictionaryDb() }
+
+    private val fakeSwitcher = FakeDictionarySwitcher()
+
+    @BindValue @JvmField
+    val switcher: DictionarySwitcher = fakeSwitcher
 
     @BindValue @JvmField
     val prefs: UserPreferencesRepository = fakePrefs
@@ -73,8 +98,11 @@ class AppNavHostTest {
     @BindValue @JvmField
     val dictionary: DictionaryRepository = FakeDictionaryRepository()
 
+    private val userDb: UserDatabase by lazy { inMemoryUserDb() }
+
+    /** The real repository over an in-memory user.db and this graph's [databases]: the scoping is not faked. */
     @BindValue @JvmField
-    val saved: SavedRepository = FakeSavedRepository()
+    val saved: SavedRepository = SavedRepositoryImpl(userDb, databases, FakeClock(), Dispatchers.Unconfined)
 
     @BindValue @JvmField
     val recents: RecentSearchesRepository = FakeRecentSearchesRepository()
@@ -91,6 +119,7 @@ class AppNavHostTest {
 
     private fun launch(onboarded: Boolean, intent: Intent? = null) {
         fakePrefs.prefs.value = UserPrefs(onboarded = onboarded)
+        databases.activate(DictionaryPack.TIBETAN)
         hilt.inject()
         activity = Robolectric.buildActivity(MainActivity::class.java, intent).setup()
         compose.waitForIdle()
@@ -133,6 +162,7 @@ class AppNavHostTest {
     @After
     fun tearDown() {
         if (::activity.isInitialized) activity.pause().stop().destroy()
+        userDb.close()
     }
 
     private companion object {
@@ -159,6 +189,7 @@ class AppNavHostTest {
     fun `back after finishing onboarding leaves the app instead of returning to onboarding`() {
         launch(onboarded = false)
 
+        tap("onboarding_continue")
         tap("onboarding_continue")
         tap("onboarding_continue")
         assertOnTabs()
@@ -300,5 +331,118 @@ class AppNavHostTest {
         compose.waitForIdle()
 
         assertOnEntry(seeAlso = TASHI_DELEK)
+    }
+
+    @Test
+    fun `a completed switch pops to the Search tab of the new pack`() {
+        launch(onboarded = true)
+        tap("nav_profile")
+        openLink("app://entry/$TASHI")
+        compose.onNodeWithTag("entry_screen").assertExists()
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+        compose.onNodeWithTag("home_screen").assertExists()
+        compose.onNodeWithTag("nav_search").assertIsSelected()
+        pressBack()
+        assertThat(activity.get().isFinishing).isTrue()
+    }
+
+    @Test
+    fun `a switch during onboarding does not pop`() {
+        launch(onboarded = false)
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("onboarding_screen").assertExists()
+    }
+
+    @Test
+    fun `the overlay hides the app below from accessibility but keeps it mounted`() {
+        launch(onboarded = true)
+        openLink("app://entry/$TASHI")
+
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.5f)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("switching_overlay").assertExists()
+        // Not reachable by accessibility services (merged tree), yet still composed (unmerged tree).
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen", useUnmergedTree = true).assertExists()
+        pressBack()
+        assertThat(activity.get().isFinishing).isFalse()
+
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("switching_overlay").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertExists()
+        pressBack()
+        assertOnTabs()
+    }
+
+    @Test
+    fun `a held link after a pack change opens on top of the new Main`() {
+        launch(onboarded = true)
+        openLink("app://entry/$TASHI")
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, null)
+        compose.waitForIdle()
+        bus.emit(DeepLink.OpenEntry(TASHI_DELEK))
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+
+        assertOnEntry(seeAlso = TASHI)
+        pressBack()
+        // Nothing from before the switch is left under the linked entry.
+        assertOnTabs()
+        compose.onNodeWithTag("nav_search").assertIsSelected()
+        pressBack()
+        assertThat(activity.get().isFinishing).isTrue()
+    }
+
+    @Test
+    fun `a deep link during a switch is held until it ends`() {
+        launch(onboarded = true)
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, null)
+        compose.waitForIdle()
+
+        openLink("app://entry/$TASHI")
+
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("entry_screen").assertExists()
+    }
+
+    @Test
+    fun `activating the other pack directly hides a saved word and activating the first again brings it back`() {
+        launch(onboarded = true)
+        runBlocking { saved.save(SampleData.tashi, folderId = null) }
+        val row = "saved_row_${TASHI}"
+        tap("nav_saved")
+        awaitNode(row)
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+        tap("nav_saved")
+        awaitNode("saved_empty_cta")
+        compose.onNodeWithTag(row).assertDoesNotExist()
+
+        databases.activate(DictionaryPack.TIBETAN)
+        compose.waitForIdle()
+        tap("nav_saved")
+        awaitNode(row)
+    }
+
+    /** Room delivers its first emission off the main thread. */
+    private fun awaitNode(tag: String) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     }
 }

@@ -1,17 +1,25 @@
 package com.kharagedition.tibetandictionary.ui.app
 
+import android.content.Context
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.io.IOException
+import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 class InstallingScreenTest {
@@ -36,7 +44,14 @@ class InstallingScreenTest {
     @Test
     fun `while copying it shows the app name and a generic status`() {
         // 0: the bundled asset's count is unknown too (the real resource now carries the data build's count).
-        show(AppRootState.Installing(progress = 0.6f, totalEntries = null), bundledEntryCount = 0)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.6f,
+                totalEntries = null,
+            ),
+            bundledEntryCount = 0,
+        )
 
         compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertExists()
         compose.onNodeWithText("Tibetan Dictionary").assertExists()
@@ -46,14 +61,21 @@ class InstallingScreenTest {
 
     @Test
     fun `a known entry count is shown in the status`() {
-        show(AppRootState.Installing(progress = 0.6f, totalEntries = 180_412))
+        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.6f, totalEntries = 180_412))
 
         compose.onNodeWithText("Preparing 180,412 entries · offline").assertExists()
     }
 
     @Test
     fun `before the installer knows the count it shows the bundled asset's count`() {
-        show(AppRootState.Installing(progress = 0.2f, totalEntries = null), bundledEntryCount = 180_412)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.2f,
+                totalEntries = null,
+            ),
+            bundledEntryCount = 180_412,
+        )
 
         compose.onNodeWithText("Preparing 180,412 entries · offline").assertExists()
         compose.onNodeWithText("Preparing the dictionary · offline").assertDoesNotExist()
@@ -61,14 +83,28 @@ class InstallingScreenTest {
 
     @Test
     fun `the installer's count wins over the bundled asset's count`() {
-        show(AppRootState.Installing(progress = 0.2f, totalEntries = 180_500), bundledEntryCount = 180_412)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.2f,
+                totalEntries = 180_500,
+            ),
+            bundledEntryCount = 180_412,
+        )
 
         compose.onNodeWithText("Preparing 180,500 entries · offline").assertExists()
     }
 
     @Test
     fun `a failure offers to try again`() {
-        show(AppRootState.Installing(progress = null, totalEntries = null, failure = IOException("disk full")))
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = null,
+                totalEntries = null,
+                failure = IOException("disk full"),
+            ),
+        )
 
         compose.onNodeWithText("Couldn't prepare the dictionary.").assertExists()
         compose.onNodeWithText("Make sure there is free storage space, then try again.").assertExists()
@@ -80,7 +116,14 @@ class InstallingScreenTest {
 
     @Test
     fun `a cancelled preparation is worded as an interruption`() {
-        show(AppRootState.Installing(progress = null, totalEntries = null, failure = CancellationException("stopped")))
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = null,
+                totalEntries = null,
+                failure = CancellationException("stopped"),
+            ),
+        )
 
         compose.onNodeWithText("Couldn't prepare the dictionary.").assertExists()
         compose.onNodeWithText("Preparation was interrupted.").assertExists()
@@ -88,5 +131,83 @@ class InstallingScreenTest {
         compose.onNodeWithText("Try again").performClick()
 
         assertThat(retries).isEqualTo(1)
+    }
+
+    private fun showOverlay(switching: SwitchState) {
+        compose.setContent {
+            DictTheme(darkTheme = false, language = AppLanguage.EN) {
+                SwitchingOverlay(switching, onRetry = { retries++ }, onKeepCurrent = { keeps++ })
+            }
+        }
+    }
+
+    private var keeps = 0
+
+    @Test
+    fun `a Dzongkha install shows the Dzongkha count`() {
+        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = 12_345))
+
+        compose.onNodeWithText("Preparing 12,345 entries · offline").assertExists()
+    }
+
+    @Test
+    fun `an unknown count reads as the generic status`() {
+        show(
+            AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null),
+            bundledEntryCount = 0,
+        )
+
+        compose.onNodeWithText("Preparing the dictionary · offline").assertExists()
+    }
+
+    @Test
+    fun `a Dzongkha install without the installer's count shows the bundled Dzongkha count`() {
+        val bundled = ApplicationProvider.getApplicationContext<Context>().resources
+            .getInteger(DictionaryPack.DZONGKHA.resources.entryCount)
+        assertThat(bundled).isGreaterThan(0)
+
+        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
+
+        compose.onNodeWithText("Preparing ${"%,d".format(Locale.US, bundled)} entries · offline").assertExists()
+    }
+
+    @Test
+    fun `a Dzongkha install shows the Dzongkha names and no Tibetan ones`() {
+        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
+
+        compose.onNodeWithText("རྫོང་ཁའི་ཚིག་མཛོད།").assertExists()
+        compose.onNodeWithText("Dzongkha Dictionary").assertExists()
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertDoesNotExist()
+        compose.onNodeWithText("Tibetan", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "mcc402")
+    fun `on a Bhutanese SIM preparing the Tibetan dictionary still shows the Tibetan names`() {
+        showOverlay(SwitchState.InProgress(DictionaryPack.TIBETAN, 0.4f))
+
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertExists()
+        compose.onNodeWithText("Tibetan Dictionary").assertExists()
+        compose.onNodeWithText("Dzongkha", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `overlay shows keep current only when failed`() {
+        showOverlay(SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.4f))
+
+        compose.onNodeWithTag("switching_overlay").assertExists()
+        compose.onNodeWithText("Keep current dictionary").assertDoesNotExist()
+        compose.onNodeWithText("Try again").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a failed overlay offers try again and keep current`() {
+        showOverlay(SwitchState.Failed(DictionaryPack.DZONGKHA, IOException("disk full")))
+
+        compose.onNodeWithText("Try again").performClick()
+        compose.onNodeWithText("Keep current dictionary").performClick()
+
+        assertThat(retries).isEqualTo(1)
+        assertThat(keeps).isEqualTo(1)
     }
 }

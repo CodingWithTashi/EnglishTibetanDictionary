@@ -14,9 +14,11 @@ from typing import Any
 
 GLOSS_LANG_BO = "bo"
 GLOSS_LANG_EN = "en"
+GLOSS_LANG_DZ = "dz"
 
 RELATION_SEE_ALSO = "see_also"
 RELATION_SYNONYM = "synonym"
+RELATION_ANTONYM = "antonym"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -118,50 +120,6 @@ def row_values(row: Any) -> tuple[Any, ...]:
     return tuple(getattr(row, column.name) for column in dataclasses.fields(row))
 
 
-# The directions built from the Monlam source, in switcher order. Entry ids are `id_base + _id`.
-DIRECTIONS: tuple[DirectionRow, ...] = (
-    DirectionRow(
-        id="bo-en",
-        source_lang="bo",
-        target_lang="en",
-        source_script="tibt",
-        label_en="Tibetan → English",
-        label_bo="བོད་ཡིག → དབྱིན་ཡིག",
-        short_label="བོད→EN",
-        position=0,
-        id_base=1_000_000,
-    ),
-    DirectionRow(
-        id="bo-bo",
-        source_lang="bo",
-        target_lang="bo",
-        source_script="tibt",
-        label_en="Tibetan → Tibetan",
-        label_bo="བོད་ཡིག → བོད་ཡིག",
-        short_label="བོད→བོད",
-        position=1,
-        id_base=2_000_000,
-    ),
-    DirectionRow(
-        id="en-bo",
-        source_lang="en",
-        target_lang="bo",
-        source_script="latn",
-        label_en="English → Tibetan",
-        label_bo="དབྱིན་ཡིག → བོད་ཡིག",
-        short_label="EN→བོད",
-        position=2,
-        id_base=3_000_000,
-    ),
-)
-DIRECTION_BY_ID: dict[str, DirectionRow] = {direction.id: direction for direction in DIRECTIONS}
-
-
-def entry_id_for(direction_id: str, source_id: int) -> int:
-    """The stable entry id: the direction's `id_base` plus the source `_id` of the group's first row."""
-    return DIRECTION_BY_ID[direction_id].id_base + source_id
-
-
 @dataclass(slots=True)
 class ParsedExample:
     text: str
@@ -230,16 +188,13 @@ class EntryDraft:
 
     direction_id: str
     source_id: int
+    entry_id: int  # the pack's `entry_id_for(direction_id, source_id)`
     headword: str
     group_key: str
     wylie: str | None = None
     senses: list[ParsedSense] = field(default_factory=list)
     related: list[RelatedCandidate] = field(default_factory=list)
     source_ids: list[int] = field(default_factory=list)
-
-    @property
-    def entry_id(self) -> int:
-        return entry_id_for(self.direction_id, self.source_id)
 
     @property
     def is_truncated(self) -> bool:

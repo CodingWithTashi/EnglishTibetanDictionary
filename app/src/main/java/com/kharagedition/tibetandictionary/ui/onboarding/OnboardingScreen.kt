@@ -52,9 +52,6 @@ import kotlinx.coroutines.flow.Flow
 /** Top bar with the page indicator and Skip. */
 private val TopBarHeight = 56.dp
 
-/** The account step only ships with accounts, which make onboarding three steps long. */
-private const val STEP_COUNT_WITH_ACCOUNTS = 3
-
 /** Space between the scrolling step content and the bottom buttons; 10 between stacked buttons. */
 private val ActionsTop = 16.dp
 private val ActionGap = 10.dp
@@ -64,7 +61,7 @@ private val NoteTop = 4.dp
 
 internal const val ONBOARDING_SCREEN_TAG = "onboarding_screen"
 
-/** First-run setup (2b/2c, plus 2d with accounts); [onFinished] moves on to the main scaffold. */
+/** First-run setup (2a/2b/2c, plus 2d with accounts); [onFinished] moves on to the main scaffold. */
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
     val viewModel = hiltViewModel<OnboardingViewModel>()
@@ -111,7 +108,7 @@ private fun OnboardingEffects(effects: Flow<OnboardingEffect>, onFinished: () ->
  */
 @Composable
 fun OnboardingScreen(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
-    BackHandler(enabled = state.step > OnboardingStep.DIRECTION) { onEvent(OnboardingEvent.Back) }
+    BackHandler(enabled = state.step > OnboardingStep.DICTIONARY) { onEvent(OnboardingEvent.Back) }
     val padding = DictTheme.dimens.onboardingPadding
     Column(
         modifier
@@ -128,6 +125,7 @@ fun OnboardingScreen(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Uni
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
             when (state.step) {
+                OnboardingStep.DICTIONARY -> DictionaryStep(state, onEvent, stepModifier)
                 OnboardingStep.DIRECTION -> DirectionStep(state, onEvent, stepModifier)
                 OnboardingStep.READING -> ReadingStep(state, onEvent, stepModifier)
                 else -> AccountStep(stepModifier)
@@ -206,6 +204,15 @@ private val previewState = OnboardingUiState(
     directions = PreviewSamples.directions,
     selectedDirection = PreviewSamples.boEn,
 )
+
+@PreviewLightDark
+@BoPreview
+@Composable
+private fun OnboardingDictionaryPreview() {
+    ComponentPreview(edgeToEdge = true) {
+        OnboardingScreen(previewState.copy(step = OnboardingStep.DICTIONARY), onEvent = {})
+    }
+}
 
 @PreviewLightDark
 @BoPreview

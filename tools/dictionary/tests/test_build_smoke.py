@@ -18,12 +18,16 @@ from pathlib import Path
 import pytest
 
 import build_db
-from dictbuild.model import DIRECTIONS, EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
+from dictbuild.model import EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
+from dictbuild.packs import DDC, MONLAM
 from dictbuild.schema import latest_schema_path, load_schema
+from tests.helpers import write_stardict
 from dictbuild.writer import entry_part_of_speech, entry_preview, gloss_preview, write_database
 
 SOURCE_ENV = "MLDIC_SOURCE"
 SOURCE = Path(os.environ[SOURCE_ENV]) if os.environ.get(SOURCE_ENV) else None
+DZ_SOURCE_ENV = "DZONGKHA_SOURCE"
+DZ_SOURCE = Path(os.environ[DZ_SOURCE_ENV]) if os.environ.get(DZ_SOURCE_ENV) else None
 
 
 def fake_source(path: Path, rows: dict[str, list[tuple[int, str, str]]]) -> Path:
@@ -73,7 +77,13 @@ def test_gloss_preview_cuts_tibetan_at_a_tsheg() -> None:
 def test_entry_preview_skips_senses_without_a_gloss() -> None:
     def draft(*senses: ParsedSense, related: list[RelatedCandidate] | None = None) -> EntryDraft:
         return EntryDraft(
-            direction_id="bo-bo", source_id=1, headword="ནུས་", group_key="ནུས་", senses=list(senses), related=related or []
+            direction_id="bo-bo",
+            source_id=1,
+            entry_id=2_000_001,
+            headword="ནུས་",
+            group_key="ནུས་",
+            senses=list(senses),
+            related=related or [],
         )
 
     examples_only = ParsedSense(gloss="", gloss_lang="bo", source_id=1, examples=[ParsedExample("ནུ་མ་མ་ནུས།")])
@@ -110,7 +120,7 @@ def test_write_database_leaves_no_file_behind_on_failure(tmp_path: Path, schema_
         write_database(
             out,
             load_schema(latest_schema_path(schema_dir)),
-            {"directions": DIRECTIONS, "entries": [entry], "related_entries": [dangling]},
+            {"directions": MONLAM.directions, "entries": [entry], "related_entries": [dangling]},
         )
 
     assert list(tmp_path.iterdir()) == []
@@ -121,7 +131,7 @@ def test_missing_source_is_reported_with_its_path(tmp_path: Path, schema_dir: Pa
     out = tmp_path / "d.db"
 
     code = build_db.main(
-        ["--source", str(missing), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
+        ["--pack", "bo", "--source", str(missing), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
     )
 
     assert code != 0
@@ -134,7 +144,7 @@ def test_missing_schema_is_reported_with_its_path(tmp_path: Path, capsys) -> Non
     source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
 
     code = build_db.main(
-        ["--source", str(source), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
+        ["--pack", "bo", "--source", str(source), "--schema-dir", str(tmp_path), "--out", str(out), "--data-version", "t"]
     )
 
     assert code != 0
@@ -153,7 +163,7 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "t",
@@ -172,7 +182,7 @@ def test_out_of_range_build_exits_2_and_leaves_out_untouched(
 
 
 def stats_values(path: Path) -> dict[str, int]:
-    """The integer resources of a generated `dictionary_stats.xml`, by name."""
+    """The integer resources of a generated `dictionary_stats_bo.xml`, by name."""
     resources = ElementTree.parse(path).getroot()
     assert resources.tag == "resources"
     assert all(item.tag == "integer" for item in resources)
@@ -185,7 +195,7 @@ def tiny_build_args(tmp_path: Path, schema_dir: Path, out: Path, *extra: str) ->
     if not source.exists():
         fake_source(source, TINY_ROWS)
     return [
-        "--source", str(source),
+        "--pack", "bo", "--source", str(source),
         "--schema-dir", str(schema_dir),
         "--out", str(out),
         "--data-version", "t",
@@ -196,9 +206,9 @@ def tiny_build_args(tmp_path: Path, schema_dir: Path, out: Path, *extra: str) ->
 
 def test_stats_xml_holds_the_total_entry_count_and_the_asset_size(tmp_path: Path, schema_dir: Path) -> None:
     out = tmp_path / "dictionary.db"
-    stats = tmp_path / "res" / "values" / "dictionary_stats.xml"
+    stats = tmp_path / "res" / "values" / "dictionary_stats_bo.xml"
     stats.parent.mkdir(parents=True)
-    stats.write_text("<resources><integer name=\"dictionary_entry_count\">0</integer></resources>")
+    stats.write_text("<resources><integer name=\"dictionary_entry_count_bo\">0</integer></resources>")
 
     code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, "--stats-xml", str(stats)))
 
@@ -206,15 +216,15 @@ def test_stats_xml_holds_the_total_entry_count_and_the_asset_size(tmp_path: Path
     with closing(sqlite3.connect(out)) as db:
         total = db.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
         assert db.execute("SELECT SUM(entry_count) FROM directions").fetchone()[0] == total == 4
-    assert stats_values(stats) == {"dictionary_entry_count": total, "dictionary_asset_bytes": out.stat().st_size}
-    assert sorted(path.name for path in stats.parent.iterdir()) == ["dictionary_stats.xml"]  # no temp file left
+    assert stats_values(stats) == {"dictionary_entry_count_bo": total, "dictionary_asset_bytes_bo": out.stat().st_size}
+    assert sorted(path.name for path in stats.parent.iterdir()) == ["dictionary_stats_bo.xml"]  # no temp file left
 
 
 def test_a_stats_xml_that_cannot_be_written_leaves_out_untouched(tmp_path: Path, schema_dir: Path, capsys) -> None:
     out = tmp_path / "assets" / "dictionary.db"
     out.parent.mkdir()
     out.write_bytes(b"shipped asset")
-    stats = tmp_path / "dictionary_stats.xml"
+    stats = tmp_path / "dictionary_stats_bo.xml"
     stats.mkdir()  # a directory cannot be replaced by the stats file
 
     code = build_db.main(tiny_build_args(tmp_path, schema_dir, out, "--stats-xml", str(stats)))
@@ -229,7 +239,7 @@ def test_a_failed_rename_puts_the_previous_stats_xml_back(tmp_path: Path, schema
     out = tmp_path / "assets" / "dictionary.db"
     out.parent.mkdir()
     out.write_bytes(b"shipped asset")
-    stats = tmp_path / "dictionary_stats.xml"
+    stats = tmp_path / "dictionary_stats_bo.xml"
     stats.write_text("shipped stats")
     replace = os.replace
 
@@ -328,12 +338,12 @@ def test_out_of_range_build_leaves_the_stats_xml_untouched(
 ) -> None:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     source = fake_source(tmp_path / "MLDic.ml", TINY_ROWS)
-    stats = tmp_path / "dictionary_stats.xml"
+    stats = tmp_path / "dictionary_stats_bo.xml"
     stats.write_text("shipped stats")
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(tmp_path / "dictionary.db"),
             "--data-version", "t",
@@ -352,7 +362,7 @@ def test_entry_without_senses_or_links_is_not_written(tmp_path: Path, schema_dir
 
     code = build_db.main(
         [
-            "--source", str(source),
+            "--pack", "bo", "--source", str(source),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "t",
@@ -382,7 +392,7 @@ def test_build_limit_300(tmp_path: Path, schema_dir: Path) -> None:
 
     code = build_db.main(
         [
-            "--source", str(SOURCE),
+            "--pack", "bo", "--source", str(SOURCE),
             "--schema-dir", str(schema_dir),
             "--out", str(out),
             "--data-version", "2026.10.1-test",
@@ -427,3 +437,115 @@ def test_build_limit_300(tmp_path: Path, schema_dir: Path) -> None:
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["table_counts"] == counts
     assert data["limit"] == 300
+
+
+def fake_ddc_source(root: Path) -> Path:
+    """A DDC directory (`stardict-<name>/<name>.*`) with three rows per table."""
+    tables = {
+        "dz-en": [("ཀ", "<k>ཀ</k>\npillar"), ("ཁ", "<k>ཁ</k>\nmouth"), ("ག", "<k>ག</k>\nnoun\nto go")],
+        "dz-dz": [("ཀ", "ཀ་བ།"), ("ཁ", "ཁ་ལ།"), ("ག", "གྲོ།")],
+        "en-dz": [
+            ("go", "<k>go</k> <pos><abbr><i>verb</i></abbr></pos> ༡ འགྱོ་ནི།"),
+            ("mouth", "<k>mouth</k> <pos><abbr><i>noun</i></abbr></pos> ཁ"),
+            ("pillar", "<k>pillar</k> <pos><abbr><i>noun</i></abbr></pos> ཀ་བ།"),
+        ],
+    }
+    for name, entries in tables.items():
+        folder = root / f"stardict-{name}"
+        folder.mkdir(parents=True)
+        prefix = write_stardict(folder, entries)
+        for suffix in (".ifo", ".idx", ".dict"):
+            prefix.with_suffix(suffix).rename(folder / f"{name}{suffix}")
+    return root
+
+
+def test_build_requires_pack(tmp_path: Path, schema_dir: Path, capsys) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        build_db.main(
+            ["--source", str(tmp_path), "--schema-dir", str(schema_dir), "--out", str(tmp_path / "d.db"), "--data-version", "t"]
+        )
+
+    assert exit_info.value.code == 2
+    assert "--pack" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("damage", ["missing", "wordcount"])
+def test_a_missing_or_bad_ddc_folder_is_reported_not_raised(
+    tmp_path: Path, schema_dir: Path, capsys, damage: str
+) -> None:
+    source = tmp_path / "nope"
+    if damage == "wordcount":
+        source = fake_ddc_source(tmp_path / "dzongkha")
+        ifo = source / "stardict-dz-en" / "dz-en.ifo"
+        ifo.write_text(ifo.read_text(encoding="utf-8").replace("wordcount=3", "wordcount=4"), encoding="utf-8")
+    out = tmp_path / "dz.db"
+
+    code = build_db.main(
+        ["--pack", "dz", "--source", str(source), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
+    )
+
+    assert code == build_db.EXIT_INPUT_ERROR
+    assert "cannot read the source" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_tiny_dz_build(tmp_path: Path, schema_dir: Path) -> None:
+    source = fake_ddc_source(tmp_path / "dzongkha")
+    out = tmp_path / "dz.db"
+    stats = tmp_path / "dictionary_stats_dz.xml"
+
+    code = build_db.main(
+        [
+            "--pack", "dz", "--source", str(source),
+            "--schema-dir", str(schema_dir),
+            "--out", str(out),
+            "--data-version", "t",
+            "--limit", "10",
+            "--stats-xml", str(stats),
+        ]
+    )  # fmt: skip
+
+    assert code == 0
+    with closing(sqlite3.connect(out)) as db:
+        assert db.execute("SELECT COUNT(*) FROM directions").fetchone()[0] == 3
+        assert db.execute("PRAGMA user_version").fetchone()[0] == load_schema(latest_schema_path(schema_dir)).version
+        meta = dict(db.execute("SELECT key, value FROM meta"))
+        assert meta["wotd_direction_id"] == "dz-en"
+        assert meta["attribution_text"] == DDC.meta["attribution_text"]
+    assert stats_values(stats) == {
+        "dictionary_entry_count_dz": 9,
+        "dictionary_asset_bytes_dz": out.stat().st_size,
+    }
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(
+    DZ_SOURCE is None or not DZ_SOURCE.is_dir(),
+    reason=f"set {DZ_SOURCE_ENV} to the DDC directory holding stardict-dz-en/ etc. to run the Dzongkha build on real data",
+)
+def test_build_dz_limit_300(tmp_path: Path, schema_dir: Path) -> None:
+    assert DZ_SOURCE is not None
+    out = tmp_path / "assets" / "dz.db"
+
+    code = build_db.main(
+        [
+            "--pack", "dz", "--source", str(DZ_SOURCE),
+            "--schema-dir", str(schema_dir),
+            "--out", str(out),
+            "--data-version", "2026.10.1-test",
+            "--limit", "300",
+        ]
+    )  # fmt: skip
+
+    assert code == 0
+    with closing(sqlite3.connect(out)) as db:
+        assert db.execute("SELECT COUNT(*) FROM directions").fetchone()[0] == 3
+        for direction in ("dz-en", "dz-dz", "en-dz"):
+            assert db.execute("SELECT COUNT(*) FROM entries WHERE direction_id = ?", (direction,)).fetchone()[0] > 0
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert db.execute("PRAGMA user_version").fetchone()[0] == load_schema(latest_schema_path(schema_dir)).version
+        meta = dict(db.execute("SELECT key, value FROM meta"))
+        assert meta["wotd_direction_id"] == "dz-en"
+        assert db.execute("SELECT COUNT(*) FROM entries_fts").fetchone()[0] == db.execute(
+            "SELECT COUNT(*) FROM entries"
+        ).fetchone()[0]

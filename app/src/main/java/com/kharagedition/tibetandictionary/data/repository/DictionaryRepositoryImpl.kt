@@ -1,9 +1,7 @@
 package com.kharagedition.tibetandictionary.data.repository
 
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
-import com.kharagedition.tibetandictionary.data.local.dao.DirectionDao
-import com.kharagedition.tibetandictionary.data.local.dao.EntryDao
-import com.kharagedition.tibetandictionary.data.local.dao.MetaDao
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.entity.EntryEntity
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
@@ -17,38 +15,43 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /**
- * [DictionaryRepository] over the bundled, read-only `dictionary.db`. Stateless: every call queries Room on [io]; the
- * flows only drop repeated values. The search pipeline lives in [SearchEngine].
+ * [DictionaryRepository] over the active pack's bundled, read-only dictionary database. Stateless: every call resolves
+ * the active database and queries Room on [io]; the flows follow the active pack and drop repeated values. Nothing is
+ * resolved at construction, because the first install may not have finished. The search pipeline lives in
+ * [SearchEngine].
  */
 @Singleton
 class DictionaryRepositoryImpl @Inject constructor(
-    private val directionDao: DirectionDao,
-    private val entryDao: EntryDao,
-    private val metaDao: MetaDao,
+    private val databases: DictionaryDatabases,
     @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : DictionaryRepository {
 
-    private val engine = SearchEngine(entryDao, directionDao)
-
     /** Visible directions (`entry_count > 0`, position order) with count-based features, plus `meta`. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     override val capabilities: Flow<DictionaryCapabilities> =
-        combine(directionDao.observeVisible(), metaDao.observeAll()) { directions, meta ->
-            capabilitiesOf(directions, meta.toMetaMap())
+        databases.active.filterNotNull().flatMapLatest { pack ->
+            val db = databases.get(pack)
+            combine(db.directionDao().observeVisible(), db.metaDao().observeAll()) { directions, meta ->
+                capabilitiesOf(pack, directions, meta.toMetaMap())
+            }
         }
             .distinctUntilChanged()
             .flowOn(io)
 
     /** The direction, or null when it is unknown or has no entries (hidden directions are never exposed). */
     override suspend fun direction(id: String): Direction? = withContext(io) {
-        directionDao.get(id)?.takeIf { it.entryCount > 0 }?.toDomain()
+        databases.activeDb.directionDao().get(id)?.takeIf { it.entryCount > 0 }?.toDomain()
     }
 
     /**
@@ -56,7 +59,7 @@ class DictionaryRepositoryImpl @Inject constructor(
      * an unknown or hidden [directionId] gives an empty result.
      */
     override suspend fun search(query: String, directionId: String, limit: Int, offset: Int): SearchResult =
-        withContext(io) { engine.search(query, directionId, limit, offset) }
+        withContext(io) { engine().search(query, directionId, limit, offset) }
 
     /**
      * The [count] entries ranked after the day's word of the day in the direction (`wotd_rank`, wrapping after its
@@ -69,6 +72,10 @@ class DictionaryRepositoryImpl @Inject constructor(
         count: Int,
     ): List<EntrySummary> =
         withContext(io) {
+            val db = databases.activeDb
+            val directionDao = db.directionDao()
+            val entryDao = db.entryDao()
+            val metaDao = db.metaDao()
             val direction = directionDao.get(directionId)?.takeIf { it.entryCount > 0 }
             if (direction == null || count <= 0) return@withContext emptyList()
             val rows: List<EntryEntity> = if (direction.wotdCount > 0) {
@@ -81,16 +88,21 @@ class DictionaryRepositoryImpl @Inject constructor(
             rows.map { it.toSummary() }
         }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeEntry(id: Long): Flow<Entry?> =
-        entryDao.observeWithDetails(id)
-            .map { it?.toDomain() }
+        databases.active.filterNotNull().flatMapLatest { pack ->
+            databases.get(pack).entryDao().observeWithDetails(id).map { it?.toDomain() }
+        }
             .distinctUntilChanged()
             .flowOn(io)
 
-    override suspend fun entry(id: Long): Entry? = withContext(io) { entryDao.getWithDetails(id)?.toDomain() }
+    override suspend fun entry(id: Long): Entry? = withContext(io) {
+        databases.activeDb.entryDao().getWithDetails(id)?.toDomain()
+    }
 
     /** Looked up in chunks below SQLite's bind-variable limit (999 before SQLite 3.32). */
     override suspend fun summaries(ids: List<Long>): List<EntrySummary> = withContext(io) {
+        val entryDao = databases.activeDb.entryDao()
         val byId = ids.distinct()
             .chunked(MAX_IDS_PER_QUERY)
             .flatMap { entryDao.getByIds(it) }
@@ -107,7 +119,7 @@ class DictionaryRepositoryImpl @Inject constructor(
         val q = QueryNormalizer.normalize(text)
         if (q.isEmpty() || limit <= 0) return@withContext emptyList()
         val target = directionId ?: defaultDirectionFor(q) ?: return@withContext emptyList()
-        val result = engine.search(text, target, limit, offset = 0)
+        val result = engine().search(text, target, limit, offset = 0)
         if (result.hits.isNotEmpty()) {
             result.hits.take(limit).map { Suggestion(it, result.directionId) }
         } else {
@@ -117,9 +129,12 @@ class DictionaryRepositoryImpl @Inject constructor(
 
     private suspend fun defaultDirectionFor(q: String): String? {
         val script = ScriptDetector.detect(q)
-        val visible = directionDao.visible()
+        val visible = databases.activeDb.directionDao().visible()
         return (visible.firstOrNull { scriptOf(it.sourceScript) == script } ?: visible.firstOrNull())?.id
     }
+
+    /** Built per call from the active database's DAOs; [SearchEngine] holds no state. */
+    private fun engine(): SearchEngine = databases.activeDb.let { SearchEngine(it.entryDao(), it.directionDao()) }
 
     private companion object {
         const val MAX_IDS_PER_QUERY = 500

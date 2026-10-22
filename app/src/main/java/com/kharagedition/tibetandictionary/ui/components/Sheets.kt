@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -39,7 +41,9 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -67,6 +71,7 @@ private val OptionHeight = 64.dp
 private val OptionSide = 18.dp
 private val OptionVertical = 8.dp
 private val OptionGapInside = 14.dp
+private val OptionGapStacked = 2.dp
 private val OptionLabel = 84.dp
 private val OptionCheck = 22.dp
 private val SelectedBorder = 2.dp
@@ -131,7 +136,8 @@ fun SheetTitle(text: String, modifier: Modifier = Modifier) {
 /**
  * A large choice card (onboarding step 1, picker sheets): at least 64 high, radius 16. Selected = accentContainer
  * fill, 2dp accent border and a 22dp accent check; otherwise a 1dp outline border. [label] sits in an 84dp
- * column (content colour: onAccentContainer when selected, ink otherwise), then the optional [description].
+ * column (content colour: onAccentContainer when selected, ink otherwise), then the optional [description]. With
+ * [stacked] a long [label] takes the full width and the [description] sits under it instead of beside it.
  */
 @Composable
 fun OptionCard(
@@ -139,6 +145,7 @@ fun OptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
+    stacked: Boolean = false,
     label: @Composable () -> Unit,
 ) {
     val colors = DictTheme.colors
@@ -160,10 +167,7 @@ fun OptionCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OptionGapInside),
     ) {
-        Box(Modifier.widthIn(min = OptionLabel)) {
-            CompositionLocalProvider(LocalContentColor provides content) { label() }
-        }
-        Box(Modifier.weight(1f)) {
+        val descriptionText: @Composable () -> Unit = {
             if (description != null) {
                 MixedText(
                     description,
@@ -172,6 +176,17 @@ fun OptionCard(
                     color = if (selected) colors.onAccentContainer else colors.muted,
                 )
             }
+        }
+        if (stacked) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OptionGapStacked)) {
+                CompositionLocalProvider(LocalContentColor provides content) { label() }
+                descriptionText()
+            }
+        } else {
+            Box(Modifier.widthIn(min = OptionLabel)) {
+                CompositionLocalProvider(LocalContentColor provides content) { label() }
+            }
+            Box(Modifier.weight(1f)) { descriptionText() }
         }
         if (selected) {
             Icon(DictIcons.Bold.Check, contentDescription = null, Modifier.size(OptionCheck), tint = colors.accent)
@@ -188,6 +203,9 @@ fun directionDescription(direction: Direction): String = when (direction.id) {
     "bo-en" -> stringResource(R.string.direction_desc_bo_en)
     "bo-bo" -> stringResource(R.string.direction_desc_bo_bo)
     "en-bo" -> stringResource(R.string.direction_desc_en_bo)
+    "dz-en" -> stringResource(R.string.direction_desc_dz_en)
+    "dz-dz" -> stringResource(R.string.direction_desc_dz_dz)
+    "en-dz" -> stringResource(R.string.direction_desc_en_dz)
     else -> if (DictTheme.language == AppLanguage.BO) direction.labelBo else direction.labelEn
 }
 
@@ -241,6 +259,59 @@ private fun LanguagePickerContent(selected: AppLanguage, onPick: (AppLanguage) -
             OptionCard(selected = language == selected, onClick = { onPick(language) }) {
                 MixedText(name, DictTheme.type.buttonLarge, DictTheme.type.tibetanGloss)
             }
+        }
+    }
+}
+
+/**
+ * One dictionary pack as an option card: its name and gloss on top, with the description and entry count underneath.
+ * Shared by the onboarding Dictionary step and [DictionaryPickerSheet].
+ */
+@Composable
+fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val type = DictTheme.type
+    val resources = pack.resources
+    OptionCard(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        stacked = true,
+        description = stringResource(
+            resources.description,
+            TibetanNumerals.formatCount(integerResource(resources.entryCount), DictTheme.language),
+        ),
+    ) {
+        MixedText(
+            stringResource(resources.name) + " · " + stringResource(resources.gloss),
+            type.buttonLarge,
+            type.tibetanGloss,
+        )
+    }
+}
+
+/** Picks the dictionary pack, one card per [DictionaryPack]. Test tags: `dictionary_option_{pack id}`. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DictionaryPickerSheet(
+    selected: DictionaryPack,
+    onPick: (DictionaryPack) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    DictModalSheet(onDismiss, modifier) { DictionaryPickerContent(selected, onPick) }
+}
+
+@Composable
+private fun DictionaryPickerContent(selected: DictionaryPack, onPick: (DictionaryPack) -> Unit) {
+    SheetTitle(stringResource(R.string.dictionary))
+    OptionList {
+        DictionaryPack.entries.forEach { pack ->
+            PackOptionCard(
+                pack = pack,
+                selected = pack == selected,
+                onClick = { onPick(pack) },
+                modifier = Modifier.testTag("dictionary_option_${pack.id}"),
+            )
         }
     }
 }

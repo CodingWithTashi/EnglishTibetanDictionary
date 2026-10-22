@@ -11,6 +11,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -23,6 +27,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.ui.about.AboutScreen
 import com.kharagedition.tibetandictionary.ui.about.LicencesScreen
 import com.kharagedition.tibetandictionary.ui.entry.EntryScreen
@@ -66,12 +71,21 @@ private fun Scope.popExit(): ExitTransition =
 
 /**
  * The app's nav graph: [Onboarding] → [Main] (bottom-bar tabs), with [Search], [Entry], [About] and [Licences]
- * pushed on top without the bar. Links from [NavigationEventBus] are followed once onboarding is done.
+ * pushed on top without the bar. Links from [NavigationEventBus] are followed once onboarding is done, and not while
+ * [holdLinks] is true (a dictionary switch is running): the bus keeps its replayed link, so it is followed when the
+ * hold ends.
+ *
+ * When [activePack] changes (a switch completed) and the user is [onboarded], the Search tab is selected and the whole
+ * back stack is replaced by [Main], so every screen's view model is rebuilt on the new pack. During onboarding the
+ * stack is left alone.
  */
 @Composable
 fun AppNavHost(
     startDestination: Any,
     navController: NavHostController,
+    activePack: DictionaryPack,
+    onboarded: Boolean,
+    holdLinks: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val activity = LocalActivity.current
@@ -81,7 +95,21 @@ fun AppNavHost(
     )
     val eventBus = hiltViewModel<NavigationEventsViewModel>().bus
 
-    LaunchedEffect(navController) {
+    // Order matters: the pop to Main must run before the link collector restarts, so a held link lands on top of
+    // the new Main instead of being wiped by the pop. Effects in one composition start in declaration order.
+    var lastPack by rememberSaveable { mutableStateOf(activePack.id) }
+    LaunchedEffect(activePack, onboarded) {
+        if (activePack.id != lastPack) {
+            lastPack = activePack.id
+            if (onboarded) {
+                mainViewModel.selectTab(MainTab.SEARCH)
+                navController.navigate(Main) { popUpTo(navController.graph.id) { inclusive = true } }
+            }
+        }
+    }
+
+    LaunchedEffect(navController, holdLinks) {
+        if (holdLinks) return@LaunchedEffect
         eventBus.events.collect { link ->
             val current = navController.currentDestination
             // Links are dropped until onboarding is done.

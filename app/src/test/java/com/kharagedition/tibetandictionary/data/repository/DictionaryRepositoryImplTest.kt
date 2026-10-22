@@ -24,9 +24,12 @@ import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI_DELEK
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRA
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRAG
+import com.kharagedition.tibetandictionary.data.MiniDzongkha
 import com.kharagedition.tibetandictionary.data.TestDb
 import com.kharagedition.tibetandictionary.data.TestDb.directionRow
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.entity.MetaEntity
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.example
@@ -34,6 +37,7 @@ import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
 import com.kharagedition.tibetandictionary.data.local.related
 import com.kharagedition.tibetandictionary.data.local.sense
 import com.kharagedition.tibetandictionary.data.model.Attribution
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Example
@@ -45,6 +49,7 @@ import com.kharagedition.tibetandictionary.data.model.SearchHit
 import com.kharagedition.tibetandictionary.data.model.SearchResult
 import com.kharagedition.tibetandictionary.data.model.Sense
 import com.kharagedition.tibetandictionary.data.model.SenseItem
+import com.kharagedition.tibetandictionary.data.settle
 import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -59,16 +64,16 @@ import org.junit.runner.RunWith
 class DictionaryRepositoryImplTest {
 
     private lateinit var db: DictionaryDatabase
+    private lateinit var dzDb: DictionaryDatabase
 
     @After
     fun tearDown() {
         if (::db.isInitialized) db.close()
+        if (::dzDb.isInitialized) dzDb.close()
     }
 
     private fun TestScope.repository() = DictionaryRepositoryImpl(
-        directionDao = db.directionDao(),
-        entryDao = db.entryDao(),
-        metaDao = db.metaDao(),
+        databases = databasesOf(DictionaryPack.TIBETAN to db).apply { activate(DictionaryPack.TIBETAN) },
         io = StandardTestDispatcher(testScheduler),
     )
 
@@ -770,5 +775,82 @@ class DictionaryRepositoryImplTest {
         assertThat(repo.search("བཀྲ་ཤིས།", BO_EN).ids().first()).isEqualTo(TASHI)
         assertThat(repo.search("བཀྲ shis", BO_EN).script).isEqualTo(Script.TIBETAN)
         assertThat(repo.search("  a  ", BO_EN).query).isEqualTo("  a  ")
+    }
+
+    // Two packs
+
+    private suspend fun TestScope.twoPacks(): Pair<DictionaryRepositoryImpl, DictionaryDatabases> {
+        db = TestDb.miniDictionary()
+        dzDb = TestDb.miniDzongkhaDictionary()
+        val databases = databasesOf(DictionaryPack.TIBETAN to db, DictionaryPack.DZONGKHA to dzDb)
+        return DictionaryRepositoryImpl(databases, StandardTestDispatcher(testScheduler)) to databases
+    }
+
+    @Test
+    fun capabilitiesFollowTheActivePack() = runTest {
+        val (repo, databases) = twoPacks()
+        databases.activate(DictionaryPack.TIBETAN)
+
+        repo.capabilities.test {
+            val bo = awaitItem()
+            assertThat(bo.pack).isEqualTo(DictionaryPack.TIBETAN)
+            assertThat(bo.directions.map { it.id }).containsExactly(BO_EN, BO_BO, EN_BO).inOrder()
+            assertThat(bo.wotdDirectionId).isEqualTo(BO_EN)
+
+            databases.activate(DictionaryPack.DZONGKHA)
+            val dz = awaitItem()
+            assertThat(dz.pack).isEqualTo(DictionaryPack.DZONGKHA)
+            assertThat(dz.directions.map { it.id })
+                .containsExactly(MiniDzongkha.DZ_EN, MiniDzongkha.DZ_DZ, MiniDzongkha.EN_DZ).inOrder()
+            assertThat(dz.wotdDirectionId).isEqualTo("dz-en")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun searchUsesTheActivePack() = runTest {
+        val (repo, databases) = twoPacks()
+        databases.activate(DictionaryPack.TIBETAN)
+        assertThat(repo.search("ཆུ", "dz-en").hits).isEmpty()
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        val result = repo.search("ཆུ", MiniDzongkha.DZ_EN)
+
+        assertThat(result.ids()).containsExactly(MiniDzongkha.CHU)
+        assertThat(MiniDzongkha.CHU).isAtLeast(4_000_000L)
+        assertThat(repo.entry(MiniDzongkha.CHU)?.summary?.headword).isEqualTo("ཆུ་")
+        assertThat(repo.direction(BO_EN)).isNull()
+    }
+
+    @Test
+    fun observeEntryReEmitsOnSwitch() = runTest {
+        val (repo, databases) = twoPacks()
+        databases.activate(DictionaryPack.TIBETAN)
+
+        repo.observeEntry(MiniDzongkha.CHU).test {
+            assertThat(awaitItem()).isNull()
+            databases.activate(DictionaryPack.DZONGKHA)
+            assertThat(awaitItem()?.summary?.id).isEqualTo(MiniDzongkha.CHU)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun flowsWaitForActivation() = runTest {
+        val (repo, databases) = twoPacks()
+
+        repo.capabilities.test {
+            settle()
+            expectNoEvents()
+            repo.observeEntry(TRA).test {
+                settle()
+                expectNoEvents()
+                databases.activate(DictionaryPack.TIBETAN)
+                assertThat(awaitItem()?.summary?.id).isEqualTo(TRA)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertThat(awaitItem().directions.map { it.id }).containsExactly(BO_EN, BO_BO, EN_BO).inOrder()
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

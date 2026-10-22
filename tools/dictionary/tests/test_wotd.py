@@ -7,9 +7,26 @@ import importlib.util
 import pytest
 
 from dictbuild.model import EntryDraft, ParsedSense, RelatedCandidate
+from dictbuild.packs import DDC, MONLAM
 from dictbuild.related import HeadwordIndex
-from dictbuild.wotd import assign_ranks, is_eligible
+from dictbuild.wotd import assign_ranks as _assign_ranks
+from dictbuild.wotd import is_eligible as _is_eligible
 from dictbuild.wylie import PyewtsConverter, WylieConverter
+
+DDC_DIRECTIONS = ("dz-en", "dz-dz", "en-dz")
+
+
+def is_eligible(entry: EntryDraft, converter: WylieConverter | None = None, index: HeadwordIndex | None = None) -> bool:
+    return _is_eligible(entry, converter, index, wotd_direction_id=MONLAM.wotd_direction_id)
+
+
+def assign_ranks(
+    entries: list[EntryDraft],
+    seed: int,
+    converter: WylieConverter | None = None,
+    index: HeadwordIndex | None = None,
+) -> dict[int, int]:
+    return _assign_ranks(entries, seed, converter, index, wotd_direction_id=MONLAM.wotd_direction_id)
 
 
 def entry(
@@ -28,6 +45,7 @@ def entry(
     return EntryDraft(
         direction_id=direction_id,
         source_id=source_id,
+        entry_id=(DDC if direction_id in DDC_DIRECTIONS else MONLAM).entry_id_for(direction_id, source_id),
         headword=headword,
         group_key=headword,
         senses=senses,
@@ -76,6 +94,16 @@ def test_eligible_entry() -> None:
 )
 def test_ineligible_entries(candidate: EntryDraft) -> None:
     assert not is_eligible(candidate)
+
+
+def test_eligibility_uses_pack_direction() -> None:
+    draft = entry("རྫོང་ཁ་", "language", direction_id="dz-en", source_id=7)
+
+    assert _is_eligible(draft, None, None, wotd_direction_id="dz-en")
+    assert not _is_eligible(draft, None, None, wotd_direction_id="bo-en")
+    assert not _is_eligible(entry(direction_id="dz-dz"), None, None, wotd_direction_id="dz-en")
+    assert _assign_ranks([draft], 1, None, None, wotd_direction_id="dz-en") == {draft.entry_id: 0}
+    assert _assign_ranks([draft], 1, None, None, wotd_direction_id="bo-en") == {}
 
 
 def test_first_gloss_decides() -> None:
@@ -136,6 +164,7 @@ ENGLISH_GLOSSES = [
 ]  # fmt: skip
 # The en-bo headwords of the build that those English words are (or are plurals of).
 ENGLISH_INDEX = HeadwordIndex(
+    english_direction="en-bo",
     english={
         word: 3_000_000 + number
         for number, word in enumerate(
@@ -145,6 +174,7 @@ ENGLISH_INDEX = HeadwordIndex(
 )
 # Words of the Wylie glosses that are English headwords too: one Tibetan word is enough to reject.
 ENGLISH_INDEX_WITH_WYLIE_LOOKALIKES = HeadwordIndex(
+    english_direction="en-bo",
     english={word: 3_000_100 + number for number, word in enumerate("red man dam shes lug lugs lo".split())}
 )
 

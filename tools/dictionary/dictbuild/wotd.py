@@ -17,7 +17,6 @@ from dictbuild.related import HeadwordIndex
 from dictbuild.text import syllables
 from dictbuild.wylie import WylieConverter, is_wylie_term, is_wylie_text
 
-WOTD_DIRECTION_ID = "bo-en"
 DEFAULT_WOTD_SEED = 20261019
 
 MIN_SYLLABLES = 2
@@ -39,10 +38,14 @@ _ITEM_TRIM = " )"
 
 
 def is_eligible(
-    entry: EntryDraft, converter: WylieConverter | None = None, index: HeadwordIndex | None = None
+    entry: EntryDraft,
+    converter: WylieConverter | None = None,
+    index: HeadwordIndex | None = None,
+    *,
+    wotd_direction_id: str,
 ) -> bool:
-    """bo-en, 2–4 syllables, ≤24 code points, pure Tibetan letters, first gloss English 3–100 chars
-    with no digit, "/", "[" or "(", not truncated, and not Tibetan written in Wylie:
+    """In `wotd_direction_id` (Monlam: bo-en), 2–4 syllables, ≤24 code points, pure Tibetan letters, first gloss
+    English 3–100 chars with no digit, "/", "[" or "(", not truncated, and not Tibetan written in Wylie:
     - on an entry with see-also links, a first gloss of Wylie syllables only ("pags", "bzo ba": the rest
       of an `SA` list) does not count;
     - on any entry, with a `converter`, neither does a first gloss whose every comma-separated item is
@@ -50,7 +53,7 @@ def is_eligible(
       of it is an English headword of `index` ("mad dog", "we two": short English words are often
       well-formed Wylie)."""
     headword = entry.headword
-    if entry.direction_id != WOTD_DIRECTION_ID or len(headword) > MAX_CODE_POINTS:
+    if entry.direction_id != wotd_direction_id or len(headword) > MAX_CODE_POINTS:
         return False
     if not _TIBETAN_LETTERS.fullmatch(headword) or not MIN_SYLLABLES <= len(syllables(headword)) <= MAX_SYLLABLES:
         return False
@@ -73,9 +76,15 @@ def assign_ranks(
     seed: int,
     converter: WylieConverter | None = None,
     index: HeadwordIndex | None = None,
+    *,
+    wotd_direction_id: str,
 ) -> dict[int, int]:
     """Entry id → 0-based rank for every eligible entry, in the seeded shuffle order."""
-    eligible = {entry.entry_id for entry in entries if is_eligible(entry, converter, index)}
+    eligible = {
+        entry.entry_id
+        for entry in entries
+        if is_eligible(entry, converter, index, wotd_direction_id=wotd_direction_id)
+    }
     ordered = sorted(eligible, key=lambda entry_id: (_shuffle_key(seed, entry_id), entry_id))
     return {entry_id: rank for rank, entry_id in enumerate(ordered)}
 

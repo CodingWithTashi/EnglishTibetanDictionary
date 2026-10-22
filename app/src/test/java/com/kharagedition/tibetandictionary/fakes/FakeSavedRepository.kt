@@ -54,6 +54,7 @@ class FakeSavedRepository(
         val existing = saved.value.firstOrNull { it.entryId == entry.id }
         val row = SavedEntry(
             entryId = entry.id,
+            packId = "bo",
             directionId = entry.directionId,
             headword = entry.headword,
             wylie = entry.wylie,

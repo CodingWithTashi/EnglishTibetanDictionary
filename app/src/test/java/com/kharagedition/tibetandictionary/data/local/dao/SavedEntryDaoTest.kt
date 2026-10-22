@@ -55,7 +55,7 @@ class SavedEntryDaoTest {
         assertThat(dao.get(1_000_010)?.note).isEqualTo("my note")
         assertThat(dao.get(1_000_010)?.savedAt).isEqualTo(100L)
         assertThat(dao.get(1_000_010)?.updatedAt).isEqualTo(150L)
-        assertThat(dao.observeCount().first()).isEqualTo(1)
+        assertThat(dao.observeCount("bo").first()).isEqualTo(1)
     }
 
     @Test
@@ -64,9 +64,30 @@ class SavedEntryDaoTest {
         dao.insert(saved(2, "b", savedAt = 300))
         dao.insert(saved(3, "c", savedAt = 200))
 
-        assertThat(dao.observeAll().first().map { it.entryId }).containsExactly(2L, 3L, 1L).inOrder()
-        assertThat(dao.observeIds().first()).containsExactly(1L, 2L, 3L)
-        assertThat(dao.observeCount().first()).isEqualTo(3)
+        assertThat(dao.observeAll("bo").first().map { it.entryId }).containsExactly(2L, 3L, 1L).inOrder()
+        assertThat(dao.observeIds("bo").first()).containsExactly(1L, 2L, 3L)
+        assertThat(dao.observeCount("bo").first()).isEqualTo(3)
+    }
+
+    @Test
+    fun listsCountsAndIdsAreScopedToPack() = runTest {
+        val verbs = db.folderDao().insert(folder("Verbs"))
+        val animals = db.folderDao().insert(folder("Animals", packId = "dz"))
+        dao.insert(saved(1, "a", savedAt = 100))
+        dao.insert(saved(2, "b", savedAt = 200, folderId = verbs))
+        dao.insert(saved(3, "c", savedAt = 300, packId = "dz"))
+        dao.insert(saved(4, "d", savedAt = 400, folderId = animals, packId = "dz"))
+
+        assertThat(dao.observeAll("bo").first().map { it.entryId }).containsExactly(2L, 1L).inOrder()
+        assertThat(dao.observeAll("dz").first().map { it.entryId }).containsExactly(4L, 3L).inOrder()
+        assertThat(dao.observeUnfiled("bo").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.observeUnfiled("dz").first().map { it.entryId }).containsExactly(3L)
+        assertThat(dao.observeInFolder("bo", verbs).first().map { it.entryId }).containsExactly(2L)
+        assertThat(dao.observeInFolder("bo", animals).first()).isEmpty()
+        assertThat(dao.observeIds("bo").first()).containsExactly(1L, 2L)
+        assertThat(dao.observeIds("dz").first()).containsExactly(3L, 4L)
+        assertThat(dao.observeCount("bo").first()).isEqualTo(2)
+        assertThat(dao.observeCount("dz").first()).isEqualTo(2)
     }
 
     @Test
@@ -77,14 +98,14 @@ class SavedEntryDaoTest {
 
         dao.setFolder(1, folderId, now = 500)
 
-        assertThat(dao.observeInFolder(folderId).first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.observeUnfiled().first().map { it.entryId }).containsExactly(2L)
+        assertThat(dao.observeInFolder("bo", folderId).first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.observeUnfiled("bo").first().map { it.entryId }).containsExactly(2L)
         assertThat(dao.get(1)?.updatedAt).isEqualTo(500L)
 
         dao.setFolder(1, null, now = 600)
 
-        assertThat(dao.observeInFolder(folderId).first()).isEmpty()
-        assertThat(dao.observeUnfiled().first().map { it.entryId }).containsExactly(2L, 1L).inOrder()
+        assertThat(dao.observeInFolder("bo", folderId).first()).isEmpty()
+        assertThat(dao.observeUnfiled("bo").first().map { it.entryId }).containsExactly(2L, 1L).inOrder()
     }
 
     @Test
@@ -95,8 +116,8 @@ class SavedEntryDaoTest {
         db.folderDao().delete(folderId)
 
         assertThat(dao.get(1)?.folderId).isNull()
-        assertThat(dao.observeUnfiled().first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.observeCount().first()).isEqualTo(1)
+        assertThat(dao.observeUnfiled("bo").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.observeCount("bo").first()).isEqualTo(1)
     }
 
     @Test
@@ -106,14 +127,25 @@ class SavedEntryDaoTest {
         dao.insert(saved(3, "100%", savedAt = 300, gloss = "entirely"))
         dao.insert(saved(4, "a_b", savedAt = 400, gloss = "underscore"))
 
-        assertThat(dao.search("BKRA").first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.search("ཤིས").first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.search("Auspicious").first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.search("ཁང").first().map { it.entryId }).containsExactly(2L)
-        assertThat(dao.search("OUS").first().map { it.entryId }).containsExactly(2L, 1L).inOrder()
+        assertThat(dao.search("bo", "BKRA").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "ཤིས").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "Auspicious").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "ཁང").first().map { it.entryId }).containsExactly(2L)
+        assertThat(dao.search("bo", "OUS").first().map { it.entryId }).containsExactly(2L, 1L).inOrder()
         // LIKE wildcards in the query are literal characters.
-        assertThat(dao.search("%").first().map { it.entryId }).containsExactly(3L)
-        assertThat(dao.search("_").first().map { it.entryId }).containsExactly(4L)
+        assertThat(dao.search("bo", "%").first().map { it.entryId }).containsExactly(3L)
+        assertThat(dao.search("bo", "_").first().map { it.entryId }).containsExactly(4L)
+    }
+
+    @Test
+    fun searchIsScopedToPack() = runTest {
+        dao.insert(saved(1, "བཀྲ་ཤིས་", savedAt = 100, wylie = "bkra shis", gloss = "auspicious"))
+        dao.insert(saved(2, "བཀྲ་ཤིས་", savedAt = 200, wylie = "bkra shis", gloss = "auspicious", packId = "dz"))
+
+        assertThat(dao.search("bo", "ཤིས").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "bkra").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "auspicious").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("dz", "auspicious").first().map { it.entryId }).containsExactly(2L)
     }
 
     @Test
@@ -122,10 +154,10 @@ class SavedEntryDaoTest {
         dao.insert(saved(2, "སྐྱེས་བུ་", savedAt = 200, wylie = "skyes bu", gloss = "one‘s own ʼway’"))
         dao.insert(saved(3, "འཇམ་དཔལ་", savedAt = 300, wylie = "'jam dpal", gloss = "Manjushri"))
 
-        assertThat(dao.search("bird's").first().map { it.entryId }).containsExactly(1L)
-        assertThat(dao.search("one's own 'way'").first().map { it.entryId }).containsExactly(2L)
-        assertThat(dao.search("'jam").first().map { it.entryId }).containsExactly(3L)
-        assertThat(dao.search("'").first().map { it.entryId }).containsExactly(3L, 2L, 1L).inOrder()
+        assertThat(dao.search("bo", "bird's").first().map { it.entryId }).containsExactly(1L)
+        assertThat(dao.search("bo", "one's own 'way'").first().map { it.entryId }).containsExactly(2L)
+        assertThat(dao.search("bo", "'jam").first().map { it.entryId }).containsExactly(3L)
+        assertThat(dao.search("bo", "'").first().map { it.entryId }).containsExactly(3L, 2L, 1L).inOrder()
     }
 
     @Test
@@ -147,8 +179,10 @@ class SavedEntryDaoTest {
         folderId: Long? = null,
         wylie: String? = null,
         gloss: String = "gloss",
+        packId: String = "bo",
     ) = SavedEntryEntity(
         entryId = entryId,
+        packId = packId,
         directionId = "bo-en",
         headword = headword,
         wylie = wylie,
@@ -159,5 +193,6 @@ class SavedEntryDaoTest {
         updatedAt = savedAt,
     )
 
-    private fun folder(name: String) = FolderEntity(name = name, position = 0, createdAt = 1, updatedAt = 1)
+    private fun folder(name: String, packId: String = "bo") =
+        FolderEntity(packId = packId, name = name, position = 0, createdAt = 1, updatedAt = 1)
 }

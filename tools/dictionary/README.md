@@ -1,7 +1,24 @@
-# dictionary.db build pipeline
+# Dictionary database build pipeline
 
-Turns the Monlam source database (`MLDic.ml`, tables `entotb`, `tben`, `tbtb`) into the app's
-prebuilt, read-only `app/src/main/assets/dictionary/dictionary.db`.
+Turns a pack's source into the app's prebuilt, read-only database under
+`app/src/main/assets/dictionary/`. Two packs ship; `--pack` picks one:
+
+| `--pack` | Database | Source (`--source`) | Directions | Stats file |
+|---|---|---|---|---|
+| `bo` | `bo.db` | the Monlam database `MLDic.ml` (tables `entotb`, `tben`, `tbtb`) | `bo-en`, `bo-bo`, `en-bo` | `dictionary_stats_bo.xml` |
+| `dz` | `dz.db` | the directory holding the DDC StarDict folders (below) | `dz-en`, `dz-dz`, `en-dz` | `dictionary_stats_dz.xml` |
+
+**DDC source layout.** `--source` for `--pack dz` is a directory with one StarDict folder per table,
+each holding the three files of its dictionary:
+
+```
+<dir>/stardict-dz-en/dz-en.ifo, dz-en.idx, dz-en.dict    (Dzongkha → English)
+<dir>/stardict-dz-dz/dz-dz.ifo, dz-dz.idx, dz-dz.dict    (Dzongkha → Dzongkha)
+<dir>/stardict-en-dz/en-dz.ifo, en-dz.idx, en-dz.dict    (English → Dzongkha)
+```
+
+Rows are read in `.idx` order (`dictbuild/stardict.py` checks `wordcount`, `idxfilesize` and
+`sametypesequence=x`). `--limit N` takes the first N rows of each file.
 
 ## Setup
 
@@ -31,12 +48,12 @@ python3 -m venv .venv
 `-I` (isolated mode) ignores `PYTHON*` variables and user site-packages. `pyproject.toml` puts the
 package root on `sys.path` and turns warnings into errors.
 
-The `slow` smoke test (`tests/test_build_smoke.py`) builds a database from the first 300 rows of
-each table of the real source. Point `MLDIC_SOURCE` at `MLDic.ml` to run it; without it the test
-skips and says why. Leave it out with:
+The `slow` smoke tests (`tests/test_build_smoke.py`) build a database from the first 300 rows of
+each table of the real source. Point `MLDIC_SOURCE` at `MLDic.ml` (bo) and `DZONGKHA_SOURCE` at the DDC
+directory (dz) to run them; without them the tests skip and say why. Leave them out with:
 
 ```sh
-MLDIC_SOURCE=/path/to/MLDic.ml .venv/bin/python -I -m pytest -q
+MLDIC_SOURCE=/path/to/MLDic.ml DZONGKHA_SOURCE=/path/to/dzongkha .venv/bin/python -I -m pytest -q
 .venv/bin/python -I -m pytest -q -m "not slow"
 ```
 
@@ -46,19 +63,23 @@ Tests that need `pyewts` skip without it.
 
 ```sh
 .venv/bin/python -I build_db.py \
+  --pack bo \
   --source /path/to/MLDic.ml \
   --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
-  --out ../../app/src/main/assets/dictionary/dictionary.db \
+  --out ../../app/src/main/assets/dictionary/bo.db \
   --data-version 2026.10.1 [--wotd-seed 20261019] [--require-wylie] [--report out.json] [--limit N] \
-  [--stats-xml ../../app/src/main/res/values/dictionary_stats.xml] [--built-at 2026-10-19T00:00:00Z]
+  [--stats-xml ../../app/src/main/res/values/dictionary_stats_bo.xml] [--built-at 2026-10-19T00:00:00Z]
 ```
 
-`--stats-xml PATH` also writes the app's Android resource file with two values for the database just
-written:
+`--pack` is required. For the Dzongkha pack use `--pack dz`, the DDC directory as `--source`,
+`--out …/dz.db` and `--stats-xml …/dictionary_stats_dz.xml`. The summary lines name the pack.
 
-- `<integer name="dictionary_entry_count">N</integer>`: the total number of entries across all directions.
-  The installing screen shows it while the asset is copied.
-- `<integer name="dictionary_asset_bytes">N</integer>`: the database file's size in bytes. The asset ships
+`--stats-xml PATH` also writes the pack's Android resource file with two values for the database just
+written (`<pack>` is `bo` or `dz`):
+
+- `<integer name="dictionary_entry_count_<pack>">N</integer>`: the total number of entries across all
+  directions. The installing screen shows it while the asset is copied.
+- `<integer name="dictionary_asset_bytes_<pack>">N</integer>`: the database file's size in bytes. The asset ships
   compressed in the APK (no `noCompress`), so the installer cannot ask the APK for its length; it takes it
   from here for copy progress and to check that the copy is complete.
 
@@ -80,42 +101,58 @@ asset), provided it also uses:
   with 3.53.3, but about 12,000 bytes differ;
 - the same `pyewts` version (`requirements.txt` pins it), since it writes `entries.wylie`.
 
-The shipped asset was built with Python 3.13.7, SQLite 3.53.3 and pyewts 0.2.0.
+The shipped assets were built with Python 3.13.7, SQLite 3.53.3 and pyewts 0.2.0.
 
 ### Shipping a data release
 
-The asset and the stats file are committed (`app/src/main/assets/dictionary/dictionary.db`,
-`app/src/main/res/values/dictionary_stats.xml`). To ship new data:
+Each pack ships its own asset and stats file, all committed: `assets/dictionary/bo.db` with
+`res/values/dictionary_stats_bo.xml`, and `assets/dictionary/dz.db` with `res/values/dictionary_stats_dz.xml`.
+Each pack is built on its own, but both carry the schema version (step 1). To ship new data:
 
 1. Bump `DictionaryDatabase.VERSION` and export the schema (`./gradlew :app:compileDebugKotlin` writes
-   `app/schemas/…DictionaryDatabase/<VERSION>.json`). The build stamps the highest schema version into
-   `PRAGMA user_version`, and the installer recopies the asset when that differs from the device's file.
-2. From `tools/dictionary`, build both files (exit 0 required). Pass the release date as `--built-at`, so
-   building the same release again gives the same bytes:
+   `app/schemas/…DictionaryDatabase/<VERSION>.json`), whether or not the schema changed. The build stamps the
+   highest schema version into `PRAGMA user_version`, and the installer copies the asset again only when that
+   differs from the device's file: without the bump, devices that already have the pack keep the old data.
+   The bump makes every pack's asset stale, so rebuild both, even for a release of one pack.
+2. From `tools/dictionary`, build the pack's two files (exit 0 required). Pass the release date as
+   `--built-at`, so building the same release again gives the same bytes:
 
    ```sh
-   .venv/bin/python -I build_db.py --require-wylie \
+   # Tibetan
+   .venv/bin/python -I build_db.py --pack bo --require-wylie \
      --source /path/to/MLDic.ml \
      --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
-     --out ../../app/src/main/assets/dictionary/dictionary.db \
-     --stats-xml ../../app/src/main/res/values/dictionary_stats.xml \
+     --out ../../app/src/main/assets/dictionary/bo.db \
+     --stats-xml ../../app/src/main/res/values/dictionary_stats_bo.xml \
      --data-version 2026.10.1 --wotd-seed 20261019 --built-at 2026-10-19T00:00:00Z \
-     --report /tmp/dictionary-report.json
+     --report /tmp/bo-report.json
+
+   # Dzongkha
+   .venv/bin/python -I build_db.py --pack dz --require-wylie \
+     --source /path/to/dzongkha \
+     --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
+     --out ../../app/src/main/assets/dictionary/dz.db \
+     --stats-xml ../../app/src/main/res/values/dictionary_stats_dz.xml \
+     --data-version 2026.10.1 --wotd-seed 20261019 --built-at 2026-10-20T00:00:00Z \
+     --report /tmp/dz-report.json
    ```
 
-3. Run `./gradlew :app:testDebugUnitTest`: `DictionaryAssetVersionTest` (header version, schema version, stats
-   count and asset size) and `DictionaryAssetOpenTest` (Room opens the real asset, and the full-text queries are
-   driven from the full-text index) guard the release.
+   Rebuilding unchanged `bo` data with the same `--built-at` leaves `bo.db` byte-identical (`git status` shows
+   no change). Read `unknown_labels` in the report: new labels mean the whitelists need an update.
+3. Run `./gradlew :app:testDebugUnitTest :app:lintDebug`: `DictionaryAssetVersionTest` (header version, schema
+   version, stats count and asset size) and `DictionaryAssetOpenTest` (Room opens the real asset, and the
+   full-text queries are driven from the full-text index) guard the release.
 
 The steps, in order:
 
 1. Load the highest `<version>.json` schema.
-2. Read the three source tables.
+2. Read the three source tables (Monlam tables, or the DDC StarDict files).
 3. Parse each row.
 4. Group rows into entries.
 5. Resolve related links across directions.
-6. Drop empty entries: no sense and no link (one in the current source, `དཔལ་གྱི་ཁབ་`). Links that
-   resolved to them become unresolved, and the report warns `build:empty_entry_dropped`.
+6. Drop empty entries: no sense and no link (one in the current Monlam source, `དཔལ་གྱི་ཁབ་`; none in the
+   DDC files). Rows with an empty key are skipped earlier, when rows are grouped: the DDC `dz-dz` and `en-dz`
+   files each have one (source row 1), and the report has no `build:empty_entry_dropped` warning for them.
 7. Assign word-of-the-day ranks.
 8. Compute the direction counts and `meta`.
 9. Write the database to a temporary file.
@@ -132,7 +169,7 @@ The database is built in memory, compacted with `VACUUM INTO` a temporary file n
 |---|---|
 | 0 | Success. |
 | 1 | The schema or source cannot be read, `--built-at` or `SOURCE_DATE_EPOCH` is not a time, or the database or `--stats-xml` cannot be written. The message names the path. `--out` and `--stats-xml` are left as they were. |
-| 2 | A full build's counts leave the expected ranges in `dictbuild/stats.py`. Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
+| 2 | A full build's counts leave the expected ranges in the pack's `expected` (`dictbuild/packs.py`). Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
 
 `--limit N` parses only the first N rows of each table, for quick checks. It skips the range
 checks, so it never exits 2.
@@ -169,6 +206,8 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | Module | Responsibility |
 |---|---|
 | `dictbuild/schema.py` | Load the Room schema export, run its DDL, set `user_version`, generate `INSERT`s |
+| `dictbuild/packs.py` | `Pack` (directions, tables, parsers, lookup order, meta, expected ranges), `MONLAM` and `DDC`; `--pack` picks one |
+| `dictbuild/stardict.py` | Read a StarDict `.ifo`/`.idx`/`.dict` triple into source rows (the DDC source) |
 | `dictbuild/source.py` | Open the source read-only and read rows in `_id` order |
 | `dictbuild/text.py` | Shared text rules (see below) |
 | `dictbuild/wylie.py` | `WylieConverter` protocol: `PyewtsConverter`, `NullConverter`, `load_converter(require)`; the Wylie-term test (`is_wylie_term`) shared by `SA` lists and the word of the day |
@@ -179,13 +218,15 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | `dictbuild/parsers/labels_bo.py` | Whitelist of the Tibetan leading label parentheticals |
 | `dictbuild/parsers/tbtb.py` | Parse `tbtb` (Tibetan → Tibetan) |
 | `dictbuild/parsers/tben.py` | Parse `tben` (Tibetan → English), including `SA` see-also lists |
+| `dictbuild/parsers/ddc_common.py` | Shared DDC rules: tag stripping, part-of-speech codes, case-duplicate ordering |
+| `dictbuild/parsers/dz_en.py`, `dz_dz.py`, `en_dz.py` | Parse the DDC `dz-en`, `dz-dz` and `en-dz` StarDict rows |
 | `dictbuild/grouping.py` | Merge homonym rows into entries with continuous sense numbers |
 | `dictbuild/related.py` | Index headwords and resolve see-also and synonym links |
 | `dictbuild/wotd.py` | Word-of-the-day eligibility and seeded ranks |
 | `dictbuild/writer.py` | Assemble rows, build `meta`, write the database (`staged_database`: built beside `--out`, renamed after the caller's block) |
 | `dictbuild/stats.py` | Direction capability counts and the expected ranges |
 | `dictbuild/report.py` | The JSON build report |
-| `dictbuild/resources.py` | The `--stats-xml` Android resource (`dictionary_entry_count`, `dictionary_asset_bytes`) |
+| `dictbuild/resources.py` | The `--stats-xml` Android resource (`dictionary_entry_count_<pack>`, `dictionary_asset_bytes_<pack>`) |
 | `build_db.py` | Command line |
 
 ## Shared grammar
@@ -195,6 +236,8 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 - U+200B and U+FEFF are dropped.
 - U+0F0C → U+0F0B.
 - Whitespace runs collapse to one space, and the text is trimmed.
+- The DDC parsers apply it to the markup after each `</k>` before they read it, so the definition text and
+  its separators (`</kref>༌།`) follow the same rules as the headwords.
 
 **`strip_csv_quotes`**
 - Removes the `"…"` wrapper, or a lone leading `"`.
@@ -372,3 +415,33 @@ All splitters return `(None, leading text)` first when there is text before the 
   - the entry is not truncated.
 - Ranks follow SHA-256 of `"<seed>:<entry id>"`. They are reproducible, and one entry's rank never
   depends on which other entries qualify.
+
+## Known limits of the DDC data
+
+The `dz` pack is built from StarDict files with markup and conventions that are not always regular. These
+are the known gaps in the current source, found while checking the real build. None is special-cased.
+
+- **Source row counts.** `dz-en` has 35,543 rows and gives 35,543 entries. `dz-dz` has 22,787 rows (its
+  `wordcount`), one of them with an empty key, so 22,786 entries. `en-dz` has 23,237 rows, one with an empty
+  key and 91 more that merge into an entry whose key differs only in case, so 23,145 entries.
+- **Numbers in running text.** A space-separated Tibetan numeral that continues a numbered run is read as a
+  sense marker (`split_numbered_tibetan` accepts the next number in the sequence ༡, ༢, ༣ … wherever it starts
+  a token), even when the source meant it as part of the sentence.
+- **Typo debris in `dz-en`.** Five glosses start with a fragment of a mistyped form list: row 8649
+  `(, im p)`, rows 14989, 18568 and 22739 `(ft, )`, row 25076 `(frt, )` (entry ids 4008649, 4014989,
+  4018568, 4022739, 4025076). Row 5410 is a different case: its first gloss starts with an abbreviated
+  form list `(ftr, pt, pst)`.
+- **Verb-form notes.** After a tense label, a parenthesised form such as `pst. (བྱུང་།)` (`dz-en` row 7984)
+  stays in the gloss without its label. That row also repeats its whole definition (45 `dz-en` rows repeat a
+  `<k>` block this way, for example row 7984, entry 4007984, and a few `dz-dz` and `en-dz` rows do too, and
+  `en-dz` `X`/`x` repeat one body); when rows are grouped, the DDC pack drops a sense identical in gloss, part
+  of speech and notes to an earlier sense of the same entry, so the entry keeps one `(བྱུང་།) topical`. The
+  DDC parsers also drop a tsheg or shad left in front of a gloss (a numeral cut out of the text, or a headword
+  tail), and a sense that is only such marks.
+- **Missing `༡`.** About 324 glosses (`en-dz` 284, `dz-dz` 40: `loaded`, `sickness`, `hammer`, `duct`,
+  `གཡར་` ...) keep a stray inline numeral because the numbered run does not start at `༡`; the rule only
+  accepts a run that starts at `༡`, so a source that starts at `༢` is not split.
+- **Bare labels.** About 50 `dz-en` senses (in 48 entries) keep a bare `syn`, `opp`, `hon.`, `also` or
+  part-of-speech word that carries no markup, in the gloss (rows 199, 666, 3948, 4266, 5353, 6300 ...).
+- **Empty part of speech.** `en-dz` row 5849 (`embers`) has an empty `<pos>`; its body starts with the word
+  `noun`, which stays in the gloss.

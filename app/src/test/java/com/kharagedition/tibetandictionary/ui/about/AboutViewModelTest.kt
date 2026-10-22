@@ -1,9 +1,11 @@
 package com.kharagedition.tibetandictionary.ui.about
 
+import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -47,5 +49,47 @@ class AboutViewModelTest {
 
         assertThat(state.entryCount).isNull()
         assertThat(state.attribution).isNull()
+    }
+
+    @Test
+    fun `About shows the active pack's attribution`() = runTest {
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            attribution = SampleData.attribution.copy(
+                sourceName = "DDC Dzongkha Dictionary",
+                author = "Dzongkha Development Commission",
+                license = "Permission of the DDC",
+            ),
+        )
+
+        val state = state()
+
+        assertThat(state.pack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(state.sourceName).isEqualTo("DDC Dzongkha Dictionary")
+        assertThat(state.author).isEqualTo("Dzongkha Development Commission")
+        assertThat(state.licence).isEqualTo("Permission of the DDC")
+    }
+
+    @Test
+    fun `the pack and its entry count both come from the capabilities`() = runTest {
+        val dzCapabilities = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
+        )
+        val vm = AboutViewModel(dictionary)
+
+        vm.uiState.test {
+            dictionary.capabilities.value = dzCapabilities
+            val seen = cancelAndConsumeRemainingEvents()
+                .mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }
+                .filterNotNull()
+
+            assertThat(seen.first().pack).isEqualTo(DictionaryPack.TIBETAN)
+            for (state in seen) {
+                val count = if (state.pack == DictionaryPack.DZONGKHA) 81_474 else SampleData.capabilities.totalEntries
+                assertThat(state.entryCount).isEqualTo(count)
+            }
+            assertThat(seen.last().pack).isEqualTo(DictionaryPack.DZONGKHA)
+        }
     }
 }

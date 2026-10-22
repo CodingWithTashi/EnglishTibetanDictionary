@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.SampleData.boBo
 import com.kharagedition.tibetandictionary.SampleData.boEn
 import com.kharagedition.tibetandictionary.SampleData.enBo
@@ -14,6 +15,7 @@ import com.kharagedition.tibetandictionary.SampleData.tashiEntry
 import com.kharagedition.tibetandictionary.core.audio.AudioPlayer
 import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.Folder
@@ -109,6 +111,23 @@ class HomeViewModelTest {
 
     private fun wotdWith(audioFile: String? = null, wylie: String? = tashi.wylie): Entry =
         tashiEntry.copy(summary = tashi.copy(audioFile = audioFile, wylie = wylie))
+
+    @Test
+    fun `a default direction left over from the other pack falls back to the active pack's default`() = runTest {
+        val dzEn = boEn.copy(id = "dz-en", position = 1)
+        val enDz = enBo.copy(id = "en-dz", position = 0)
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(enDz, dzEn),
+        )
+        // The pref write of a switch to Dzongkha has not landed yet: the stored default is still the Tibetan one.
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("bo-en")
+        assertThat(vm.state.selectedDirection).isEqualTo(dzEn)
+        assertThat(vm.state.slots.fixed).containsExactly(dzEn, enDz).inOrder()
+    }
 
     // State
 

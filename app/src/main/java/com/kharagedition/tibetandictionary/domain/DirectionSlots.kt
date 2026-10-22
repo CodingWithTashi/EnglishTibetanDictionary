@@ -30,9 +30,16 @@ data class DirectionSlots(
          *   visible direction, which then takes the first segment.
          * - **More label**: the direction [selectedId] when it is in [overflow], else null.
          * - **None visible**: empty slots.
+         *
+         * [packDefaultId] is the active pack's own default; see [defaultDirection].
          */
-        fun compute(all: List<Direction>, defaultId: String, selectedId: String?): DirectionSlots {
-            val default = defaultDirection(all, defaultId)
+        fun compute(
+            all: List<Direction>,
+            defaultId: String,
+            selectedId: String?,
+            packDefaultId: String? = null,
+        ): DirectionSlots {
+            val default = defaultDirection(all, defaultId, packDefaultId)
                 ?: return DirectionSlots(fixed = emptyList(), overflow = emptyList())
             val visible = visible(all)
             if (visible.size <= SEGMENTS) {
@@ -49,10 +56,16 @@ data class DirectionSlots(
         /**
          * The direction stored as default ([defaultId]) when it is visible (has entries), else the first visible
          * direction in canonical order (a data release removed or emptied it); null when none is visible.
+         *
+         * A [defaultId] that is not visible can also be a default left over from the other pack (right after a pack
+         * switch, before the new pack's default is stored). It then falls back to [packDefaultId], the active pack's
+         * own default, when that is visible, and only then to the first visible direction.
          */
-        fun defaultDirection(all: List<Direction>, defaultId: String): Direction? {
+        fun defaultDirection(all: List<Direction>, defaultId: String, packDefaultId: String? = null): Direction? {
             val visible = visible(all)
-            return visible.firstOrNull { it.id == defaultId } ?: visible.firstOrNull()
+            return visible.firstOrNull { it.id == defaultId }
+                ?: visible.firstOrNull { it.id == packDefaultId }
+                ?: visible.firstOrNull()
         }
 
         private fun visible(all: List<Direction>): List<Direction> =
