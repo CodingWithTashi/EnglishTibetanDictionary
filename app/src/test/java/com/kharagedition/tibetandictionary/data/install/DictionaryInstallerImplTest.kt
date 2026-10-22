@@ -518,16 +518,45 @@ class DictionaryInstallerImplTest {
         val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
         installer.ensureInstalled(DictionaryPack.TIBETAN)
+        val boDb = lastDatabases.get(DictionaryPack.TIBETAN)
         asset.failingPack = DictionaryPack.DZONGKHA
         asset.failAfterBytes = 1
         installer.ensureInstalled(DictionaryPack.DZONGKHA)
         assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
         val opens = roomOpens.size
+        val (modified, length) = target.lastModified() to target.length()
 
         installer.ensureInstalled(DictionaryPack.TIBETAN) // "keep current"
 
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
         assertThat(roomOpens).hasSize(opens)
+        assertThat(lastDatabases.get(DictionaryPack.TIBETAN)).isSameInstanceAs(boDb)
+        assertThat(target.lastModified()).isEqualTo(modified)
+        assertThat(target.length()).isEqualTo(length)
+        assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(asset.openedPacks).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
+    }
+
+    @Test
+    fun activePackWhoseCountFailsIsFailedButItsFileStays() = runTest {
+        val asset = FakeAssetSource(mapOf(DictionaryPack.TIBETAN to goodAsset, DictionaryPack.DZONGKHA to goodAsset))
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        asset.failingPack = DictionaryPack.DZONGKHA
+        asset.failAfterBytes = 1
+        installer.ensureInstalled(DictionaryPack.DZONGKHA)
+        val (modified, length) = target.lastModified() to target.length()
+        closeOpenDbs() // a closed Room instance throws on the next query
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        assertThat((state as InstallState.Failed).pack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(errors.recorded).contains(state.cause)
         assertThat(target.exists()).isTrue()
+        assertThat(target.lastModified()).isEqualTo(modified)
+        assertThat(target.length()).isEqualTo(length)
         assertThat(lastDatabases.active.value).isEqualTo(DictionaryPack.TIBETAN)
         assertThat(asset.openedPacks).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
     }
@@ -543,6 +572,19 @@ class DictionaryInstallerImplTest {
 
         assertThat(leftovers.filter { it.exists() }).isEmpty()
         assertThat(target.exists()).isTrue()
+    }
+
+    @Test
+    fun firstRunSweepKeepsARealPackFile() = runTest {
+        val dz = fileOf(DictionaryPack.DZONGKHA)
+        checkNotNull(dz.parentFile).mkdirs()
+        goodAsset.copyTo(dz)
+        val installer = installer(FakeAssetSource(goodAsset), StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(dz.exists()).isTrue()
+        assertThat(dz.length()).isEqualTo(goodAsset.length())
     }
 
     @OptIn(ExperimentalCoroutinesApi::class) // runCurrent

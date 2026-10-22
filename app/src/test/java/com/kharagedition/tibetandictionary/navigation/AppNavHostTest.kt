@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.di.RepositoryModule
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
@@ -26,7 +27,6 @@ import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
-import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
