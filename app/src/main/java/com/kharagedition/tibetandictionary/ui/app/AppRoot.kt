@@ -8,16 +8,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -79,15 +83,32 @@ fun AppRoot(state: AppRootState.Ready, onRetrySwitch: () -> Unit, onKeepCurrent:
                     // Exposes testTag values as resource ids so UI-automation flows can select by id.
                     .semantics { testTagsAsResourceId = true },
             ) {
-                AppNavHost(
-                    startDestination = startDestination,
-                    navController = navController,
-                    activePack = state.pack,
-                    onboarded = state.onboarded,
-                    holdLinks = state.switching != SwitchState.Idle,
-                )
-                AppToastHost(hostState, rootHeight, Modifier.align(Alignment.BottomCenter))
-                if (state.switching != SwitchState.Idle) SwitchingOverlay(state.switching, onRetrySwitch, onKeepCurrent)
+                // While the overlay is up the app stays mounted (the back stack must survive a cancelled switch) but
+                // is out of reach: gone from the accessibility tree and unable to take focus.
+                val blocked = state.switching != SwitchState.Idle
+                val focusManager = LocalFocusManager.current
+                LaunchedEffect(blocked) { if (blocked) focusManager.clearFocus(force = true) }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (blocked) {
+                                Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
+                    AppNavHost(
+                        startDestination = startDestination,
+                        navController = navController,
+                        activePack = state.pack,
+                        onboarded = state.onboarded,
+                        holdLinks = blocked,
+                    )
+                    AppToastHost(hostState, rootHeight, Modifier.align(Alignment.BottomCenter))
+                }
+                if (blocked) SwitchingOverlay(state.switching, onRetrySwitch, onKeepCurrent)
             }
         }
     }

@@ -39,7 +39,14 @@ class InstallingScreenTest {
     @Test
     fun `while copying it shows the app name and a generic status`() {
         // 0: the bundled asset's count is unknown too (the real resource now carries the data build's count).
-        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.6f, totalEntries = null), bundledEntryCount = 0)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.6f,
+                totalEntries = null,
+            ),
+            bundledEntryCount = 0,
+        )
 
         compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertExists()
         compose.onNodeWithText("Tibetan Dictionary").assertExists()
@@ -56,7 +63,14 @@ class InstallingScreenTest {
 
     @Test
     fun `before the installer knows the count it shows the bundled asset's count`() {
-        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.2f, totalEntries = null), bundledEntryCount = 180_412)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.2f,
+                totalEntries = null,
+            ),
+            bundledEntryCount = 180_412,
+        )
 
         compose.onNodeWithText("Preparing 180,412 entries · offline").assertExists()
         compose.onNodeWithText("Preparing the dictionary · offline").assertDoesNotExist()
@@ -64,14 +78,28 @@ class InstallingScreenTest {
 
     @Test
     fun `the installer's count wins over the bundled asset's count`() {
-        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.2f, totalEntries = 180_500), bundledEntryCount = 180_412)
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = 0.2f,
+                totalEntries = 180_500,
+            ),
+            bundledEntryCount = 180_412,
+        )
 
         compose.onNodeWithText("Preparing 180,500 entries · offline").assertExists()
     }
 
     @Test
     fun `a failure offers to try again`() {
-        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = null, totalEntries = null, failure = IOException("disk full")))
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = null,
+                totalEntries = null,
+                failure = IOException("disk full"),
+            ),
+        )
 
         compose.onNodeWithText("Couldn't prepare the dictionary.").assertExists()
         compose.onNodeWithText("Make sure there is free storage space, then try again.").assertExists()
@@ -83,7 +111,14 @@ class InstallingScreenTest {
 
     @Test
     fun `a cancelled preparation is worded as an interruption`() {
-        show(AppRootState.Installing(DictionaryPack.TIBETAN, progress = null, totalEntries = null, failure = CancellationException("stopped")))
+        show(
+            AppRootState.Installing(
+                DictionaryPack.TIBETAN,
+                progress = null,
+                totalEntries = null,
+                failure = CancellationException("stopped"),
+            ),
+        )
 
         compose.onNodeWithText("Couldn't prepare the dictionary.").assertExists()
         compose.onNodeWithText("Preparation was interrupted.").assertExists()

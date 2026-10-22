@@ -95,6 +95,8 @@ fun AppNavHost(
     )
     val eventBus = hiltViewModel<NavigationEventsViewModel>().bus
 
+    // Order matters: the pop to Main must run before the link collector restarts, so a held link lands on top of
+    // the new Main instead of being wiped by the pop. Effects in one composition start in declaration order.
     var lastPack by rememberSaveable { mutableStateOf(activePack.id) }
     LaunchedEffect(activePack, onboarded) {
         if (activePack.id != lastPack) {

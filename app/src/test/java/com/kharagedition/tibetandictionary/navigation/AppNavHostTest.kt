@@ -350,22 +350,48 @@ class AppNavHostTest {
     }
 
     @Test
-    fun `the overlay covers the app while switching and keeps the screen below`() {
+    fun `the overlay hides the app below from accessibility but keeps it mounted`() {
         launch(onboarded = true)
         openLink("app://entry/$TASHI")
 
         fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.5f)
         compose.waitForIdle()
-        compose.onNodeWithTag("switching_overlay").assertExists()
-        pressBack()
 
-        compose.onNodeWithTag("entry_screen").assertExists()
+        compose.onNodeWithTag("switching_overlay").assertExists()
+        // Not reachable by accessibility services (merged tree), yet still composed (unmerged tree).
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen", useUnmergedTree = true).assertExists()
+        pressBack()
         assertThat(activity.get().isFinishing).isFalse()
 
         fakeSwitcher.state.value = SwitchState.Idle
         compose.waitForIdle()
+
         compose.onNodeWithTag("switching_overlay").assertDoesNotExist()
         compose.onNodeWithTag("entry_screen").assertExists()
+        pressBack()
+        assertOnTabs()
+    }
+
+    @Test
+    fun `a held link after a pack change opens on top of the new Main`() {
+        launch(onboarded = true)
+        openLink("app://entry/$TASHI")
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, null)
+        compose.waitForIdle()
+        bus.emit(DeepLink.OpenEntry(TASHI_DELEK))
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+
+        assertOnEntry(seeAlso = TASHI)
+        pressBack()
+        // Nothing from before the switch is left under the linked entry.
+        assertOnTabs()
+        compose.onNodeWithTag("nav_search").assertIsSelected()
+        pressBack()
+        assertThat(activity.get().isFinishing).isTrue()
     }
 
     @Test

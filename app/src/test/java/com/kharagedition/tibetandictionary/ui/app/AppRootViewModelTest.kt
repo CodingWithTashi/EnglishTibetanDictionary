@@ -85,7 +85,8 @@ class AppRootViewModelTest {
         installer.state.value = InstallState.Copying(DictionaryPack.TIBETAN, 0.4f)
 
         viewModel().uiState.test {
-            assertThat(awaitItem()).isEqualTo(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.4f, totalEntries = null))
+            assertThat(awaitItem())
+                .isEqualTo(AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.4f, totalEntries = null))
         }
     }
 
@@ -130,7 +131,9 @@ class AppRootViewModelTest {
         installer.state.value = InstallState.Failed(DictionaryPack.TIBETAN, cause)
 
         viewModel().uiState.test {
-            assertThat(awaitItem()).isEqualTo(AppRootState.Installing(DictionaryPack.TIBETAN, progress = null, totalEntries = null, failure = cause))
+            assertThat(awaitItem()).isEqualTo(
+                AppRootState.Installing(DictionaryPack.TIBETAN, progress = null, totalEntries = null, failure = cause),
+            )
         }
     }
 
