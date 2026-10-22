@@ -20,6 +20,7 @@ import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.time.LocalDate
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
@@ -130,6 +131,7 @@ class WordOfTheDayRepositoryImplTest {
 
             // Nothing is emitted, and nothing throws, until a pack is active.
             repo.observe(date).test {
+                settle()
                 expectNoEvents()
                 databases.activate(DictionaryPack.TIBETAN)
                 assertThat(awaitItem()?.summary?.id).isEqualTo(expectedId(date))

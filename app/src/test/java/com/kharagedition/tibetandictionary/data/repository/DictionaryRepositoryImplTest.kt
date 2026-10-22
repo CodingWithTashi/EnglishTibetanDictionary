@@ -51,11 +51,14 @@ import com.kharagedition.tibetandictionary.data.model.Sense
 import com.kharagedition.tibetandictionary.data.model.SenseItem
 import java.time.Instant
 import java.time.LocalDate
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -838,8 +841,10 @@ class DictionaryRepositoryImplTest {
         val (repo, databases) = twoPacks()
 
         repo.capabilities.test {
+            settle()
             expectNoEvents()
             repo.observeEntry(TRA).test {
+                settle()
                 expectNoEvents()
                 databases.activate(DictionaryPack.TIBETAN)
                 assertThat(awaitItem()?.summary?.id).isEqualTo(TRA)
@@ -848,6 +853,17 @@ class DictionaryRepositoryImplTest {
             assertThat(awaitItem().directions.map { it.id }).containsExactly(BO_EN, BO_BO, EN_BO).inOrder()
             cancelAndIgnoreRemainingEvents()
         }
-        advanceUntilIdle()
     }
 }
+
+/**
+ * Lets the repository's scheduler run and Room's own query threads deliver, so a following `expectNoEvents()` checks
+ * something: Room flows emit from a real executor, which `runCurrent()` alone does not wait for.
+ */
+internal suspend fun TestScope.settle() {
+    runCurrent()
+    withContext(Dispatchers.Default) { delay(SETTLE_MILLIS) }
+    runCurrent()
+}
+
+private const val SETTLE_MILLIS = 300L
