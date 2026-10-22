@@ -148,14 +148,16 @@ class UserPreferencesRepositoryImplTest {
 
     @Test
     fun readFailureWithIOExceptionGivesDefaults() = runTest {
-        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IOException("disk unavailable")), DictionaryPack.TIBETAN)
+        val failing =
+            UserPreferencesRepositoryImpl(FailingDataStore(IOException("disk unavailable")), DictionaryPack.TIBETAN)
 
         assertThat(failing.snapshot()).isEqualTo(UserPrefs())
     }
 
     @Test
     fun readFailureWithOtherExceptionsIsRethrown() = runTest {
-        val failing = UserPreferencesRepositoryImpl(FailingDataStore(IllegalStateException("bug")), DictionaryPack.TIBETAN)
+        val failing =
+            UserPreferencesRepositoryImpl(FailingDataStore(IllegalStateException("bug")), DictionaryPack.TIBETAN)
 
         val error = runCatching { failing.snapshot() }.exceptionOrNull()
         assertThat(error).isInstanceOf(IllegalStateException::class.java)

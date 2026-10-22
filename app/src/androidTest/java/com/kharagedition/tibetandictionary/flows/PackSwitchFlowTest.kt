@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import dagger.hilt.android.testing.HiltAndroidTest
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -47,6 +47,8 @@ class PackSwitchFlowTest : AppFlowTest() {
         super.preparePrefs(prefs)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = DictionaryPack.DZONGKHA.dbName
+        // An earlier class may hold a cached dz Room instance over the deleted file; harmless, because the copy and
+        // the overlay still happen.
         context.deleteDatabase(name)
         context.deleteDatabase(name + TEMP_SUFFIX)
     }

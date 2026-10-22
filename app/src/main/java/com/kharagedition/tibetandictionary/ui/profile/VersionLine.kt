@@ -7,8 +7,8 @@ import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 
 /**
- * "Tibetan Dictionary 3.0.0 · 180,412 entries · offline" ([packName] leads), without the count when [entryCount] is null; digits are
- * Tibetan in the bo UI. Shown at the foot of Profile and on About.
+ * "Tibetan Dictionary 3.0.0 · 180,412 entries · offline" ([packName] leads), without the count when [entryCount] is
+ * null; digits are Tibetan in the bo UI. Shown at the foot of Profile and on About.
  */
 @Composable
 internal fun versionLine(packName: String, versionName: String, entryCount: Int?): String {

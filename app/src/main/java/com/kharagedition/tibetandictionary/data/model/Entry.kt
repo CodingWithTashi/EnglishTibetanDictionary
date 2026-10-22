@@ -32,7 +32,10 @@ data class Example(
     val audioFile: String?,
 )
 
-/** A see-also or synonym link; [targetEntryId] is null when the target is not in the data (tap runs a search). */
+/**
+ * A see-also, synonym or antonym link; [targetEntryId] is null when the target is not in the data (tap runs a
+ * search).
+ */
 data class RelatedEntry(
     val targetEntryId: Long?,
     val headword: String,

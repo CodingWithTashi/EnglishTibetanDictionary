@@ -144,7 +144,13 @@ private fun ProfileEffects(effects: Flow<ProfileEffect>, onOpenAbout: () -> Unit
                 ProfileEffect.NavigateAbout -> openAbout()
                 is ProfileEffect.OpenUrl -> context.startActivitySafely(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
                 is ProfileEffect.ShareApp ->
-                    context.shareText(resources.getString(R.string.share_app_text, resources.getString(effect.pack.nameRes()), effect.listingUrl))
+                    context.shareText(
+                        resources.getString(
+                            R.string.share_app_text,
+                            resources.getString(effect.pack.nameRes()),
+                            effect.listingUrl,
+                        ),
+                    )
                 is ProfileEffect.Toast -> toastScope.launch { toaster.show(effect.message.resolve(resources)) }
             }
         }
@@ -310,7 +316,12 @@ private fun ProfileFooter(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit
                 }
             }
         }
-        MixedText(versionLine(stringResource(state.dictionary.nameRes()), state.versionName, state.entryCount), type.tiny, type.tibetanInline14, color = colors.faint)
+        MixedText(
+            versionLine(stringResource(state.dictionary.nameRes()), state.versionName, state.entryCount),
+            type.tiny,
+            type.tibetanInline14,
+            color = colors.faint,
+        )
     }
 }
 

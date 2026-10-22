@@ -4,22 +4,22 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
-import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.R
-import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
-import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
-import com.kharagedition.tibetandictionary.ui.model.UiText
-import java.io.IOException
+import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
-import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
+import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
+import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import com.kharagedition.tibetandictionary.ui.model.UiText
+import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -165,12 +165,28 @@ class ProfileViewModelTest {
         assertThat(errors.recorded).isEmpty()
         assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
         assertThat(switcher.state.value).isEqualTo(running)
+        assertThat(switcher.requests).isEmpty()
+    }
+
+    @Test
+    fun `setDictionaryToAnotherPackWhileASwitchRunsClosesTheSheetAndAsksForThatPack`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        val running = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.4f)
+        switcher.state.value = running
+
+        // The capabilities still report Tibetan, so the view model forwards the request; the switcher decides.
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.DZONGKHA))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(errors.recorded).isEmpty()
+        assertThat(switcher.requests).containsExactly(DictionaryPack.DZONGKHA)
     }
 
     // Dictionary pack
 
     @Test
-    fun `the pack and the entry count always come from the same pack while a switch settles`() = runTest {
+    fun `the pack and its entry count both come from the capabilities`() = runTest {
         val dzCapabilities = SampleData.capabilities.copy(
             pack = DictionaryPack.DZONGKHA,
             directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
@@ -178,13 +194,15 @@ class ProfileViewModelTest {
         val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
 
         vm.uiState.test {
-            // The pack and its numbers arrive together, whatever the order the sources settle in.
             dictionary.capabilities.value = dzCapabilities
-            val seen = cancelAndConsumeRemainingEvents().mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }.filterNotNull()
+            val seen = cancelAndConsumeRemainingEvents()
+                .mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }
+                .filterNotNull()
 
             assertThat(seen.first().dictionary).isEqualTo(DictionaryPack.TIBETAN)
             for (state in seen) {
-                val count = if (state.dictionary == DictionaryPack.DZONGKHA) 81_474 else SampleData.capabilities.totalEntries
+                val isDz = state.dictionary == DictionaryPack.DZONGKHA
+                val count = if (isDz) 81_474 else SampleData.capabilities.totalEntries
                 assertThat(state.entryCount).isEqualTo(count)
             }
             assertThat(seen.last().dictionary).isEqualTo(DictionaryPack.DZONGKHA)

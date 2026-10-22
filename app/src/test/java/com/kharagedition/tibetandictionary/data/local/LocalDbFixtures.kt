@@ -11,11 +11,14 @@ import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 
-/** In-memory dictionary database (the schema of every pack's `<pack>.db`) with the production schema (Room creates the tables, indices and FTS sync triggers). */
+/** An in-memory dictionary database with the production schema (Room creates the tables, indices and FTS triggers). */
 fun inMemoryDictionaryDb(): DictionaryDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), DictionaryDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+
+/** One parameter set per [DictionaryPack], for the `@Parameters` provider of the per-pack asset tests. */
+fun packParameters(): List<Array<Any>> = DictionaryPack.entries.map { arrayOf(it) }
 
 /** A [DictionaryDatabases] whose `open` returns the given database for each listed pack; an unlisted pack fails. */
 fun databasesOf(vararg packs: Pair<DictionaryPack, DictionaryDatabase>): DictionaryDatabases {

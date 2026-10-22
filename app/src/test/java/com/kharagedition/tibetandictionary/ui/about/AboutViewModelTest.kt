@@ -71,7 +71,7 @@ class AboutViewModelTest {
     }
 
     @Test
-    fun `the pack and the entry count always come from the same pack while a switch settles`() = runTest {
+    fun `the pack and its entry count both come from the capabilities`() = runTest {
         val dzCapabilities = SampleData.capabilities.copy(
             pack = DictionaryPack.DZONGKHA,
             directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
@@ -80,7 +80,9 @@ class AboutViewModelTest {
 
         vm.uiState.test {
             dictionary.capabilities.value = dzCapabilities
-            val seen = cancelAndConsumeRemainingEvents().mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }.filterNotNull()
+            val seen = cancelAndConsumeRemainingEvents()
+                .mapNotNull { (it as? app.cash.turbine.Event.Item)?.value }
+                .filterNotNull()
 
             assertThat(seen.first().pack).isEqualTo(DictionaryPack.TIBETAN)
             for (state in seen) {

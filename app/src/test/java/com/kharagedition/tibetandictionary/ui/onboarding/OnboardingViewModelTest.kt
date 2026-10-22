@@ -21,10 +21,10 @@ import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -252,7 +252,8 @@ class OnboardingViewModelTest {
         val savedState = SavedStateHandle()
         viewModel(savedState = savedState).onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
 
-        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
+        val restored =
+            viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
 
         assertThat(restored.state().selectedPack).isEqualTo(DictionaryPack.DZONGKHA)
     }
@@ -312,7 +313,8 @@ class OnboardingViewModelTest {
         vm.onEvent(OnboardingEvent.SetLineSpacing(LineSpacing.MAX))
 
         // What the system restores into the view model it recreates.
-        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
+        val restored =
+            viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
 
         with(restored.state()) {
             assertThat(step).isEqualTo(OnboardingStep.READING)

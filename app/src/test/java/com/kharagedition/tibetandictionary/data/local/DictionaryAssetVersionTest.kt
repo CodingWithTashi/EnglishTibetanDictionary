@@ -129,7 +129,7 @@ class DictionaryAssetVersionTest(private val pack: DictionaryPack) {
     companion object {
         @JvmStatic
         @Parameters(name = "{0}")
-        fun packs(): List<Array<Any>> = DictionaryPack.entries.map { arrayOf(it) }
+        fun packs(): List<Array<Any>> = packParameters()
 
         private const val HEADER_SIZE = 100
         private const val SQLITE_MAGIC = "SQLite format 3"

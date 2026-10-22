@@ -9,7 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** user.db migrations, run on files created from the exported schemas (`app/schemas`, exposed as test assets). */
+/** user.db migrations, run on files created from the exported schemas (`app/schemas`, exposed as debug assets). */
 @RunWith(AndroidJUnit4::class)
 class UserDatabaseMigrationTest {
 
@@ -19,7 +19,9 @@ class UserDatabaseMigrationTest {
     @Test
     fun migrate1To2KeepsRowsAndTagsThemTibetan() {
         helper.createDatabase(DB_NAME, 1).use { db ->
-            db.execSQL("INSERT INTO folders (id, name, position, created_at, updated_at) VALUES (1, 'Verbs', 0, 10, 10)")
+            db.execSQL(
+                "INSERT INTO folders (id, name, position, created_at, updated_at) VALUES (1, 'Verbs', 0, 10, 10)",
+            )
             db.execSQL(
                 """
                 INSERT INTO saved_entries
@@ -49,7 +51,9 @@ class UserDatabaseMigrationTest {
         }
         val db = helper.runMigrationsAndValidate(DB_NAME, 2, true, UserDatabaseMigrations.MIGRATION_1_2)
 
-        db.execSQL("INSERT INTO folders (pack_id, name, position, created_at, updated_at) VALUES ('dz', 'Verbs', 0, 20, 20)")
+        db.execSQL(
+            "INSERT INTO folders (pack_id, name, position, created_at, updated_at) VALUES ('dz', 'Verbs', 0, 20, 20)",
+        )
 
         assertThat(db.rows("SELECT pack_id, name FROM folders ORDER BY pack_id"))
             .containsExactly(listOf("bo", "Verbs"), listOf("dz", "Verbs")).inOrder()

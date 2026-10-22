@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.entry
 import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.settle
 import java.time.LocalDate
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope

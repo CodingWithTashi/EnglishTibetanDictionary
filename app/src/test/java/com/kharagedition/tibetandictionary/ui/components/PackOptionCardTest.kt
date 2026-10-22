@@ -14,8 +14,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.descriptionRes
+import com.kharagedition.tibetandictionary.data.model.entryCountRes
 import com.kharagedition.tibetandictionary.data.model.nameRes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
@@ -38,23 +40,28 @@ class PackOptionCardTest {
             DictTheme(darkTheme = false, language = language) {
                 Column {
                     DictionaryPack.entries.forEach {
-                        PackOptionCard(it, selected = it == DictionaryPack.TIBETAN, onClick = {}, modifier = Modifier.testTag("card_${it.id}"))
+                        PackOptionCard(
+                            it,
+                            selected = it == DictionaryPack.TIBETAN,
+                            onClick = {},
+                            modifier = Modifier.testTag("card_${it.id}"),
+                        )
                     }
                 }
             }
         }
     }
 
-    private fun assertStacked() {
+    private fun assertStacked(language: AppLanguage) {
         for (pack in DictionaryPack.entries) {
             val card = compose.onNodeWithTag("card_${pack.id}").getBoundsInRoot()
-            val name = compose.onNodeWithText(context.getString(pack.nameRes()), substring = true, useUnmergedTree = true)
+            val name = compose
+                .onNodeWithText(context.getString(pack.nameRes()), substring = true, useUnmergedTree = true)
                 .getBoundsInRoot()
-            val description = compose.onNodeWithText(
-                context.getString(pack.descriptionRes(), "").substringBefore(" "),
-                substring = true,
-                useUnmergedTree = true,
-            ).getBoundsInRoot()
+            val count = TibetanNumerals.formatCount(context.resources.getInteger(pack.entryCountRes()), language)
+            val description = compose
+                .onNodeWithText(context.getString(pack.descriptionRes(), count), useUnmergedTree = true)
+                .getBoundsInRoot()
             assertThat(description.top.value).isAtLeast(name.bottom.value)
             assertThat(card.height).isAtMost(160.dp)
         }
@@ -64,13 +71,13 @@ class PackOptionCardTest {
     @Config(qualifiers = "w360dp-h800dp")
     fun `pack cards stack the description under the name in English`() {
         show(AppLanguage.EN)
-        assertStacked()
+        assertStacked(AppLanguage.EN)
     }
 
     @Test
     @Config(qualifiers = "bo-w360dp-h800dp")
     fun `pack cards stack the description under the name in Tibetan`() {
         show(AppLanguage.BO)
-        assertStacked()
+        assertStacked(AppLanguage.BO)
     }
 }

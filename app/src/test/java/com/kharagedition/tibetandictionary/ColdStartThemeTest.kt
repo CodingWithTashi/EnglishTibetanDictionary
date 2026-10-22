@@ -37,7 +37,8 @@ class ColdStartThemeTest {
     private val app = ApplicationProvider.getApplicationContext<DictionaryApplication>()
 
     /** The app's own prefs file (the DataStore delegate keeps one instance per process). */
-    private val prefs = UserPreferencesRepositoryImpl(DataStoreModule.provideUserPrefsDataStore(app), DictionaryPack.TIBETAN)
+    private val prefs =
+        UserPreferencesRepositoryImpl(DataStoreModule.provideUserPrefsDataStore(app), DictionaryPack.TIBETAN)
 
     /** The night mode and the DataStore instance are process-wide: leave them as other tests expect them. */
     @After

@@ -80,9 +80,6 @@ class LicencesScreenTest {
         val viewModel = LicencesViewModel(inactive)
         compose.setContent { DictTheme(darkTheme = false) { LicencesScreen({}, viewModel) } }
         compose.waitForIdle()
-        Thread.sleep(SETTLE_MS) // the texts would load on a background thread
-
-        compose.waitForIdle()
         compose.onNodeWithText("Licences").assertIsDisplayed()
         compose.onAllNodes(hasText("Dictionary data", substring = true)).assertCountEquals(0)
 
@@ -154,6 +151,5 @@ class LicencesScreenTest {
     private companion object {
         const val GPL_TITLE = "GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007"
         const val LOAD_TIMEOUT_MS = 5_000L
-        const val SETTLE_MS = 300L
     }
 }

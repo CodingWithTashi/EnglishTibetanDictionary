@@ -6,15 +6,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.pressKey
-import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -49,7 +49,9 @@ class BlockedWhenTest {
 
     /** Gives the compose view Android focus, which makes Compose hand focus to the first focusable it may use. */
     private fun focusTheView() {
-        compose.runOnIdle { compose.activity.window.decorView.findViewById<android.view.View>(android.R.id.content).requestFocus() }
+        compose.runOnIdle {
+            compose.activity.window.decorView.findViewById<android.view.View>(android.R.id.content).requestFocus()
+        }
         compose.waitForIdle()
     }
 

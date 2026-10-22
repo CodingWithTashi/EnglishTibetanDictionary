@@ -38,7 +38,9 @@ class FolderDaoTest {
         dao.insert(folder("Animals", position = 1))
         dao.insert(folder("Prayers", position = 0))
 
-        assertThat(dao.observeAll("bo").first().map { it.name }).containsExactly("Prayers", "Animals", "Verbs").inOrder()
+        assertThat(dao.observeAll("bo").first().map { it.name })
+            .containsExactly("Prayers", "Animals", "Verbs")
+            .inOrder()
     }
 
     @Test

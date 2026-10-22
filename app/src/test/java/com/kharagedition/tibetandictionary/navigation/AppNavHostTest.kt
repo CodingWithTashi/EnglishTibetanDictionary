@@ -35,11 +35,11 @@ import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
-import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import dagger.hilt.android.testing.BindValue
@@ -422,7 +422,7 @@ class AppNavHostTest {
     }
 
     @Test
-    fun `a word saved in one pack is not shown in the other and returns on switching back`() {
+    fun `activating the other pack directly hides a saved word and activating the first again brings it back`() {
         launch(onboarded = true)
         runBlocking { saved.save(SampleData.tashi, folderId = null) }
         val row = "saved_row_${TASHI}"

@@ -49,7 +49,9 @@ class RecentSearchDaoTest {
         assertThat(kept).hasSize(50)
         assertThat(kept.first().query).isEqualTo("q60")
         assertThat(kept.last().query).isEqualTo("q11")
-        assertThat(dao.observeRecent("bo", limit = 3).first().map { it.query }).containsExactly("q60", "q59", "q58").inOrder()
+        assertThat(dao.observeRecent("bo", limit = 3).first().map { it.query })
+            .containsExactly("q60", "q59", "q58")
+            .inOrder()
 
         dao.record(recent("x", "bo-en", at = 1_000), keep = 5)
         assertThat(dao.observeRecent("bo", limit = 100).first().map { it.query })

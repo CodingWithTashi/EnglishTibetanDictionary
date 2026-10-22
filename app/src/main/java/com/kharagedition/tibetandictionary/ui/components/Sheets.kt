@@ -267,8 +267,8 @@ private fun LanguagePickerContent(selected: AppLanguage, onPick: (AppLanguage) -
 }
 
 /**
- * One dictionary pack as an option card: its name and gloss on top, with the description and entry count underneath. Shared by
- * the onboarding Dictionary step and [DictionaryPickerSheet].
+ * One dictionary pack as an option card: its name and gloss on top, with the description and entry count underneath.
+ * Shared by the onboarding Dictionary step and [DictionaryPickerSheet].
  */
 @Composable
 fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -283,7 +283,11 @@ fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit,
             TibetanNumerals.formatCount(integerResource(pack.entryCountRes()), DictTheme.language),
         ),
     ) {
-        MixedText(stringResource(pack.nameRes()) + " · " + stringResource(pack.glossRes()), type.buttonLarge, type.tibetanGloss)
+        MixedText(
+            stringResource(pack.nameRes()) + " · " + stringResource(pack.glossRes()),
+            type.buttonLarge,
+            type.tibetanGloss,
+        )
     }
 }
 

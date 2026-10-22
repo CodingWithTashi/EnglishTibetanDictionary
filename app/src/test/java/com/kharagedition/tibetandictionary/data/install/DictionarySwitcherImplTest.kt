@@ -197,7 +197,9 @@ class DictionarySwitcherImplTest {
     @Test
     fun retryRunsTheFailedPackAgain() = runTest {
         var fail = true
-        val installer = installer { if (fail) InstallState.Failed(it, RuntimeException("x")) else InstallState.Ready(it, 1) }
+        val installer = installer {
+            if (fail) InstallState.Failed(it, RuntimeException("x")) else InstallState.Ready(it, 1)
+        }
         val switcher = switcher(installer)
         switcher.switchTo(DictionaryPack.DZONGKHA).join()
         assertThat(switcher.state.value).isInstanceOf(SwitchState.Failed::class.java)

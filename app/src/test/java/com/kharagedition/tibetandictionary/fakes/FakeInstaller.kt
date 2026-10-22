@@ -18,7 +18,7 @@ class FakeInstaller(
 ) : DictionaryInstaller {
     override val state = MutableStateFlow<InstallState>(InstallState.Checking)
 
-    /** Optional hook run inside [ensureInstalled] before [outcome] is applied; tests suspend here to hold an install. */
+    /** Optional hook run inside [ensureInstalled] before [outcome] is applied; tests suspend here to hold one up. */
     var beforeOutcome: (suspend (DictionaryPack) -> Unit)? = null
 
     /** Optional hook run inside [ensureInstalled] after the pack was activated and [state] updated. */

@@ -37,9 +37,9 @@ import kotlinx.coroutines.launch
  * when it rejects a request or is cancelled); a switch that did not take stays on the step (the switching overlay shows
  * a failed one; a rejected or cancelled one is recorded through [errors]), so Continue never moves on, and Skip never
  * finishes, without the chosen dictionary. The last step also stores onboarding as done and sends
- * [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A preferences write that fails (DataStore's IOException) is recorded through [errors] and
- * onboarding carries on: the choices still apply for this session, and the user is not stuck on the first-run
- * screens. The step and the choices not yet stored live in [savedState], so a process death mid-setup comes back to
+ * [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A preferences write that
+ * fails (DataStore's IOException) is recorded through [errors] and onboarding carries on: the choices still apply
+ * for this session, and the user is not stuck on the first-run screens. The step and the choices not yet stored live in [savedState], so a process death mid-setup comes back to
  * the same step.
  */
 @HiltViewModel
@@ -116,7 +116,9 @@ class OnboardingViewModel @Inject constructor(
                     // A failed preferences write is only recorded (the choice still applies this session); a dictionary
                     // switch that did not take keeps the user on the step.
                     val stored = store(state.step, state)
-                    if (stored || state.step != OnboardingStep.DICTIONARY) updateDraft { it.copy(step = state.step + 1) }
+                    if (stored || state.step != OnboardingStep.DICTIONARY) {
+                        updateDraft { it.copy(step = state.step + 1) }
+                    }
                 } finally {
                     advancing = false
                 }

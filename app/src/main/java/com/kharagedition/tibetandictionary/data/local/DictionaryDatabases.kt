@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * One Room instance of [DictionaryDatabase] per [DictionaryPack], each over its own file, opened lazily by [open].
  *
  * Every opened instance is kept for the life of the process: Room 2.8 forbids reopening a closed instance, so a pack
- * that was switched away from stays open and a switch back reuses it. The one exception is [discard]. Only the installer calls [get] for a pack that
- * is not [active] (to verify a freshly copied file); everything else reads [activeDb] or observes [active].
+ * that was switched away from stays open and a switch back reuses it. The one exception is [discard]. Only the
+ * installer calls [get] for a pack that is not [active] (to verify a freshly copied file); everything else reads
+ * [activeDb] or observes [active].
  *
  * [active] is null until [activate] is called after the first successful install. Callers that run before that (a
  * repository built by Hilt, a flow collected early) must not read [activeDb] when they are constructed.

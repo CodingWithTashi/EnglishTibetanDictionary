@@ -7,6 +7,7 @@ import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
 
 /** Where a user-requested dictionary switch stands. */
 sealed interface SwitchState {
@@ -45,11 +45,11 @@ sealed interface SwitchState {
  * middle of a switch lands on the old pack at the next start.
  *
  * If the job is cancelled (for example the application scope goes away) the state returns to [SwitchState.Idle], not
- * [SwitchState.Failed]: nothing went wrong, nobody is left to show an error to, and the stored choice is unchanged. If it was cancelled after the installer activated the new pack, the previous pack is
- * re-activated first.
+ * [SwitchState.Failed]: nothing went wrong, nobody is left to show an error to, and the stored choice is unchanged.
+ * If it was cancelled after the installer activated the new pack, the previous pack is re-activated first.
  */
 interface DictionarySwitcher {
-    /** [SwitchState.Idle] at rest, [SwitchState.InProgress] while a switch runs, [SwitchState.Failed] after a failure. */
+    /** [SwitchState.Idle] at rest, [SwitchState.InProgress] while a switch runs, [SwitchState.Failed] after one fails. */
     val state: StateFlow<SwitchState>
 
     /**

@@ -125,10 +125,20 @@ fun AboutScreen(
             ScreenTitle(stringResource(R.string.about))
             Column {
                 TibetanText(stringResource(R.string.app_name_tibetan), style = type.tibetanSplash, color = colors.ink)
-                MixedText(versionLine(stringResource(state.pack.nameRes()), state.versionName, state.entryCount), type.secondary, type.tibetanInline15, color = colors.muted)
+                MixedText(
+                    versionLine(stringResource(state.pack.nameRes()), state.versionName, state.entryCount),
+                    type.secondary,
+                    type.tibetanInline15,
+                    color = colors.muted,
+                )
             }
             Column(verticalArrangement = Arrangement.spacedBy(LineGap)) {
-                MixedText(stringResource(R.string.about_data, state.sourceName, state.author, state.licence), type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
+                MixedText(
+                    stringResource(R.string.about_data, state.sourceName, state.author, state.licence),
+                    type.bodySmallMedium,
+                    type.tibetanInline16,
+                    color = colors.ink,
+                )
                 if (state.attribution != null) {
                     MixedText(state.attribution, type.secondary, type.tibetanInline15, color = colors.muted)
                 }

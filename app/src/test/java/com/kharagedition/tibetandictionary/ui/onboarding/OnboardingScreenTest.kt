@@ -5,11 +5,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -76,7 +76,8 @@ class OnboardingScreenTest {
             databases.activate(pack)
             runBlocking { prefs.setDictionaryPack(pack) }
         }
-        val viewModel = OnboardingViewModel(SavedStateHandle(), prefs, dictionary, switcher, databases, RecordingErrorReporter())
+        val viewModel =
+            OnboardingViewModel(SavedStateHandle(), prefs, dictionary, switcher, databases, RecordingErrorReporter())
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
                 val state by viewModel.uiState.collectAsState()

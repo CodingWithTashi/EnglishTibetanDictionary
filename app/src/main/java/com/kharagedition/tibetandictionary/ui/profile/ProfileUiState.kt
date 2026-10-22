@@ -14,9 +14,9 @@ import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 
 /**
- * The Profile tab (2f/3d). [dictionary] is the pack in use. [defaultDirection] is the stored default, or the first visible direction when the stored
- * one has no entries (null only when no direction has entries); [directions] are the visible ones in switcher order.
- * [entryCount] is null when unknown (the version line then leaves it out). [account] and [wotdNotification] stay
+ * The Profile tab (2f/3d). [dictionary] is the pack in use. [defaultDirection] is the stored default, or the first
+ * visible direction when the stored one has no entries (null only when no direction has entries); [directions] are
+ * the visible ones in switcher order. [entryCount] is null when unknown (the version line then leaves it out). [account] and [wotdNotification] stay
  * null while their features are off.
  */
 @Immutable

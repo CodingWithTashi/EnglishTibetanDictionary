@@ -55,7 +55,8 @@ import org.junit.rules.TestRule
 import org.junit.runners.model.Statement
 
 /**
- * Base of the end-to-end flows: the real app (real Hilt bindings, the installed `dictionary.db`) on a device.
+ * Base of the end-to-end flows: the real app (real Hilt bindings, the installed per-pack `bo.db` / `dz.db`) on
+ * a device.
  *
  * The test application is `HiltTestApplication`, so nothing starts [AppInitializer] on its own; [freshApp] does,
  * after it has reset the user state, and before [compose] launches [MainActivity]. Each test therefore starts like
@@ -67,8 +68,8 @@ import org.junit.runners.model.Statement
  * - night mode, which outlives an activity, goes back to "follow the system" before the launch and again once the
  *   activity has closed; a per-app language other than English (a Tibetan UI left by a failed run) is dropped at the
  *   same points. The flows read English labels, so the device's own language must be English.
- * `dictionary.db` is never touched: the first test of a fresh install copies it (up to [INSTALL_TIMEOUT_MS]) and
- * every later test finds it in place.
+ * The per-pack dictionary files are never touched: the first test of a fresh install copies the active pack's file
+ * (up to [INSTALL_TIMEOUT_MS]) and every later test finds it in place.
  */
 abstract class AppFlowTest {
 

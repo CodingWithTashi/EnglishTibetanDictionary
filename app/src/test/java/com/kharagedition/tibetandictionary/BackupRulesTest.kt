@@ -37,14 +37,13 @@ class BackupRulesTest {
     private fun assertPacksExcluded(resId: Int, expectedSections: Set<String>) {
         val sections = excludedDatabases(resId)
         assertThat(sections.keys).containsExactlyElementsIn(expectedSections)
-        for ((section, paths) in sections) {
+        for (paths in sections.values) {
             for (pack in DictionaryPack.entries) {
                 for (suffix in listOf("", "-journal", "-shm", "-wal", ".tmp")) {
                     assertThat(paths).contains(pack.dbName + suffix)
                 }
             }
             assertThat(paths.filter { it.startsWith("user.db") }).isEmpty()
-            assertThat(section).isNotEmpty()
         }
     }
 

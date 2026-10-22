@@ -61,7 +61,11 @@ private fun stepTag(step: Int) = "onboarding_step_$step"
  * `onboarding_step_1`, `onboarding_pack_{id}`.
  */
 @Composable
-internal fun DictionaryStep(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
+internal fun DictionaryStep(
+    state: OnboardingUiState,
+    onEvent: (OnboardingEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val type = DictTheme.type
     Column(modifier.testTag(stepTag(OnboardingStep.DICTIONARY))) {
         FlagStrand(FlagStrandSize.Onboarding, Modifier.padding(top = StrandTop))
@@ -94,7 +98,11 @@ internal fun DictionaryStep(state: OnboardingUiState, onEvent: (OnboardingEvent)
  * `onboarding_step_2`, `onboarding_direction_{id}`.
  */
 @Composable
-internal fun DirectionStep(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
+internal fun DirectionStep(
+    state: OnboardingUiState,
+    onEvent: (OnboardingEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val type = DictTheme.type
     Column(modifier.testTag(stepTag(OnboardingStep.DIRECTION))) {
         StepHeader(

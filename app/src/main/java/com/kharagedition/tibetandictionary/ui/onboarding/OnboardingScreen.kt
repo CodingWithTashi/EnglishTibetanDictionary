@@ -209,7 +209,9 @@ private val previewState = OnboardingUiState(
 @BoPreview
 @Composable
 private fun OnboardingDictionaryPreview() {
-    ComponentPreview(edgeToEdge = true) { OnboardingScreen(previewState.copy(step = OnboardingStep.DICTIONARY), onEvent = {}) }
+    ComponentPreview(edgeToEdge = true) {
+        OnboardingScreen(previewState.copy(step = OnboardingStep.DICTIONARY), onEvent = {})
+    }
 }
 
 @PreviewLightDark
