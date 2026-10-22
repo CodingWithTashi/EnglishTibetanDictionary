@@ -77,7 +77,8 @@ class LicencesScreenTest {
     @Test
     fun `no licence is shown while no pack is active`() {
         val inactive = DictionaryDatabases { error("not opened in Licences tests") }
-        compose.setContent { DictTheme(darkTheme = false) { LicencesScreen({}, LicencesViewModel(inactive)) } }
+        val viewModel = LicencesViewModel(inactive)
+        compose.setContent { DictTheme(darkTheme = false) { LicencesScreen({}, viewModel) } }
         compose.waitForIdle()
         Thread.sleep(SETTLE_MS) // the texts would load on a background thread
 
