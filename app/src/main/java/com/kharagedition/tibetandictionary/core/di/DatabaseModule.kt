@@ -15,6 +15,7 @@ import com.kharagedition.tibetandictionary.data.local.dao.ActivityDayDao
 import com.kharagedition.tibetandictionary.data.local.dao.FolderDao
 import com.kharagedition.tibetandictionary.data.local.dao.RecentSearchDao
 import com.kharagedition.tibetandictionary.data.local.dao.SavedEntryDao
+import com.kharagedition.tibetandictionary.data.model.assetBytesRes
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,10 +46,10 @@ object DatabaseModule {
     @Provides
     fun provideAssetSource(source: ApkAssetSource): AssetSource = source
 
-    /** The asset's size as the data build recorded it (`dictionary_stats_bo.xml`); 0 there means unknown. */
+    /** The pack asset's size as the data build recorded it (`dictionary_stats_<id>.xml`); 0 there means unknown. */
     @Provides
-    fun provideAssetSizeProvider(@ApplicationContext context: Context): AssetSizeProvider = AssetSizeProvider {
-        context.resources.getInteger(R.integer.dictionary_asset_bytes_bo).toLong().takeIf { it > 0 }
+    fun provideAssetSizeProvider(@ApplicationContext context: Context): AssetSizeProvider = AssetSizeProvider { pack ->
+        context.resources.getInteger(pack.assetBytesRes()).toLong().takeIf { it > 0 }
     }
 
     @Provides

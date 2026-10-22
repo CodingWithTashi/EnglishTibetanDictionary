@@ -14,6 +14,7 @@ import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
@@ -47,7 +48,7 @@ class AppRootViewModelTest {
     /** An installer whose [ensureInstalled] throws [error] without ever leaving [initial]. */
     private class ThrowingInstaller(initial: InstallState, private val error: Throwable) : DictionaryInstaller {
         override val state = MutableStateFlow(initial)
-        override suspend fun ensureInstalled() = throw error
+        override suspend fun ensureInstalled(pack: DictionaryPack) = throw error
     }
 
     private fun initializer(installer: DictionaryInstaller) =
@@ -76,7 +77,7 @@ class AppRootViewModelTest {
 
     @Test
     fun `Installing with the progress while the asset is copied`() = runTest {
-        installer.state.value = InstallState.Copying(0.4f)
+        installer.state.value = InstallState.Copying(DictionaryPack.TIBETAN, 0.4f)
 
         viewModel().uiState.test {
             assertThat(awaitItem()).isEqualTo(AppRootState.Installing(progress = 0.4f, totalEntries = null))
@@ -85,7 +86,7 @@ class AppRootViewModelTest {
 
     @Test
     fun `Ready carries the prefs once start-up has installed the dictionary`() = runTest {
-        installer.outcome = InstallState.Ready(totalEntries = 180_412)
+        installer.outcome = { InstallState.Ready(it, totalEntries = 180_412) }
         val init = initializer(installer)
 
         viewModel(installer, init).uiState.test {
@@ -106,7 +107,7 @@ class AppRootViewModelTest {
 
     @Test
     fun `Ready follows later pref changes`() = runTest {
-        installer.state.value = InstallState.Ready(totalEntries = 10)
+        installer.state.value = InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 10)
 
         viewModel().uiState.test {
             assertThat((awaitItem() as AppRootState.Ready).appearance).isEqualTo(Appearance.DARK)
@@ -119,7 +120,7 @@ class AppRootViewModelTest {
     @Test
     fun `a failed install shows the installing screen with the failure`() = runTest {
         val cause = IOException("disk full")
-        installer.state.value = InstallState.Failed(cause)
+        installer.state.value = InstallState.Failed(DictionaryPack.TIBETAN, cause)
 
         viewModel().uiState.test {
             assertThat(awaitItem()).isEqualTo(AppRootState.Installing(progress = null, totalEntries = null, failure = cause))
@@ -144,8 +145,8 @@ class AppRootViewModelTest {
 
     @Test
     fun `retryInstall runs the installer again`() = runTest {
-        installer.state.value = InstallState.Failed(IOException("disk full"))
-        installer.outcome = InstallState.Ready(totalEntries = 10)
+        installer.state.value = InstallState.Failed(DictionaryPack.TIBETAN, IOException("disk full"))
+        installer.outcome = { InstallState.Ready(it, totalEntries = 10) }
         val vm = viewModel()
 
         vm.uiState.test {
@@ -153,7 +154,7 @@ class AppRootViewModelTest {
 
             vm.retryInstall()
 
-            assertThat(installer.ensureInstalledCalls).isEqualTo(1)
+            assertThat(installer.ensureInstalledCalls).containsExactly(DictionaryPack.TIBETAN)
             assertThat(awaitItem()).isInstanceOf(AppRootState.Ready::class.java)
         }
     }
@@ -162,13 +163,13 @@ class AppRootViewModelTest {
     fun `a retry keeps running after its screen is gone`() = runTest {
         val copying = CompletableDeferred<Unit>()
         val slow = object : DictionaryInstaller by installer {
-            override suspend fun ensureInstalled() {
+            override suspend fun ensureInstalled(pack: DictionaryPack) {
                 copying.await()
-                installer.ensureInstalled()
+                installer.ensureInstalled(pack)
             }
         }
-        installer.state.value = InstallState.Failed(IOException("disk full"))
-        installer.outcome = InstallState.Ready(totalEntries = 10)
+        installer.state.value = InstallState.Failed(DictionaryPack.TIBETAN, IOException("disk full"))
+        installer.outcome = { InstallState.Ready(it, totalEntries = 10) }
         val vm = viewModel(slow)
         val store = ViewModelStore().apply { put("root", vm) }
 
@@ -177,14 +178,14 @@ class AppRootViewModelTest {
         store.clear()
         copying.complete(Unit)
 
-        assertThat(installer.ensureInstalledCalls).isEqualTo(1)
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(totalEntries = 10))
+        assertThat(installer.ensureInstalledCalls).containsExactly(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 10))
     }
 
     @Test
     fun `retryInstall reports an installer that throws instead of crashing`() = runTest {
         val bug = IllegalStateException("installer bug")
-        val throwing = ThrowingInstaller(InstallState.Failed(IOException("disk full")), bug)
+        val throwing = ThrowingInstaller(InstallState.Failed(DictionaryPack.TIBETAN, IOException("disk full")), bug)
 
         viewModel(throwing).retryInstall()
 

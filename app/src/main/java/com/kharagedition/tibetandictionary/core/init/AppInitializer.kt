@@ -44,7 +44,7 @@ class AppInitializer @Inject constructor(
         started = true
         scope.launch(io) {
             step("legacyCleanup") { legacyCleanup.runOnce() }
-            step("install") { installer.ensureInstalled() }
+            step("install") { installer.ensureInstalled(prefs.snapshot().dictionaryPack) }
             _ready.value = true
             // After ready: only keeps the stored language in step with the UI, so it must not delay start-up.
             step("syncLanguage") { syncLanguage() }

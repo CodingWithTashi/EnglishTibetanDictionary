@@ -55,7 +55,7 @@ sealed interface AppRootState {
 class AppRootViewModel @Inject constructor(
     private val installer: DictionaryInstaller,
     initializer: AppInitializer,
-    prefsRepository: UserPreferencesRepository,
+    private val prefsRepository: UserPreferencesRepository,
     private val errors: ErrorReporter,
     @param:ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -72,7 +72,8 @@ class AppRootViewModel @Inject constructor(
                         AppRootState.Loading
                     }
                 is InstallState.Copying -> AppRootState.Installing(progress = install.progress, totalEntries = null)
-                is InstallState.Failed -> AppRootState.Installing(progress = null, totalEntries = null, failure = install.cause)
+                is InstallState.Failed ->
+                    AppRootState.Installing(progress = null, totalEntries = null, failure = install.cause)
                 is InstallState.Ready -> prefs.toReady()
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, AppRootState.Loading)
@@ -81,7 +82,7 @@ class AppRootViewModel @Inject constructor(
     fun retryInstall() {
         appScope.launch {
             try {
-                installer.ensureInstalled()
+                installer.ensureInstalled(prefsRepository.snapshot().dictionaryPack)
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {

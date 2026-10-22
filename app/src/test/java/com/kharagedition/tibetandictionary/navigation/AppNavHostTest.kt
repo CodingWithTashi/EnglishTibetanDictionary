@@ -26,6 +26,7 @@ import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
@@ -65,7 +66,8 @@ class AppNavHostTest {
     private val fakePrefs = FakeUserPreferencesRepository()
 
     @BindValue @JvmField
-    val installer: DictionaryInstaller = FakeInstaller().apply { state.value = InstallState.Ready(totalEntries = 3) }
+    val installer: DictionaryInstaller =
+        FakeInstaller().apply { state.value = InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 3) }
 
     @BindValue @JvmField
     val prefs: UserPreferencesRepository = fakePrefs

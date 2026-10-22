@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,11 +31,13 @@ class AppInitializerTest {
     ) : DictionaryInstaller {
         override val state = MutableStateFlow<InstallState>(InstallState.Checking)
         val cleanupDoneAtInstall = mutableListOf<Boolean>()
+        val installedPacks = mutableListOf<DictionaryPack>()
 
-        override suspend fun ensureInstalled() {
+        override suspend fun ensureInstalled(pack: DictionaryPack) {
+            installedPacks += pack
             cleanupDoneAtInstall += prefs.prefs.value.legacyCleanupDone
             failure?.let { throw it }
-            state.value = InstallState.Ready(totalEntries = 1)
+            state.value = InstallState.Ready(pack, totalEntries = 1)
         }
     }
 
@@ -51,7 +54,7 @@ class AppInitializerTest {
         scope.testScheduler.advanceUntilIdle()
 
         assertThat(installer.cleanupDoneAtInstall).containsExactly(true)
-        assertThat(installer.state.value).isEqualTo(InstallState.Ready(totalEntries = 1))
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 1))
         assertThat(init.ready.value).isTrue()
         assertThat(errors.recorded).isEmpty()
     }
@@ -78,5 +81,17 @@ class AppInitializerTest {
         scope.testScheduler.advanceUntilIdle()
 
         assertThat(installer.cleanupDoneAtInstall).hasSize(1)
+    }
+
+    @Test
+    fun `start installs the stored pack`() {
+        prefs.prefs.value = prefs.prefs.value.copy(dictionaryPack = DictionaryPack.DZONGKHA)
+        val installer = ProbeInstaller(prefs)
+        val init = initializer(installer)
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
     }
 }

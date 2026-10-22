@@ -28,15 +28,22 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Puts the bundled `dictionary.db` in place before Room opens it, so the splash can show copy progress.
+ * Puts one bundled pack database (`dictionary-<id>.db`, from `assets/dictionary/<id>.db`) in place before Room opens
+ * it, so the splash can show copy progress, and activates the pack on [DictionaryDatabases] once it is verified.
  *
  * The installer owns data upgrades: an on-device file whose header `user_version` differs from
  * [DictionaryDatabase.VERSION] (bumped on every data release) is deleted with its `-journal`/`-wal`/`-shm` siblings and
- * the asset is copied again. The copy goes to `dictionary.db.tmp`, is checked (SQLite magic, `user_version`, complete
- * length) and only then renamed over the target, so a failed or interrupted copy never leaves a half-written database.
- * Room then finds a file of the expected version and skips its own `createFromAsset` copy, which stays as the fallback
- * if the installer is ever bypassed. The installer must finish before anything else opens the database (start-up
- * runs it first): it deletes and replaces the file underneath.
+ * the asset is copied again. The copy goes to `dictionary-<id>.db.tmp`, is checked (SQLite magic,
+ * `user_version`, complete length) and only then renamed over the target, so a failed or
+ * interrupted copy never leaves a half-written database. Room then finds a file of the expected version and skips its own `createFromAsset` copy, which stays as the fallback
+ * if the installer is ever bypassed. The installer must finish before anything else opens that pack's database
+ * (start-up runs it first): it deletes and replaces the file underneath.
+ *
+ * Packs install side by side. A pack that is already active and [InstallState.Ready] is never reopened, verified or
+ * deleted again, and a failed install of another pack removes only that pack's own files, so the open database the
+ * app reads stays intact. On the first call of the process, before anything else, the installer sweeps what earlier
+ * versions left behind: the single-pack `dictionary.db` with its `-journal`/`-wal`/`-shm` siblings and any
+ * `dictionary-<id>.db.tmp`; it never deletes a pack's real `.db` file.
  *
  * Opening checks `meta.data_version` (§5.1): a missing or blank value is a broken build and fails the install. When
  * opening or that check fails, the installed file is deleted so a retry copies the asset again. Room is not closed
@@ -45,7 +52,8 @@ import kotlinx.coroutines.withContext
  *
  * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. The expected length
  * is [AssetSource.length] (known when the asset is stored uncompressed), else the size the data build recorded
- * ([AssetSizeProvider]; the asset ships compressed). With neither, only 0 and then 1 are reported. Only the
+ * ([AssetSizeProvider], `dictionary_asset_bytes_<id>`; the asset ships compressed). With neither, only 0 and then 1 are
+ * reported. Only the
  * descriptor's length is exact, so only it fails a copy of another size. A copy that differs from the recorded size
  * is reported to [ErrorReporter] and kept: the SQLite header check (page count × page size within the file) still
  * catches a truncated copy, and a stale resource must not block the install.
@@ -70,39 +78,62 @@ class DictionaryInstallerImpl @Inject constructor(
 
     private val mutex = Mutex()
 
+    /** Whether the first-run sweep has run in this process; only touched under [mutex]. */
+    private var swept = false
+
     /**
-     * Concurrent callers queue on [mutex]; a caller that finds [InstallState.Ready] returns at once. The state is not
-     * reset here: it is [InstallState.Checking] on the first call and [InstallState.Failed] on a retry.
+     * Concurrent callers queue on [mutex]; a caller that finds [pack] already installed and active returns at once
+     * (checked again under the lock, so two queued callers for one pack install it once). The state is not reset
+     * here: it is [InstallState.Checking] on the first call and [InstallState.Failed] on a retry.
      */
-    override suspend fun ensureInstalled() {
+    override suspend fun ensureInstalled(pack: DictionaryPack) {
+        if (isInstalledAndActive(pack)) return
         mutex.withLock {
-            if (_state.value is InstallState.Ready) return
+            if (isInstalledAndActive(pack)) return
             try {
-                _state.value = withContext(io) { install() }
+                _state.value = withContext(io) {
+                    sweepOnce()
+                    install(pack)
+                }
             } catch (t: Throwable) {
                 // install() turns every failure into Failed, so this is the caller being cancelled. Leave Failed, not
                 // the last Copying, so the shell shows the retry screen, then let the cancellation propagate.
-                _state.value = InstallState.Failed(t)
+                _state.value = InstallState.Failed(pack, t)
                 throw t
             }
         }
     }
 
-    private suspend fun install(): InstallState = try {
-        val target = context.getDatabasePath(DictionaryPack.TIBETAN.dbName)
+    private fun isInstalledAndActive(pack: DictionaryPack): Boolean {
+        val current = _state.value
+        return current is InstallState.Ready && current.pack == pack && databases.active.value == pack
+    }
+
+    /** Deletes the pre-pack `dictionary.db` and every pack's `.tmp` once per process; best effort, never a `.db`. */
+    private fun sweepOnce() {
+        if (swept) return
+        swept = true
+        val legacy = context.getDatabasePath(LEGACY_DB_NAME)
+        val leftovers = DATABASE_FILE_SUFFIXES.map { File(legacy.path + it) } +
+            DictionaryPack.entries.map { File(context.getDatabasePath(it.dbName).path + TEMP_SUFFIX) }
+        leftovers.forEach { it.delete() }
+    }
+
+    private suspend fun install(pack: DictionaryPack): InstallState = try {
+        val target = context.getDatabasePath(pack.dbName)
         if (readUserVersion(target) != DictionaryDatabase.VERSION) {
             deleteDatabaseFiles(target)
-            copyAsset(target)
+            copyAsset(pack, target)
         }
-        val entryCount = openAndCount(target)
-        databases.activate(DictionaryPack.TIBETAN)
-        InstallState.Ready(entryCount)
+        val entryCount = openAndCount(pack, target)
+        databases.activate(pack)
+        InstallState.Ready(pack, entryCount)
     } catch (t: Throwable) {
         // A real cancellation propagates; a CancellationException while still active (Room can throw a stray
         // java.util.concurrent one) is an ordinary failure. Throwable, not Exception: the splash waits on this state.
         if (t is CancellationException) currentCoroutineContext().ensureActive()
         errors.record(t)
-        InstallState.Failed(t)
+        InstallState.Failed(pack, t)
     }
 
     /** The file's `user_version`, or null when it is missing, unreadable or not an SQLite database. */
@@ -115,17 +146,17 @@ class DictionaryInstallerImpl @Inject constructor(
         }
     }
 
-    /** Streams the asset into a temp file next to [target], verifies it and renames it over [target]. */
-    private suspend fun copyAsset(target: File) {
+    /** Streams [pack]'s asset into a temp file next to [target], verifies it and renames it over [target]. */
+    private suspend fun copyAsset(pack: DictionaryPack, target: File) {
         val dir = checkNotNull(target.parentFile) { "No directory for $target" }
         if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create $dir")
         val temp = File(dir, target.name + TEMP_SUFFIX)
         try {
-            val exactLength = assetSource.length()?.takeIf { it > 0 }
-            val recordedLength = recordedAssetSize.expectedBytes()?.takeIf { it > 0 }
+            val exactLength = assetSource.length(pack)?.takeIf { it > 0 }
+            val recordedLength = recordedAssetSize.expectedBytes(pack)?.takeIf { it > 0 }
             val progressLength = exactLength ?: recordedLength
-            assetSource.open().use { input ->
-                _state.value = InstallState.Copying(0f)
+            assetSource.open(pack).use { input ->
+                _state.value = InstallState.Copying(pack, 0f)
                 FileOutputStream(temp).use { output ->
                     val buffer = ByteArray(BUFFER_SIZE)
                     var copied = 0L
@@ -138,17 +169,20 @@ class DictionaryInstallerImpl @Inject constructor(
                         copied += read
                         if (progressLength != null && copied - reported >= PROGRESS_STEP_BYTES) {
                             reported = copied
-                            _state.value = InstallState.Copying((copied.toFloat() / progressLength).coerceAtMost(1f))
+                            val fraction = (copied.toFloat() / progressLength).coerceAtMost(1f)
+                            _state.value = InstallState.Copying(pack, fraction)
                         }
                     }
                     output.fd.sync()
                 }
             }
-            _state.value = InstallState.Copying(1f)
+            _state.value = InstallState.Copying(pack, 1f)
             verifyHeader(temp, expectedLength = exactLength)
             if (exactLength == null && recordedLength != null && temp.length() != recordedLength) {
                 val copied = temp.length()
-                errors.record(IOException("dictionary_asset_bytes is $recordedLength but the asset has $copied bytes"))
+                errors.record(
+                    IOException("dictionary_asset_bytes_${pack.id} is $recordedLength but the asset has $copied bytes"),
+                )
             }
             if (!temp.renameTo(target)) throw IOException("Could not rename ${temp.name} to ${target.name}")
         } finally {
@@ -178,16 +212,17 @@ class DictionaryInstallerImpl @Inject constructor(
     }
 
     /**
-     * Opens Room on the installed [target], checks `meta.data_version` and sums the visible directions' entry counts.
-     * On failure (other than the caller being cancelled) it deletes [target] so a retry copies the asset again.
+     * Opens Room on [pack]'s installed [target], checks `meta.data_version` and sums the visible directions' entry
+     * counts. On failure (other than the caller being cancelled) it deletes [target] so a retry copies the asset
+     * again, unless [pack] is the active one, whose open file must stay.
      */
-    private suspend fun openAndCount(target: File): Int = try {
-        val db = databases.get(DictionaryPack.TIBETAN)
+    private suspend fun openAndCount(pack: DictionaryPack, target: File): Int = try {
+        val db = databases.get(pack)
         val dataVersion = db.metaDao().get(DATA_VERSION_KEY)
-        check(!dataVersion.isNullOrBlank()) { "dictionary.db has no meta.$DATA_VERSION_KEY" }
+        check(!dataVersion.isNullOrBlank()) { "${target.name} has no meta.$DATA_VERSION_KEY" }
         db.directionDao().observeVisible().first().sumOf { it.entryCount }
     } catch (t: Throwable) {
-        if (t !is CancellationException || currentCoroutineContext().isActive) {
+        if (databases.active.value != pack && (t !is CancellationException || currentCoroutineContext().isActive)) {
             try {
                 deleteDatabaseFiles(target)
             } catch (e: IOException) {
@@ -222,6 +257,7 @@ class DictionaryInstallerImpl @Inject constructor(
     }
 
     private companion object {
+        const val LEGACY_DB_NAME = "dictionary.db"
         const val TEMP_SUFFIX = ".tmp"
         const val DATA_VERSION_KEY = "data_version"
         val DATABASE_FILE_SUFFIXES = listOf("", "-journal", "-wal", "-shm")
