@@ -469,6 +469,26 @@ def test_build_requires_pack(tmp_path: Path, schema_dir: Path, capsys) -> None:
     assert "--pack" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("damage", ["missing", "wordcount"])
+def test_a_missing_or_bad_ddc_folder_is_reported_not_raised(
+    tmp_path: Path, schema_dir: Path, capsys, damage: str
+) -> None:
+    source = tmp_path / "nope"
+    if damage == "wordcount":
+        source = fake_ddc_source(tmp_path / "dzongkha")
+        ifo = source / "stardict-dz-en" / "dz-en.ifo"
+        ifo.write_text(ifo.read_text(encoding="utf-8").replace("wordcount=3", "wordcount=4"), encoding="utf-8")
+    out = tmp_path / "dz.db"
+
+    code = build_db.main(
+        ["--pack", "dz", "--source", str(source), "--schema-dir", str(schema_dir), "--out", str(out), "--data-version", "t"]
+    )
+
+    assert code == build_db.EXIT_INPUT_ERROR
+    assert "cannot read the source" in capsys.readouterr().err
+    assert not out.exists()
+
+
 def test_tiny_dz_build(tmp_path: Path, schema_dir: Path) -> None:
     source = fake_ddc_source(tmp_path / "dzongkha")
     out = tmp_path / "dz.db"

@@ -44,6 +44,7 @@ from dictbuild.report import BuildReport  # noqa: E402
 from dictbuild.resources import write_stats_xml, write_text_atomically  # noqa: E402
 from dictbuild.schema import Schema, latest_schema_path, load_schema  # noqa: E402
 from dictbuild.source import SourceRow  # noqa: E402
+from dictbuild.stardict import StarDictError  # noqa: E402
 from dictbuild.stats import RangeCheck, check_ranges, direction_rows, table_counts  # noqa: E402
 from dictbuild.wotd import DEFAULT_WOTD_SEED, assign_ranks  # noqa: E402
 from dictbuild.writer import assemble_rows, meta_rows, staged_database  # noqa: E402
@@ -136,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
         rows_by_table = pack.read_source(args.source, args.limit)
     except sqlite3.Error as error:
         return _fail(f"cannot read the source database {args.source}: {error}")
+    except StarDictError as error:
+        return _fail(f"cannot read the source {args.source}: {error}")
 
     report = BuildReport(
         inputs={
