@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TASHI_DELEK
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRA
 import com.kharagedition.tibetandictionary.data.MiniDictionary.TRAG
+import com.kharagedition.tibetandictionary.data.MiniDzongkha
 import com.kharagedition.tibetandictionary.data.TestDb
 import com.kharagedition.tibetandictionary.data.TestDb.directionRow
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabase
@@ -19,6 +20,7 @@ import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.time.LocalDate
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
@@ -116,6 +118,31 @@ class WordOfTheDayRepositoryImplTest {
         repo.observe(date).test {
             assertThat(awaitItem()).isNull()
             cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun wordOfTheDayFollowsTheActivePack() = runTest {
+        db = TestDb.miniDictionary(wotdSeed = seed)
+        val dzDb = TestDb.miniDzongkhaDictionary()
+        try {
+            val databases = databasesOf(DictionaryPack.TIBETAN to db, DictionaryPack.DZONGKHA to dzDb)
+            val repo = WordOfTheDayRepositoryImpl(databases, StandardTestDispatcher(testScheduler))
+
+            // Nothing is emitted, and nothing throws, until a pack is active.
+            repo.observe(date).test {
+                settle()
+                expectNoEvents()
+                databases.activate(DictionaryPack.TIBETAN)
+                assertThat(awaitItem()?.summary?.id).isEqualTo(expectedId(date))
+
+                databases.activate(DictionaryPack.DZONGKHA)
+                assertThat(awaitItem()?.summary?.id).isEqualTo(MiniDzongkha.CHU)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertThat(repo.forDate(date)?.summary?.id).isEqualTo(MiniDzongkha.CHU)
+        } finally {
+            dzDb.close()
         }
     }
 }

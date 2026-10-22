@@ -31,7 +31,7 @@ data class RelatedEntryEntity(
     @ColumnInfo(name = "target_entry_id") val targetEntryId: Long?,
     @ColumnInfo(name = "target_headword") val targetHeadword: String,
     @ColumnInfo(name = "target_wylie") val targetWylie: String?,
-    /** `see_also` or `synonym`. */
+    /** `see_also`, `synonym` or `antonym`. */
     @ColumnInfo(name = "relation") val relation: String,
     @ColumnInfo(name = "position") val position: Int,
 )
