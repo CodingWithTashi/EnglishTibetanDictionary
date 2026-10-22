@@ -9,9 +9,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import replace
 
-from dictbuild.model import ParsedRow, ParsedSense
 from dictbuild.parsers.common import tidy
 from dictbuild.source import SourceRow
 
@@ -96,21 +94,6 @@ def sort_case_duplicates(rows: list[SourceRow]) -> list[SourceRow]:
 def clean_gloss(text: str) -> str:
     """`tidy` the text of a gloss and drop the tsheg and shad marks left in front of it (empty if only those remain)."""
     return tidy(text).lstrip(_LEADING_MARKS)
-
-
-def drop_repeated_senses(parsed: ParsedRow) -> None:
-    """Drop a sense identical in gloss, part of speech and notes to an earlier one, then renumber.
-
-    The sources sometimes repeat a whole `<k>` block (`<k>ད་ཅི</k> … </def>` twice); the copy adds no sense.
-    """
-    seen: set[tuple[str, str | None, tuple[str, ...]]] = set()
-    kept: list[ParsedSense] = []
-    for sense in parsed.senses:
-        key = (sense.gloss, sense.part_of_speech, tuple(sense.notes))
-        if key not in seen:
-            seen.add(key)
-            kept.append(replace(sense, sense_no=len(kept) + 1))
-    parsed.senses = kept
 
 
 def strip_tags(markup: str) -> str:

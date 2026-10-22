@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from dictbuild.grouping import group_rows
 from dictbuild.model import GLOSS_LANG_DZ, ParsedRow
+from dictbuild.packs import DDC
 from dictbuild.parsers.dz_dz import parse_dz_dz_row
 from dictbuild.source import SourceRow
 from dictbuild.wylie import NullConverter
@@ -64,17 +66,12 @@ def test_nbsp_tsheg_becomes_a_tsheg() -> None:
 
 def test_a_repeated_k_block_does_not_repeat_its_sense() -> None:
     # Real row 9985: the second `<k>` block repeats the first.
-    row = parse_dz_dz_row(
-        SourceRow(
-            9985,
-            "བསྐྱལན ",
-            "<k>བསྐྱལན </k>ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག\n"
-            "<k>བསྐྱལན </k>ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག",
-        ),
-        NullConverter(),
-    )
+    text = "ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག"
+    parsed = parse_dz_dz_row(SourceRow(9985, "བསྐྱལན ", f"<k>བསྐྱལན </k>{text}\n<k>བསྐྱལན </k>{text}"), NullConverter())
 
-    assert [(s.sense_no, s.gloss) for s in row.senses] == [(1, "ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག")]
+    entry = group_rows(DDC, "dz-dz", [parsed])[0]
+
+    assert [(s.sense_no, s.gloss) for s in entry.senses] == [(1, text)]
 
 
 def test_a_shad_or_tsheg_left_before_the_first_sense_is_not_a_gloss() -> None:

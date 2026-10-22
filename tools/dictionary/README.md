@@ -432,10 +432,11 @@ are the known gaps in the current source, found while checking the real build. N
   form list `(ftr, pt, pst)`.
 - **Verb-form notes.** After a tense label, a parenthesised form such as `pst. (བྱུང་།)` (`dz-en` row 7984)
   stays in the gloss without its label. That row also repeats its whole definition (45 `dz-en` rows repeat a
-  `<k>` block this way, for example row 7984, entry 4007984, and a few `dz-dz` and `en-dz` rows do too); the
-  DDC parsers drop a sense identical in gloss, part of speech and notes to an earlier sense of the same row,
-  so the entry keeps one `(བྱུང་།) topical`. They also drop a tsheg or shad left in front of a gloss (a
-  numeral cut out of the text, or a headword tail), and a sense that is only such marks.
+  `<k>` block this way, for example row 7984, entry 4007984, and a few `dz-dz` and `en-dz` rows do too, and
+  `en-dz` `X`/`x` repeat one body); when rows are grouped, the DDC pack drops a sense identical in gloss, part
+  of speech and notes to an earlier sense of the same entry, so the entry keeps one `(བྱུང་།) topical`. The
+  DDC parsers also drop a tsheg or shad left in front of a gloss (a numeral cut out of the text, or a headword
+  tail), and a sense that is only such marks.
 - **Missing `༡`.** About 324 glosses (`en-dz` 284, `dz-dz` 40: `loaded`, `sickness`, `hammer`, `duct`,
   `གཡར་` ...) keep a stray inline numeral because the numbered run does not start at `༡`; the rule only
   accepts a run that starts at `༡`, so a source that starts at `༢` is not split.

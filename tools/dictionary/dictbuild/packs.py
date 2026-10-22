@@ -60,6 +60,8 @@ class Pack:
     expected: Expected
     read_source: Callable[[Path, int | None], dict[str, list[SourceRow]]]
     parse: Callable[[str, SourceRow, WylieConverter, HeadwordIndex], ParsedRow]  # dispatches on the table
+    # Whether an entry drops a sense identical (gloss, part of speech, notes) to an earlier one of the entry.
+    drop_identical_senses: bool = False
 
     def direction(self, direction_id: str) -> DirectionRow:
         """The pack's direction with this id; KeyError when it has none."""
@@ -264,6 +266,7 @@ DDC = Pack(
     ),
     read_source=_read_ddc_source,
     parse=_parse_ddc_row,
+    drop_identical_senses=True,
 )
 
 PACKS: dict[str, Pack] = {MONLAM.id: MONLAM, DDC.id: DDC}

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dictbuild.model import ParsedRow
+from dictbuild.grouping import group_rows
+from dictbuild.model import EntryDraft, ParsedRow
+from dictbuild.packs import DDC
 from dictbuild.parsers.ddc_common import pos_code, sort_case_duplicates
 from dictbuild.parsers.en_dz import parse_en_dz_row
 from dictbuild.source import SourceRow
@@ -160,9 +162,13 @@ def test_nbsp_tsheg_becomes_a_tsheg() -> None:
     assert [s.gloss for s in piggery.senses] == ["ཕག་གསོ་ཁང་། ཕགཔ་གསོ་སྐྱོང་ཁང་།"]
 
 
+def grouped(*rows: SourceRow) -> EntryDraft:
+    return group_rows(DDC, "en-dz", [parse_en_dz_row(row) for row in rows])[0]
+
+
 def test_a_repeated_k_block_keeps_the_first_senses_only() -> None:
     # Real rows 15365 (`phantasm`: the second block repeats the last sense of the first) and 11337 (`libretto`).
-    phantasm = parse_en_dz_row(
+    phantasm = grouped(
         SourceRow(
             15365,
             "phantasm",
@@ -170,7 +176,7 @@ def test_a_repeated_k_block_keeps_the_first_senses_only() -> None:
             "<k>phantasm</k> <pos><abbr><i>noun</i></abbr></pos> འཁྲུལ་སྣང༌། འཆར་སྣང༌།",
         )
     )
-    libretto = parse_en_dz_row(
+    libretto = grouped(
         SourceRow(
             11337,
             "libretto",
@@ -195,3 +201,13 @@ def test_a_numeral_that_leaves_only_a_shad_is_not_a_sense() -> None:
 
     assert [(s.sense_no, s.gloss) for s in row.senses] == [(1, "ལོ་གསར་ཉིནམ། སྤྱི་ཟླ་དང་པའི་ཚེས་")]
     assert row.warnings == ["sense_without_gloss"]
+
+
+def test_case_variants_with_the_same_body_keep_the_senses_once() -> None:
+    # Real rows 23118 and 23119 (`X`, `x`) have the same body and merge into one entry.
+    body = "<k>X</k> <k>x</k> <pos></pos> ༡ ཨིང་ལིཤ་གི་ཡི་གུ་ ༢༤ པ། ༢ རོ་མཱན་ཨང་ ༡༠ པ།"
+
+    entry = grouped(SourceRow(23118, "X", body), SourceRow(23119, "x", body))
+
+    assert [(s.sense_no, s.gloss) for s in entry.senses] == [(1, "ཨིང་ལིཤ་གི་ཡི་གུ་ ༢༤ པ།"), (2, "རོ་མཱན་ཨང་ ༡༠ པ།")]
+    assert entry.source_ids == [23118, 23119]

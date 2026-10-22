@@ -102,3 +102,14 @@ def test_rows_without_a_headword_are_skipped() -> None:
     [entry] = group_rows(MONLAM, "bo-en", rows)
 
     assert entry.source_ids == [2]
+
+
+def test_identical_senses_are_kept_for_monlam_and_dropped_for_ddc() -> None:
+    from dictbuild.packs import DDC
+
+    def rows() -> list[ParsedRow]:
+        return [tibetan(1, "ཀ་", "same", "same"), tibetan(2, "ཀ་", "same", "other")]
+
+    assert [s.gloss for s in group_rows(MONLAM, "bo-en", rows())[0].senses] == ["same", "same", "same", "other"]
+    ddc = group_rows(DDC, "dz-en", rows())[0]
+    assert [(s.sense_no, s.gloss) for s in ddc.senses] == [(1, "same"), (2, "other")]

@@ -6,7 +6,9 @@ import importlib.util
 
 import pytest
 
-from dictbuild.model import ParsedRow, RelatedCandidate
+from dictbuild.grouping import group_rows
+from dictbuild.model import EntryDraft, ParsedRow, RelatedCandidate
+from dictbuild.packs import DDC
 from dictbuild.parsers.ddc_common import pos_code, split_k_blocks, strip_tags
 from dictbuild.parsers.dz_en import parse_dz_en_row
 from dictbuild.related import HeadwordIndex
@@ -299,14 +301,18 @@ def test_headword_tail_after_a_kref_is_not_gloss_debris() -> None:
     assert [r.headword for r in satellite.related] == ["རང་དབང་"]
 
 
+def grouped(word: str, definition: str) -> EntryDraft:
+    return group_rows(DDC, "dz-en", [parse(word, definition)])[0]
+
+
 def test_a_repeated_k_block_does_not_repeat_its_senses() -> None:
     # Real rows 7950 and 7984: the second `<k>` block repeats the first.
-    adv = parse(
+    adv = grouped(
         "ད་ཅི",
         '<k>ད་ཅི</k> <def> <pos><abbr><i>adv.</i></abbr></pos>a while ago, a little before</def> \n'
         '<k>ད་ཅི</k> <def> <pos><abbr><i>adv.</i></abbr></pos>a while ago, a little before</def> ',
     )
-    verb = parse(
+    verb = grouped(
         "ད་ལྟོ་འབྱུང་བ",
         "<k>ད་ལྟོ་འབྱུང་བ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  "
         "<abbr><i>prs.</i></abbr>)  <abbr><i>pst.</i></abbr> (བྱུང་།) topical</def> \n"

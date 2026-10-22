@@ -19,7 +19,7 @@ from dictbuild.model import (
     ParsedSense,
     RelatedCandidate,
 )
-from dictbuild.parsers.ddc_common import clean_gloss, drop_repeated_senses, pos_code, split_k_blocks, strip_tags
+from dictbuild.parsers.ddc_common import clean_gloss, pos_code, split_k_blocks, strip_tags
 from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
 from dictbuild.text import normalise_tibetan_headword, preprocess
@@ -74,7 +74,6 @@ def parse_dz_en_row(row: SourceRow, converter: WylieConverter, index: HeadwordIn
             # Text before the first `<pos>` that holds only notes and links is not a lost sense.
             notes_only_lead = not pos_label and position < len(runs) - 1
             carried = _parse_run(markup, code, parsed, carried, optional=notes_only_lead)
-    drop_repeated_senses(parsed)
     return parsed
 
 
