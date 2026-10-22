@@ -84,6 +84,15 @@ class DirectionSwitcherTest {
     }
 
     @Test
+    fun dzongkhaTokenIsTibetanScript() {
+        val dzEn = boEn.copy(id = "dz-en", sourceLang = "dz", sourceScript = Script.TIBETAN, targetLang = "en")
+        val enDz = enBo.copy(id = "en-dz", targetLang = "dz")
+
+        assertThat(directionLabelText(dzEn)).isEqualTo("རྫོང→ EN")
+        assertThat(directionLabelText(enDz)).isEqualTo("EN →རྫོང")
+    }
+
+    @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE) // real font metrics
     fun `a Tibetan token stands a third of an em off the arrow, as the mockups space it`() {
         compose.setContent {

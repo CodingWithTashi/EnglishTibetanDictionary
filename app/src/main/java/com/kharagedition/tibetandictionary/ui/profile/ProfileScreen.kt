@@ -50,6 +50,7 @@ import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
+import com.kharagedition.tibetandictionary.data.model.nameRes
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.components.AccountCard
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
@@ -159,7 +160,7 @@ private fun Context.shareText(text: String) {
  * The stateless Profile tab: title, the account card (with accounts), the Reading group, footer links and the
  * version line, with the open [ProfileUiState.sheet] on top.
  *
- * Test tags: `profile_screen`, `profile_row_{text_size|theme|direction|language}`,
+ * Test tags: `profile_screen`, `profile_row_{text_size|theme|dictionary|direction|language}`,
  * `profile_link_{about|rate|share|more|support|privacy}`.
  */
 @Composable
@@ -223,6 +224,13 @@ private fun ReadingGroup(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit)
                     onSelect = { onEvent(ProfileEvent.SetAppearance(ThemeOrder[it])) },
                 )
             },
+        )
+        SettingsRow(
+            label = stringResource(R.string.dictionary),
+            modifier = Modifier.testTag("profile_row_dictionary"),
+            value = stringResource(state.dictionary.nameRes()),
+            onClick = { onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY)) },
+            trailing = SettingsTrailing.Chevron,
         )
         state.defaultDirection?.let { direction ->
             SettingsRow(

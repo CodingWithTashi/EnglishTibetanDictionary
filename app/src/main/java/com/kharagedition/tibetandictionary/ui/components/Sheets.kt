@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -39,7 +41,12 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.descriptionRes
+import com.kharagedition.tibetandictionary.data.model.entryCountRes
+import com.kharagedition.tibetandictionary.data.model.glossRes
+import com.kharagedition.tibetandictionary.data.model.nameRes
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -188,6 +195,9 @@ fun directionDescription(direction: Direction): String = when (direction.id) {
     "bo-en" -> stringResource(R.string.direction_desc_bo_en)
     "bo-bo" -> stringResource(R.string.direction_desc_bo_bo)
     "en-bo" -> stringResource(R.string.direction_desc_en_bo)
+    "dz-en" -> stringResource(R.string.direction_desc_dz_en)
+    "dz-dz" -> stringResource(R.string.direction_desc_dz_dz)
+    "en-dz" -> stringResource(R.string.direction_desc_en_dz)
     else -> if (DictTheme.language == AppLanguage.BO) direction.labelBo else direction.labelEn
 }
 
@@ -241,6 +251,53 @@ private fun LanguagePickerContent(selected: AppLanguage, onPick: (AppLanguage) -
             OptionCard(selected = language == selected, onClick = { onPick(language) }) {
                 MixedText(name, DictTheme.type.buttonLarge, DictTheme.type.tibetanGloss)
             }
+        }
+    }
+}
+
+/**
+ * One dictionary pack as an option card: its name and gloss, with the description and entry count underneath. Shared by
+ * the onboarding Dictionary step and [DictionaryPickerSheet].
+ */
+@Composable
+fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val type = DictTheme.type
+    OptionCard(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        description = stringResource(
+            pack.descriptionRes(),
+            TibetanNumerals.formatCount(integerResource(pack.entryCountRes()), DictTheme.language),
+        ),
+    ) {
+        MixedText(stringResource(pack.nameRes()) + " · " + stringResource(pack.glossRes()), type.buttonLarge, type.tibetanGloss)
+    }
+}
+
+/** Picks the dictionary pack: Tibetan or Dzongkha. Test tags: `dictionary_option_{pack id}`. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DictionaryPickerSheet(
+    selected: DictionaryPack,
+    onPick: (DictionaryPack) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    DictModalSheet(onDismiss, modifier) { DictionaryPickerContent(selected, onPick) }
+}
+
+@Composable
+private fun DictionaryPickerContent(selected: DictionaryPack, onPick: (DictionaryPack) -> Unit) {
+    SheetTitle(stringResource(R.string.dictionary))
+    OptionList {
+        DictionaryPack.entries.forEach { pack ->
+            PackOptionCard(
+                pack = pack,
+                selected = pack == selected,
+                onClick = { onPick(pack) },
+                modifier = Modifier.testTag("dictionary_option_${pack.id}"),
+            )
         }
     }
 }

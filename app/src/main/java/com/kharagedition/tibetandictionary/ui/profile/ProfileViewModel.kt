@@ -8,7 +8,10 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,6 +43,8 @@ import kotlinx.coroutines.launch
 class ProfileViewModel @Inject constructor(
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
+    databases: DictionaryDatabases,
+    private val switcher: DictionarySwitcher,
     private val localeApplier: LocaleApplier,
     private val linkTargets: ProfileLinkTargets,
     private val errors: ErrorReporter,
@@ -51,8 +57,14 @@ class ProfileViewModel @Inject constructor(
     val effects: Flow<ProfileEffect> = effectChannel.receiveAsFlow()
 
     val uiState: StateFlow<ProfileUiState?> =
-        combine(prefs.prefs, dictionary.capabilities, appLanguage, sheet) { prefs, capabilities, appLanguage, sheet ->
-            state(prefs, capabilities, appLanguage ?: prefs.appLanguage, sheet)
+        combine(
+            prefs.prefs,
+            dictionary.capabilities,
+            databases.active.filterNotNull(),
+            appLanguage,
+            sheet,
+        ) { prefs, capabilities, pack, appLanguage, sheet ->
+            state(prefs, capabilities, pack, appLanguage ?: prefs.appLanguage, sheet)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun onEvent(event: ProfileEvent) {
@@ -63,6 +75,7 @@ class ProfileViewModel @Inject constructor(
             is ProfileEvent.SetTextSize -> persist { setTextSize(event.size) }
             is ProfileEvent.SetLineSpacing -> persist { setLineSpacing(event.spacing) }
             is ProfileEvent.SetAppearance -> persist { setAppearance(event.appearance) }
+            is ProfileEvent.SetDictionary -> setDictionary(event.pack)
             is ProfileEvent.SetDefaultDirection -> {
                 sheet.value = null
                 persist { setDefaultDirectionId(event.direction.id) }
@@ -80,6 +93,13 @@ class ProfileViewModel @Inject constructor(
             // Accounts ship behind Features.ACCOUNTS; there is nothing to sign in to yet.
             ProfileEvent.SignIn, ProfileEvent.OpenAccount -> Unit
         }
+    }
+
+    private fun setDictionary(pack: DictionaryPack) {
+        // Close the sheet first: the switch shows a full-screen overlay, and the sheet is a window above it.
+        sheet.value = null
+        // The switch runs on the application scope, so leaving this screen cannot cancel it.
+        if (pack != uiState.value?.dictionary) switcher.switchTo(pack)
     }
 
     private fun setLanguage(language: AppLanguage) {
@@ -112,6 +132,7 @@ class ProfileViewModel @Inject constructor(
     private fun state(
         prefs: UserPrefs,
         capabilities: DictionaryCapabilities,
+        pack: DictionaryPack,
         language: AppLanguage,
         sheet: ProfileSheet?,
     ): ProfileUiState {
@@ -121,6 +142,7 @@ class ProfileViewModel @Inject constructor(
             textSize = prefs.textSize,
             lineSpacing = prefs.lineSpacing,
             appearance = prefs.appearance,
+            dictionary = pack,
             defaultDirection = defaultDirection(visible, prefs.defaultDirectionId),
             directions = visible,
             language = language,

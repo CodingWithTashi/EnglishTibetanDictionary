@@ -7,24 +7,19 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
-import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
-import com.kharagedition.tibetandictionary.data.model.descriptionRes
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
-import com.kharagedition.tibetandictionary.data.model.glossRes
-import com.kharagedition.tibetandictionary.data.model.nameRes
 import com.kharagedition.tibetandictionary.ui.components.DirectionLabel
 import com.kharagedition.tibetandictionary.ui.components.FlagStrand
 import com.kharagedition.tibetandictionary.ui.components.FlagStrandSize
 import com.kharagedition.tibetandictionary.ui.components.LineSpacingSlider
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.OptionCard
+import com.kharagedition.tibetandictionary.ui.components.PackOptionCard
 import com.kharagedition.tibetandictionary.ui.components.PreviewCard
 import com.kharagedition.tibetandictionary.ui.components.SliderHeader
 import com.kharagedition.tibetandictionary.ui.components.TextSizeSlider
@@ -68,7 +63,6 @@ private fun stepTag(step: Int) = "onboarding_step_$step"
 @Composable
 internal fun DictionaryStep(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
     val type = DictTheme.type
-    val language = DictTheme.language
     Column(modifier.testTag(stepTag(OnboardingStep.DICTIONARY))) {
         FlagStrand(FlagStrandSize.Onboarding, Modifier.padding(top = StrandTop))
         TibetanText(GREETING, Modifier.padding(top = GreetingTop), style = type.tibetanGreeting, color = DictTheme.colors.accent)
@@ -84,21 +78,12 @@ internal fun DictionaryStep(state: OnboardingUiState, onEvent: (OnboardingEvent)
             verticalArrangement = Arrangement.spacedBy(CardGap),
         ) {
             state.packs.forEach { pack ->
-                OptionCard(
+                PackOptionCard(
+                    pack = pack,
                     selected = pack == state.selectedPack,
                     onClick = { onEvent(OnboardingEvent.SelectDictionary(pack)) },
                     modifier = Modifier.testTag("onboarding_pack_${pack.id}"),
-                    description = stringResource(
-                        pack.descriptionRes(),
-                        TibetanNumerals.formatCount(integerResource(pack.entryCountRes()), language),
-                    ),
-                ) {
-                    MixedText(
-                        stringResource(pack.nameRes()) + " · " + stringResource(pack.glossRes()),
-                        type.buttonLarge,
-                        type.tibetanGloss,
-                    )
-                }
+                )
             }
         }
     }
