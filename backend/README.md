@@ -57,6 +57,8 @@ Response:
 - `provider` is who translated it. Show machine-translation attribution as each provider requires: Google
   requires that users can see the text was machine translated by Google.
 - `resetsAt` is the user's next local midnight.
+- `quota` is missing only on a cached reply when the server couldn't read today's usage. A cached reply never
+  changes the count, so keep showing the last quota you had.
 
 ### `getTranslationStatus`
 
@@ -87,10 +89,11 @@ Every refusal is an `HttpsError` with `details.reason`:
 
 ### Character counting
 
-Limits count **Unicode code points of the normalised text**. Normalisation: NFC, zero-width characters
-removed, runs of spaces collapsed, lines trimmed, at most one blank line in a row, then trimmed. Kotlin:
-`text.codePointCount(0, text.length)` on text normalised the same way (`Normalizer.normalize(text,
-Normalizer.Form.NFC)` first). Tibetan is all in the BMP, so for Tibetan text this equals `String.length`.
+Limits count **Unicode code points of the normalised text**. Normalisation: a lone surrogate (broken UTF-16)
+becomes U+FFFD, NFC, zero-width characters removed, runs of spaces collapsed, lines trimmed, at most one blank
+line in a row, then trimmed. Kotlin: `text.codePointCount(0, text.length)` on text normalised the same way
+(`Normalizer.normalize(text, Normalizer.Form.NFC)` first). Tibetan is all in the BMP, so for Tibetan text this
+equals `String.length`.
 
 **Count after NFC, not before.** NFC can make Tibetan text longer: precomposed letters such as གྷ (U+0F43)
 and ཱི (U+0F73) decompose to two code points. A client counter that skips NFC can show "100 / 100" for text
@@ -178,6 +181,21 @@ Before release, the privacy policy must say that text typed for translation is s
 (Azure) or Google and cached for up to 180 days. Logs never contain user text: they record uid, direction,
 character count, a 12-character key prefix, provider, outcome and latency.
 
+## Known limits
+
+Deliberate behaviour, pinned by tests so that a change is a decision, not an accident:
+
+- **A double tap counts twice.** Two identical requests sent at the same moment both miss the cache, so both
+  are translated and both are counted (`test/emulator/translatePipeline.test.ts`). A retry after a reply is a
+  cache hit and is free.
+- **The global budget is approximate.** Each instance re-reads the day's total every 30 s, so busy instances
+  can overshoot it by about 30 s of traffic.
+- **The rate limit is per instance.** A user spread over several instances gets more than
+  `rateLimitPerMinute`; the daily quota still holds.
+- **The day follows the device.** Changing the device's time zone can move the day key, and reinstalling gives
+  a new anonymous uid. The global budget bounds both.
+- **Pro is not enforced** until the billing phase (`src/service/plan.ts`).
+
 ## Development
 
 ```bash
@@ -187,9 +205,14 @@ npm run format        # Prettier
 npm run lint          # ESLint, typescript-eslint strict + type-checked
 npm run typecheck
 npm test              # unit tests (Vitest)
-npm run test:emulator # Firestore emulator: cache, quota races, budget, security rules (Java 21+)
+npm run test:emulator # Firestore emulator: stores, the handler on real stores, the callables, rules (Java 21+)
+npm run coverage            # unit tests with coverage and thresholds (src/ without src/store/)
+npm run coverage:emulator   # emulator tests with coverage and thresholds (src/store/)
 npm run build         # → lib/
 ```
+
+CI runs the two coverage commands, so a change that drops coverage below the thresholds in
+`vitest.config.ts` or `vitest.emulator.config.ts` fails the build. Reports land in `coverage/` (git-ignored).
 
 The emulator tests run as project `demo-translation`, so they never touch the real project. CI runs all of
 the above in the `translation-backend` job of `.github/workflows/main.yml`.

@@ -1,3 +1,5 @@
+import { HttpsError } from "firebase-functions/v2/https";
+
 import { ProviderError } from "../../src/providers/types.js";
 import type {
   ProviderErrorKind,
@@ -14,6 +16,21 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   data?: Record<string, unknown>;
+}
+
+/** The HttpsError a call is refused with; fails the test if it resolves or throws anything else. */
+export async function rejection(promise: Promise<unknown>): Promise<HttpsError> {
+  try {
+    await promise;
+  } catch (error) {
+    if (error instanceof HttpsError) return error;
+    throw error;
+  }
+  throw new Error("expected an HttpsError");
+}
+
+export function reasonOf(error: HttpsError): unknown {
+  return (error.details as { reason?: unknown } | undefined)?.reason;
 }
 
 /** A logger that records what it is given. */

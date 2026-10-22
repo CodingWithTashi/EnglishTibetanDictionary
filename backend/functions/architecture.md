@@ -58,6 +58,8 @@ tests run the stores and security rules against a real Firestore.
   zero-width characters still hit the same entry.
 - Entries live 180 days through a TTL policy. A hit with under 30 days left extends the entry.
 - Hits cost nothing and are not counted. Failed or empty translations are never cached.
+- If today's usage can't be read, a hit is still served, without `quota`; a miss doesn't need it.
+- Normalising also replaces lone surrogates with U+FFFD: Firestore rejects strings that aren't well-formed.
 - Raising `cache.generation` invalidates every entry.
 
 **Daily quota.**

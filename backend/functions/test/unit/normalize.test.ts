@@ -16,6 +16,12 @@ describe("normalize", () => {
     expect(normalize("e\u0301")).toBe("\u00E9");
   });
 
+  test("replaces lone surrogates with U+FFFD and keeps surrogate pairs", () => {
+    expect(normalize("ཀ\uD800")).toBe("ཀ\uFFFD");
+    expect(normalize("\uDC00ཀ")).toBe("\uFFFDཀ");
+    expect(normalize("ཀ😀")).toBe("ཀ😀");
+  });
+
   test("returns an empty string for whitespace-only input", () => {
     expect(normalize(" \n\t\u200B ")).toBe("");
   });

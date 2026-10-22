@@ -43,6 +43,15 @@ describe("budget store", () => {
     expect(await budget.isOver(400)).toBe(true);
   });
 
+  test("a shard whose chars is not a number counts as zero", async () => {
+    // A field edited in the Firestore console becomes a string unless the type is changed.
+    await db.doc("budget/2026-10-22/shards/0").set({ chars: "500" });
+    await db.doc("budget/2026-10-22/shards/1").set({ chars: 100 });
+    const clock = { now: T0 };
+    expect(await budgetAt(clock).isOver(100)).toBe(true);
+    expect(await budgetAt(clock).isOver(101)).toBe(false);
+  });
+
   test("a new UTC day starts from zero", async () => {
     const clock = { now: T0 };
     const budget = budgetAt(clock);

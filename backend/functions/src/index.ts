@@ -17,8 +17,9 @@ import { createTranslationCache } from "./store/translationCache.js";
 import { cloudLogger } from "./util/cloudLogger.js";
 
 const db = getFirestore(initializeApp());
-// REST instead of gRPC: smaller cold start; nothing here needs streaming.
-db.settings({ preferRest: true });
+// REST instead of gRPC: smaller cold start; nothing here needs streaming. Not on the emulator: the REST client
+// signs every request with Application Default Credentials, so it fails where there are none (CI).
+db.settings({ preferRest: !process.env.FIRESTORE_EMULATOR_HOST });
 
 const log = cloudLogger;
 const now = () => new Date();

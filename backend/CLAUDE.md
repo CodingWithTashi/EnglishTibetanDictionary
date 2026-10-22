@@ -20,6 +20,8 @@ npm run lint            # ESLint, typescript-eslint strictTypeChecked + stylisti
 npm run typecheck
 npm test                # unit tests (test/unit), no emulator
 npm run test:emulator   # Firestore emulator tests (test/emulator) as project demo-translation
+npm run coverage        # unit tests + coverage thresholds (vitest.config.ts)
+npm run coverage:emulator   # emulator tests + coverage thresholds (vitest.emulator.config.ts)
 npm run build           # tsc → lib/
 
 npx vitest run test/unit/router.test.ts -t "breaker"     # one unit file / test name
@@ -27,9 +29,10 @@ npx firebase emulators:exec --only firestore --project demo-translation \
   "npx vitest run --config vitest.emulator.config.ts test/emulator/quotaStore.test.ts"   # one emulator file
 ```
 
-CI runs format:check, lint, typecheck, unit, emulator and build in the `translation-backend` job of
-`.github/workflows/main.yml`. `release.yml` reuses that workflow, so a failing backend job blocks Android
-releases.
+CI runs format:check, lint, typecheck, unit and emulator tests (as the two coverage commands) and build in the
+`translation-backend` job of `.github/workflows/main.yml`. Coverage thresholds are a floor: raise them as
+coverage grows, never lower them to get a change through. `release.yml` reuses that workflow, so a failing
+backend job blocks Android releases.
 
 ## Architecture in brief
 
@@ -53,6 +56,15 @@ releases.
 - `console` is banned outside `scripts/`; log through the `Logger`.
 - Never log user text or translations. `translateHandler.test.ts` asserts this over every log payload.
 - Emulator tests must use project `demo-translation`, never the real project.
+- Test layers: `test/unit` (fakes), `test/emulator/*Store.test.ts` (one store), `translatePipeline.test.ts`
+  (the handler on the real stores, fake router and config), `callables.test.ts` (the exported functions through
+  `.run()`, which skips App Check). The callables test has no network: it points Google credentials at a
+  missing file, sets the Azure key to `unset`, and its fetch stub fails any request that isn't to the emulator.
+- `src/index.ts` uses Firestore over REST in production but gRPC when `FIRESTORE_EMULATOR_HOST` is set: the
+  REST client signs every request with Application Default Credentials, so it fails on the emulator wherever
+  there are none (CI) and uses your gcloud credentials where there are.
+- Behaviour that is deliberate but looks odd is listed under "Known limits" in `README.md` and pinned by a
+  test. Change it only on purpose, together with that test.
 - `test/unit/index.test.ts` pins the deploy options through `__endpoint`: region, memory, cpu, concurrency,
   maxInstances, timeout, service account and secret binding. If you change an option, update that test.
 - `serviceAccount` must be the full email. firebase-tools 15.34 passes the short `translation-fn@` form

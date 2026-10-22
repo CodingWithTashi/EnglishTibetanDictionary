@@ -63,7 +63,8 @@ export interface TranslateResponse {
   cached: boolean;
   /** Who translated it, for attribution. */
   provider: ProviderId;
-  quota: QuotaInfo;
+  /** Absent only on a cached reply when today's usage could not be read; a hit does not change the count. */
+  quota?: QuotaInfo;
 }
 
 export interface StatusResponse extends QuotaInfo {
@@ -172,7 +173,11 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
         deps.log.warn("cache read failed, treating as a miss", { ...event, error: errorMessage(error) });
         return null;
       }),
-      deps.quota.read(uid, day.dayKey),
+      // Only a hit uses it; a miss counts through the reservation below.
+      deps.quota.read(uid, day.dayKey).catch((error: unknown): Usage | null => {
+        deps.log.warn("usage read failed", { ...event, error: errorMessage(error) });
+        return null;
+      }),
     ]);
     if (hit) {
       deps.log.info("translate", { ...event, outcome: "cached", tier: hit.tier, provider: hit.provider });
@@ -182,7 +187,7 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
         target,
         cached: true,
         provider: hit.provider,
-        quota: quotaInfo(plan, limits, usage, day),
+        ...(usage ? { quota: quotaInfo(plan, limits, usage, day) } : {}),
       };
     }
 

@@ -14,6 +14,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:emulator": "firebase emulators:exec --only firestore --project demo-translation \"vitest run --config vitest.emulator.config.ts\"",
+    "coverage": "vitest run --coverage",
+    "coverage:emulator": "firebase emulators:exec --only firestore --project demo-translation \"vitest run --config vitest.emulator.config.ts --coverage\"",
     "check-providers": "tsx scripts/check-providers.ts",
     "smoke": "tsx scripts/smoke-callable.ts"
   },
@@ -30,6 +32,7 @@
     "@firebase/rules-unit-testing": "5.0.2",
     "@types/luxon": "3.7.6",
     "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.5",
     "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "firebase": "12.19.0",

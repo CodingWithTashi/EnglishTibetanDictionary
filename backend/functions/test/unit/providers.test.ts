@@ -124,11 +124,26 @@ describe("Azure provider", () => {
     expect(error.status).toBe(429);
   });
 
+  test("ignores a Retry-After date, so the router uses its own wait", async () => {
+    const date = { "retry-after": "Thu, 22 Oct 2026 19:00:00 GMT" };
+    const error = await failure(createAzureProvider({ ...azureOptions, fetch: respond(429, {}, date) }));
+    expect(error.kind).toBe("rate_limited");
+    expect(error.retryAfterMs).toBeUndefined();
+  });
+
   test("a network failure is transient", async () => {
     const fetchMock = vi.fn(() => Promise.reject(new TypeError("fetch failed")));
     expect((await failure(createAzureProvider({ ...azureOptions, fetch: fetchMock }))).kind).toBe(
       "transient",
     );
+  });
+
+  test("without a key it refuses with auth and makes no request", async () => {
+    const fetchMock = respond(200, [{ translations: [{ text: "ok", to: "en" }] }]);
+    expect(
+      (await failure(createAzureProvider({ ...azureOptions, key: "unset", fetch: fetchMock }))).kind,
+    ).toBe("auth");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -186,6 +201,8 @@ describe("Google provider", () => {
     ["quota", 429, { error: { code: 429, message: "quota", status: "RESOURCE_EXHAUSTED" } }, "rate_limited"],
     ["server error", 500, { error: { code: 500, message: "internal" } }, "transient"],
     ["empty translation", 200, { translations: [{ translatedText: "" }] }, "bad_response"],
+    ["a proxy's HTML error page", 502, "<html>Bad Gateway</html>", "transient"],
+    ["not JSON", 200, "<html>", "bad_response"],
   ])("%s → %s", async (_name, status, body, kind) => {
     const error = await failure(createGoogleProvider({ ...googleOptions, fetch: respond(status, body) }));
     expect(error.kind).toBe(kind);

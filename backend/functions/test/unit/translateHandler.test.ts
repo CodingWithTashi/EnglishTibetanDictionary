@@ -1,12 +1,12 @@
-import { HttpsError } from "firebase-functions/v2/https";
 import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../../src/config/runtimeConfig.js";
 import { AllProvidersFailedError, type Router } from "../../src/providers/router.js";
+import type { PlanResolver } from "../../src/service/plan.js";
 import { createRateLimiter } from "../../src/service/rateLimiter.js";
 import { handleStatus, handleTranslate, type Deps } from "../../src/service/translateHandler.js";
 import { cacheKey } from "../../src/store/cacheKey.js";
-import { fakeLogger, memoryBudget, memoryCache, memoryQuota } from "./fakes.js";
+import { fakeLogger, memoryBudget, memoryCache, memoryQuota, reasonOf, rejection } from "./fakes.js";
 
 const NOW = new Date("2026-10-22T19:00:00Z"); // 2026-10-23 01:00 in Thimphu
 const TIBETAN_100 = "ཀ".repeat(100);
@@ -23,7 +23,7 @@ function setup(overrides: { config?: Partial<RuntimeConfig>; router?: Router } =
     budget: memoryBudget(),
     router: overrides.router ?? { translate: translateFn },
     rateLimiter: createRateLimiter({ now: () => NOW.getTime() }),
-    resolvePlan: () => Promise.resolve("free" as const),
+    resolvePlan: vi.fn<PlanResolver>(() => Promise.resolve("free")),
     log: fakeLogger(),
     now: () => NOW,
   } satisfies Deps;
@@ -38,20 +38,6 @@ const request = (data: unknown, uid: string | null = "user-1") => ({
 
 const bo = (text: string, extra: Record<string, unknown> = {}) =>
   request({ text, source: "bo", target: "en", timeZone: "Asia/Thimphu", ...extra });
-
-async function rejection(promise: Promise<unknown>): Promise<HttpsError> {
-  try {
-    await promise;
-  } catch (error) {
-    if (error instanceof HttpsError) return error;
-    throw error;
-  }
-  throw new Error("expected an HttpsError");
-}
-
-function reasonOf(error: HttpsError): unknown {
-  return (error.details as { reason?: unknown } | undefined)?.reason;
-}
 
 describe("handleTranslate: validation", () => {
   test("requires a signed-in user", async () => {
@@ -124,6 +110,15 @@ describe("handleTranslate: validation", () => {
     await expect(handleTranslate(bo(`  ${TIBETAN_100}\u200B  `), deps)).resolves.toMatchObject({
       cached: false,
     });
+  });
+
+  test("a pro user gets the pro plan's daily limit and length", async () => {
+    const { deps } = setup();
+    deps.resolvePlan.mockResolvedValue("pro");
+    const response = await handleTranslate(bo("ཀ".repeat(500)), deps);
+    expect(response.quota).toMatchObject({ plan: "pro", limit: 300, remaining: 299, maxChars: 500 });
+    const error = await rejection(handleTranslate(bo("ཀ".repeat(501)), deps));
+    expect(error.details).toEqual({ reason: "text_too_long", maxChars: 500, length: 501 });
   });
 
   test("raw input over 5,000 characters is text_too_long before any processing", async () => {
@@ -254,7 +249,7 @@ describe("handleTranslate: cache and quota", () => {
   test("an unknown time zone counts against the UTC day", async () => {
     const { deps } = setup();
     const response = await handleTranslate(bo("བཀྲ་ཤིས", { timeZone: "Not/AZone" }), deps);
-    expect(response.quota.resetsAt).toBe("2026-10-23T00:00:00.000Z");
+    expect(response.quota?.resetsAt).toBe("2026-10-23T00:00:00.000Z");
     expect(deps.quota.usage.get("user-1_2026-10-22")).toEqual({ count: 1, chars: 7 });
   });
 
@@ -282,6 +277,82 @@ describe("handleTranslate: cache and quota", () => {
   });
 });
 
+describe("handleTranslate: failure paths", () => {
+  const failingRouter: Router = {
+    translate: () =>
+      Promise.reject(new AllProvidersFailedError([{ provider: "azure", outcome: "transient" }])),
+  };
+
+  test("a refund that fails is logged, and the reply is still provider_unavailable", async () => {
+    const { deps } = setup({ router: failingRouter });
+    deps.quota.refund = () => Promise.reject(new Error("firestore down"));
+    const error = await rejection(handleTranslate(bo("བཀྲ་ཤིས"), deps));
+    expect(error.code).toBe("unavailable");
+    expect(reasonOf(error)).toBe("provider_unavailable");
+    expect(deps.log.entries).toContainEqual({
+      level: "error",
+      message: "refund failed",
+      data: expect.objectContaining({ uid: "user-1", pair: "bo-en", error: "firestore down" }) as unknown,
+    });
+    // The user keeps the lost reservation until the day ends.
+    expect(deps.quota.usage.get("user-1_2026-10-23")).toEqual({ count: 1, chars: 7 });
+  });
+
+  test("a budget write that fails is logged, and the translation is still returned, counted and cached", async () => {
+    const { deps } = setup();
+    deps.budget.add = () => Promise.reject(new Error("firestore down"));
+    const response = await handleTranslate(bo("བཀྲ་ཤིས"), deps);
+    expect(response).toMatchObject({ translation: "Tashi Delek", cached: false, quota: { used: 1 } });
+    expect(deps.log.entries).toContainEqual({
+      level: "error",
+      message: "budget write failed",
+      data: expect.objectContaining({ uid: "user-1", error: "firestore down" }) as unknown,
+    });
+    expect(deps.cache.entries.size).toBe(1);
+  });
+
+  test("a usage read that fails on a cache hit still serves the hit, without a quota, and logs a warning", async () => {
+    // A hit never changes the count, so the app keeps showing the last quota it had.
+    const { deps, translateFn } = setup();
+    await handleTranslate(bo("བཀྲ་ཤིས"), deps);
+    deps.quota.read = () => Promise.reject(new Error("firestore slow"));
+    const response = await handleTranslate(bo("བཀྲ་ཤིས"), deps);
+    expect(response).toEqual({
+      translation: "Tashi Delek",
+      source: "bo",
+      target: "en",
+      cached: true,
+      provider: "azure",
+    });
+    expect(translateFn).toHaveBeenCalledTimes(1);
+    expect(deps.log.entries).toContainEqual({
+      level: "warn",
+      message: "usage read failed",
+      data: expect.objectContaining({ uid: "user-1", error: "firestore slow" }) as unknown,
+    });
+  });
+
+  test("a usage read that fails on a miss is not needed: the reservation counts the translation", async () => {
+    const { deps } = setup();
+    deps.quota.read = () => Promise.reject(new Error("firestore slow"));
+    const response = await handleTranslate(bo("བཀྲ་ཤིས"), deps);
+    expect(response).toMatchObject({ cached: false, quota: { used: 1, remaining: 9 } });
+    expect(deps.quota.usage.get("user-1_2026-10-23")).toEqual({ count: 1, chars: 7 });
+  });
+
+  test("a lone surrogate is replaced by U+FFFD before the text is counted, cached or sent", async () => {
+    // Firestore rejects strings with lone surrogates, so such a text was never cached and every repeat was paid.
+    const { deps, translateFn } = setup();
+    const response = await handleTranslate(bo("བཀྲ་ཤིས\uD800"), deps);
+    expect(response).toMatchObject({ cached: false, quota: { used: 1 } });
+    expect(translateFn).toHaveBeenCalledWith(["azure", "google"], "བཀྲ་ཤིས\uFFFD", "bo", "en");
+    expect(deps.quota.usage.get("user-1_2026-10-23")).toEqual({ count: 1, chars: 8 });
+    expect(deps.cache.entries.get(cacheKey(1, "bo", "en", "བཀྲ་ཤིས\uFFFD"))?.sourceText).toBe(
+      "བཀྲ་ཤིས\uFFFD",
+    );
+  });
+});
+
 describe("handleStatus", () => {
   test("reports the plan, today's usage and the open directions", async () => {
     const { deps } = setup({ config: { routes: { ...DEFAULT_CONFIG.routes, "en-dz": [] } } });
@@ -302,6 +373,13 @@ describe("handleStatus", () => {
     const { deps } = setup();
     await expect(handleStatus(request(undefined), deps)).resolves.toMatchObject({ used: 0, remaining: 10 });
     expect((await rejection(handleStatus(request({}, null), deps))).code).toBe("unauthenticated");
+  });
+
+  test("a malformed request is bad_request", async () => {
+    const { deps } = setup();
+    const error = await rejection(handleStatus(request({ timeZone: 5 }), deps));
+    expect(error.code).toBe("invalid-argument");
+    expect(reasonOf(error)).toBe("bad_request");
   });
 
   test("never more remaining than zero after the limit", async () => {

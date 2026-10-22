@@ -114,11 +114,12 @@ jobs:
       - name: Format, lint and typecheck
         run: npm run format:check && npm run lint && npm run typecheck
 
-      - name: Unit tests
-        run: npm test
+      # The coverage runs are the unit and emulator tests, plus the thresholds in vitest*.config.ts.
+      - name: Unit tests with coverage
+        run: npm run coverage
 
-      - name: Emulator tests
-        run: npm run test:emulator
+      - name: Emulator tests with coverage
+        run: npm run coverage:emulator
 
       - name: Build
         run: npm run build

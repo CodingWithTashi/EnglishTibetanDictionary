@@ -6,11 +6,13 @@ const HORIZONTAL_SPACE = /[^\S\n]+/g;
 const LETTER = /\p{L}/u;
 
 /**
- * The text that is counted, cached and sent to a provider: NFC, no zero-width characters, LF line breaks,
- * single spaces, trimmed lines, at most one blank line in a row, trimmed.
+ * The text that is counted, cached and sent to a provider: well-formed (a lone surrogate becomes U+FFFD, which
+ * Firestore can store), NFC, no zero-width characters, LF line breaks, single spaces, trimmed lines, at most one
+ * blank line in a row, trimmed.
  */
 export function normalize(text: string): string {
   const lines = text
+    .toWellFormed()
     .normalize("NFC")
     .replace(ZERO_WIDTH, "")
     .replace(/\r\n?/g, "\n")

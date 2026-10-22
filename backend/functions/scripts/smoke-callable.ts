@@ -1,6 +1,7 @@
 /**
  * Calls the deployed functions the way the app will: an anonymous Firebase Auth user plus an App Check token
- * exchanged from a registered debug token. Makes at most two real translations.
+ * exchanged from a registered debug token. Makes at most two real translations; the refusals it checks are
+ * rejected before any provider is called, so they are free and not counted.
  *
  *   FIREBASE_API_KEY=… FIREBASE_APP_ID=1:367590759386:android:… APP_CHECK_DEBUG_TOKEN=… npm run smoke
  *
@@ -59,12 +60,11 @@ if (typeof exchangedToken !== "string") {
 }
 const appCheckToken: string = exchangedToken;
 
-async function call(name: string, data: unknown): Promise<unknown> {
-  const reply = await postJson(
-    `${baseUrl}/${name}`,
-    { data },
-    { Authorization: `Bearer ${idToken}`, "X-Firebase-AppCheck": appCheckToken },
-  );
+/** Calls a function with App Check, and with the user's ID token unless `signedIn` is false. */
+async function call(name: string, data: unknown, options: { signedIn?: boolean } = {}): Promise<unknown> {
+  const headers: Record<string, string> = { "X-Firebase-AppCheck": appCheckToken };
+  if (options.signedIn ?? true) headers.Authorization = `Bearer ${idToken}`;
+  const reply = await postJson(`${baseUrl}/${name}`, { data }, headers);
   console.log(`${name} ${JSON.stringify(data)}\n  → ${JSON.stringify(reply)}`);
   return reply;
 }
@@ -92,5 +92,33 @@ check("Dzongkha → English translates", typeof field(dzongkha, "result", "trans
 
 const wylie = await call("translate", { text: "bkra shis", source: "bo", target: "en", timeZone });
 check("Wylie is refused", field(wylie, "error", "details", "reason") === "not_tibetan_script");
+
+const usedBeforeRefusals = field(await call("getTranslationStatus", { timeZone }), "result", "used");
+
+const empty = await call("translate", { text: " \u200B ", source: "bo", target: "en", timeZone });
+check("whitespace only is refused", field(empty, "error", "details", "reason") === "empty_text");
+
+const tooLong = await call("translate", { text: "ཀ".repeat(101), source: "bo", target: "en", timeZone });
+check(
+  "101 characters are refused",
+  field(tooLong, "error", "details", "reason") === "text_too_long" &&
+    field(tooLong, "error", "details", "length") === 101,
+);
+
+const pair = await call("translate", { text: "ཀ", source: "bo", target: "dz", timeZone });
+check("Tibetan → Dzongkha is refused", field(pair, "error", "details", "reason") === "unsupported_pair");
+
+const malformed = await call("translate", { text: 5, source: "bo", target: "en" });
+check("a malformed request is refused", field(malformed, "error", "details", "reason") === "bad_request");
+
+const signedOut = await call("translate", tibetan, { signedIn: false });
+check(
+  "a call without an ID token is refused",
+  field(signedOut, "error", "status") === "UNAUTHENTICATED" &&
+    field(signedOut, "error", "details", "reason") === "unauthenticated",
+);
+
+const usedAfterRefusals = field(await call("getTranslationStatus", { timeZone }), "result", "used");
+check("refusals are not counted", usedAfterRefusals === usedBeforeRefusals);
 
 process.exitCode = failures === 0 ? 0 : 1;
