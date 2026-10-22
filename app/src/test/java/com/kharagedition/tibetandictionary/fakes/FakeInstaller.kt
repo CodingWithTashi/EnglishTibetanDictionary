@@ -18,6 +18,9 @@ class FakeInstaller(
 ) : DictionaryInstaller {
     override val state = MutableStateFlow<InstallState>(InstallState.Checking)
 
+    /** Optional hook run inside [ensureInstalled] before [outcome] is applied; tests suspend here to hold an install. */
+    var beforeOutcome: (suspend (DictionaryPack) -> Unit)? = null
+
     private val calls = mutableListOf<DictionaryPack>()
 
     /** The packs [ensureInstalled] was called with, in order. */
@@ -25,6 +28,7 @@ class FakeInstaller(
 
     override suspend fun ensureInstalled(pack: DictionaryPack) {
         calls += pack
+        beforeOutcome?.invoke(pack)
         val result = outcome(pack)
         if (result is InstallState.Ready) databases?.activate(result.pack)
         state.value = result
