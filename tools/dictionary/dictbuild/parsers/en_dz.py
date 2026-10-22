@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 
 from dictbuild.model import GLOSS_LANG_DZ, ParsedRow, ParsedSense
-from dictbuild.parsers.common import split_numbered_tibetan, tidy
-from dictbuild.parsers.ddc_common import pos_code, split_k_blocks, strip_tags
+from dictbuild.parsers.common import split_numbered_tibetan
+from dictbuild.parsers.ddc_common import clean_gloss, drop_repeated_senses, pos_code, split_k_blocks, strip_tags
 from dictbuild.source import SourceRow
 from dictbuild.text import normalise_english_headword, preprocess
 
@@ -45,6 +45,7 @@ def parse_en_dz_row(row: SourceRow) -> ParsedRow:
         segments = split_numbered_tibetan(text)
         for piece in [segment.text for segment in segments] if segments else [text]:
             _add_sense(piece, code, parsed)
+    drop_repeated_senses(parsed)
     if not parsed.senses:
         parsed.warnings.append("row_without_senses")
     return parsed
@@ -62,7 +63,7 @@ def _drop_label_echo(text: str, label: str) -> str:
 
 
 def _add_sense(text: str, code: str | None, parsed: ParsedRow) -> None:
-    gloss = tidy(text)
+    gloss = clean_gloss(text)
     if not gloss:
         parsed.warnings.append("sense_without_gloss")
         return

@@ -9,8 +9,8 @@ across the blocks. There are no part-of-speech labels or links in this file.
 from __future__ import annotations
 
 from dictbuild.model import GLOSS_LANG_DZ, ParsedRow, ParsedSense
-from dictbuild.parsers.common import split_numbered_tibetan, tidy
-from dictbuild.parsers.ddc_common import split_k_blocks, strip_tags
+from dictbuild.parsers.common import split_numbered_tibetan
+from dictbuild.parsers.ddc_common import clean_gloss, drop_repeated_senses, split_k_blocks, strip_tags
 from dictbuild.source import SourceRow
 from dictbuild.text import normalise_tibetan_headword, preprocess
 from dictbuild.wylie import WylieConverter
@@ -36,13 +36,14 @@ def parse_dz_dz_row(row: SourceRow, converter: WylieConverter) -> ParsedRow:
         segments = split_numbered_tibetan(text)
         for piece in [segment.text for segment in segments] if segments else [text]:
             _add_sense(piece, parsed)
+    drop_repeated_senses(parsed)
     if not parsed.senses:
         parsed.warnings.append("row_without_senses")
     return parsed
 
 
 def _add_sense(text: str, parsed: ParsedRow) -> None:
-    gloss = tidy(text)
+    gloss = clean_gloss(text)
     if not gloss:
         parsed.warnings.append("sense_without_gloss")
         return

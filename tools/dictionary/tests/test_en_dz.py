@@ -158,3 +158,40 @@ def test_nbsp_tsheg_becomes_a_tsheg() -> None:
 
     assert [s.gloss for s in pillow.senses] == ["ཧང་།"]
     assert [s.gloss for s in piggery.senses] == ["ཕག་གསོ་ཁང་། ཕགཔ་གསོ་སྐྱོང་ཁང་།"]
+
+
+def test_a_repeated_k_block_keeps_the_first_senses_only() -> None:
+    # Real rows 15365 (`phantasm`: the second block repeats the last sense of the first) and 11337 (`libretto`).
+    phantasm = parse_en_dz_row(
+        SourceRow(
+            15365,
+            "phantasm",
+            "<k>phantasm</k> <pos><abbr><i>noun</i></abbr></pos> ༡ འདྲེ། བདུད། འབྱུང་པོ། ༢ འཁྲུལ་སྣང༌། འཆར་སྣང༌།\n"
+            "<k>phantasm</k> <pos><abbr><i>noun</i></abbr></pos> འཁྲུལ་སྣང༌། འཆར་སྣང༌།",
+        )
+    )
+    libretto = parse_en_dz_row(
+        SourceRow(
+            11337,
+            "libretto",
+            "<k>libretto</k> <pos><abbr><i>noun</i></abbr></pos> འཁྲབ་ཚིག འཁྲབ་གཞས་ཀྱི་ཚིག\n"
+            "<k>libretto</k> <pos><abbr><i>noun</i></abbr></pos> འཁྲབ་ཚིག འཁྲབ་གཞས་ཀྱི་ཚིག",
+        )
+    )
+
+    assert [(s.sense_no, s.gloss) for s in phantasm.senses] == [(1, "འདྲེ། བདུད། འབྱུང་པོ།"), (2, "འཁྲུལ་སྣང་། འཆར་སྣང་།")]
+    assert [(s.sense_no, s.gloss) for s in libretto.senses] == [(1, "འཁྲབ་ཚིག འཁྲབ་གཞས་ཀྱི་ཚིག")]
+
+
+def test_a_numeral_that_leaves_only_a_shad_is_not_a_sense() -> None:
+    # Real row 13507: the date `ཚེས་ ༡།` is read as sense marker ༡, which leaves a lone shad.
+    row = parse_en_dz_row(
+        SourceRow(
+            13507,
+            "New Year’s Day",
+            "<k>New Year’s Day</k> <pos><abbr><i>noun</i></abbr></pos> ལོ་གསར་ཉིནམ། སྤྱི་ཟླ་དང་པའི་ཚེས་ ༡།",
+        )
+    )
+
+    assert [(s.sense_no, s.gloss) for s in row.senses] == [(1, "ལོ་གསར་ཉིནམ། སྤྱི་ཟླ་དང་པའི་ཚེས་")]
+    assert row.warnings == ["sense_without_gloss"]

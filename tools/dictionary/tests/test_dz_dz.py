@@ -60,3 +60,37 @@ def test_nbsp_tsheg_becomes_a_tsheg() -> None:
     # Real rows with U+0F0C in the running definition (the second one has no key).
     assert [s.gloss for s in parse("ཀླུ་མོ").senses] == ["ཀླུ་མོ་གི་མིང་།", "ཀླུ་མོའི་རིགས།"]
     assert [s.gloss for s in parse("").senses] == ["གྲ་ཁེག་ཁེ་གྲུ་ལམ་ལམ་ཟེར་དོ་བཟུམ།"]
+
+
+def test_a_repeated_k_block_does_not_repeat_its_sense() -> None:
+    # Real row 9985: the second `<k>` block repeats the first.
+    row = parse_dz_dz_row(
+        SourceRow(
+            9985,
+            "བསྐྱལན ",
+            "<k>བསྐྱལན </k>ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག\n"
+            "<k>བསྐྱལན </k>ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག",
+        ),
+        NullConverter(),
+    )
+
+    assert [(s.sense_no, s.gloss) for s in row.senses] == [(1, "ཡི་གུ་བསྐྱལ་བ་ཅིན་ཟེར་བའི་མིང་མཐའ་བསྡུས་ཚིག")]
+
+
+def test_a_shad_or_tsheg_left_before_the_first_sense_is_not_a_gloss() -> None:
+    # Real rows 17371 (`།༡ …`) and 6525 (the definition starts with a tsheg).
+    shad = parse_dz_dz_row(
+        SourceRow(
+            17371,
+            "རྦབ་རིལ ",
+            "<k>རྦབ་རིལ </k>།༡ རང་བཞིན་གྱིས་རྦོབ་རིལ་འགྱོ་ནི། ༢ རྦོབ་སྒྲིལ་བཏང་ད་ནུག་ཟེར་བ་ཅིན་ བྱེད་འབྲེལ་ཚིག",
+        ),
+        NullConverter(),
+    )
+    tsheg = parse_dz_dz_row(
+        SourceRow(6525, "དབོན ", "<k>དབོན </k>་གི་བུ་ཚུ་ལུ་གོ་ནི་ཨིན།"), NullConverter()
+    )
+
+    assert [s.gloss for s in shad.senses] == ["རང་བཞིན་གྱིས་རྦོབ་རིལ་འགྱོ་ནི།", "རྦོབ་སྒྲིལ་བཏང་ད་ནུག་ཟེར་བ་ཅིན་ བྱེད་འབྲེལ་ཚིག"]
+    assert [s.sense_no for s in shad.senses] == [1, 2]
+    assert [s.gloss for s in tsheg.senses] == ["གི་བུ་ཚུ་ལུ་གོ་ནི་ཨིན།"]

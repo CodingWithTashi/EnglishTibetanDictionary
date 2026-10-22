@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import html
 import re
+from dataclasses import replace
 
+from dictbuild.model import ParsedRow, ParsedSense
+from dictbuild.parsers.common import tidy
 from dictbuild.source import SourceRow
 
 # Part-of-speech labels as the DDC files write them → `senses.part_of_speech` codes. `IDM` (idiom)
@@ -54,6 +57,8 @@ DDC_POS_CODES: dict[str, str | None] = {
 _TAG = re.compile(r"<[^>]*>")
 _WHITESPACE_RUN = re.compile(r"\s+")
 _K_BLOCK = re.compile(r"<k>(?P<key>.*?)</k>", re.DOTALL)
+# A tsheg or shad at the start of a gloss is what is left of the headword's tail or of a cut sense marker.
+_LEADING_MARKS = "\u0f0b\u0f0c\u0f0d\u0f0e \t\n"
 
 
 def pos_code(text: str) -> tuple[str | None, bool]:
@@ -86,6 +91,26 @@ def sort_case_duplicates(rows: list[SourceRow]) -> list[SourceRow]:
         for position, row in zip(positions, ordered):
             result[position] = row
     return result
+
+
+def clean_gloss(text: str) -> str:
+    """`tidy` the text of a gloss and drop the tsheg and shad marks left in front of it (empty if only those remain)."""
+    return tidy(text).lstrip(_LEADING_MARKS)
+
+
+def drop_repeated_senses(parsed: ParsedRow) -> None:
+    """Drop a sense identical in gloss, part of speech and notes to an earlier one, then renumber.
+
+    The sources sometimes repeat a whole `<k>` block (`<k>ད་ཅི</k> … </def>` twice); the copy adds no sense.
+    """
+    seen: set[tuple[str, str | None, tuple[str, ...]]] = set()
+    kept: list[ParsedSense] = []
+    for sense in parsed.senses:
+        key = (sense.gloss, sense.part_of_speech, tuple(sense.notes))
+        if key not in seen:
+            seen.add(key)
+            kept.append(replace(sense, sense_no=len(kept) + 1))
+    parsed.senses = kept
 
 
 def strip_tags(markup: str) -> str:

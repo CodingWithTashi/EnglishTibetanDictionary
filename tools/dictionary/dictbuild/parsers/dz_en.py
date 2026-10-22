@@ -10,7 +10,6 @@ links and the `syn.` marker is dropped. Bracketed Dzongkha glosses stay in the g
 from __future__ import annotations
 
 import re
-from dataclasses import replace
 
 from dictbuild.model import (
     GLOSS_LANG_EN,
@@ -20,8 +19,7 @@ from dictbuild.model import (
     ParsedSense,
     RelatedCandidate,
 )
-from dictbuild.parsers.common import tidy
-from dictbuild.parsers.ddc_common import pos_code, split_k_blocks, strip_tags
+from dictbuild.parsers.ddc_common import clean_gloss, drop_repeated_senses, pos_code, split_k_blocks, strip_tags
 from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
 from dictbuild.text import normalise_tibetan_headword, preprocess
@@ -76,23 +74,8 @@ def parse_dz_en_row(row: SourceRow, converter: WylieConverter, index: HeadwordIn
             # Text before the first `<pos>` that holds only notes and links is not a lost sense.
             notes_only_lead = not pos_label and position < len(runs) - 1
             carried = _parse_run(markup, code, parsed, carried, optional=notes_only_lead)
-    _drop_repeated_senses(parsed)
+    drop_repeated_senses(parsed)
     return parsed
-
-
-def _drop_repeated_senses(parsed: ParsedRow) -> None:
-    """Drop a sense identical in gloss, part of speech and notes to an earlier one, then renumber.
-
-    The source sometimes repeats a whole `<k>` block (`<k>ད་ཅི</k> … </def>` twice); the copy adds no sense.
-    """
-    seen: set[tuple[str, str | None, tuple[str, ...]]] = set()
-    kept: list[ParsedSense] = []
-    for sense in parsed.senses:
-        key = (sense.gloss, sense.part_of_speech, tuple(sense.notes))
-        if key not in seen:
-            seen.add(key)
-            kept.append(replace(sense, sense_no=len(kept) + 1))
-    parsed.senses = kept
 
 
 def _pos_runs(markup: str) -> list[tuple[str, str]]:
@@ -164,7 +147,7 @@ def _add_sense(markup: str, code: str | None, carried: list[str], parsed: Parsed
             notes.append(f"{label} {match.group('arg')}" if match.group("arg") else label)
         return " "
 
-    gloss = tidy(strip_tags(_ITEM.sub(item, markup)))
+    gloss = clean_gloss(strip_tags(_ITEM.sub(item, markup)))
     if gloss:
         parsed.senses.append(
             ParsedSense(
