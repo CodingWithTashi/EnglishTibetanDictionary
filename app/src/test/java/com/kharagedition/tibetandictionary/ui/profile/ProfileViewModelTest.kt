@@ -15,6 +15,9 @@ import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,6 +37,10 @@ class ProfileViewModelTest {
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true))
     private val dictionary = FakeDictionaryRepository()
     private val locale = RecordingLocaleApplier()
+    private val databases = DictionaryDatabases { error("not opened in Profile tests") }.apply {
+        activate(DictionaryPack.TIBETAN)
+    }
+    private val switcher = FakeDictionarySwitcher()
 
     /** Rate and Share app go to [PLAY_URL]; Support and Privacy have no URL, so they are hidden. */
     private var linkTargets = ProfileLinkTargets(
@@ -59,7 +66,7 @@ class ProfileViewModelTest {
 
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(prefs: UserPreferencesRepository = this@ProfileViewModelTest.prefs): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary, locale, linkTargets, errors)
+        val vm = ProfileViewModel(prefs, dictionary, databases, switcher, locale, linkTargets, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -111,6 +118,41 @@ class ProfileViewModelTest {
         assertThat(prefs.prefs.value.lineSpacing).isEqualTo(2.3f)
         assertThat(vm.state().textSize).isEqualTo(AppTextSize.LARGEST)
         assertThat(vm.state().lineSpacing).isEqualTo(2.3f)
+    }
+
+    // Dictionary
+
+    @Test
+    fun `dictionaryRowShowsActivePack`() = runTest {
+        val vm = viewModel()
+        assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.TIBETAN)
+
+        databases.activate(DictionaryPack.DZONGKHA)
+
+        assertThat(vm.state().dictionary).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `setDictionaryClosesSheetAndRequestsSwitch`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        assertThat(vm.state().sheet).isEqualTo(ProfileSheet.DICTIONARY)
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.DZONGKHA))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(switcher.requests).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `setSameDictionaryDoesNotSwitch`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.TIBETAN))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(switcher.requests).isEmpty()
     }
 
     // Default direction
@@ -342,7 +384,19 @@ class ProfileViewModelTest {
             assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(PLAY_URL))
 
             vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.TIBETAN))
+        }
+    }
+
+    @Test
+    fun `Share app names the active pack`() = runTest {
+        databases.activate(DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+        vm.state()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.DZONGKHA))
         }
     }
 

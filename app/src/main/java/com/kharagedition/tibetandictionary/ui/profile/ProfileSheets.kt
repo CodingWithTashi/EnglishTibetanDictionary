@@ -18,6 +18,7 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
+import com.kharagedition.tibetandictionary.ui.components.DictionaryPickerSheet
 import com.kharagedition.tibetandictionary.ui.components.DirectionPickerSheet
 import com.kharagedition.tibetandictionary.ui.components.LanguagePickerSheet
 import com.kharagedition.tibetandictionary.ui.components.SettingsRow
@@ -43,6 +44,11 @@ internal fun ProfileSheets(state: ProfileUiState, onEvent: (ProfileEvent) -> Uni
             lineSpacing = state.lineSpacing,
             onTextSizeChange = { onEvent(ProfileEvent.SetTextSize(it)) },
             onLineSpacingChange = { onEvent(ProfileEvent.SetLineSpacing(it)) },
+            onDismiss = dismiss,
+        )
+        ProfileSheet.DICTIONARY -> DictionaryPickerSheet(
+            selected = state.dictionary,
+            onPick = { onEvent(ProfileEvent.SetDictionary(it)) },
             onDismiss = dismiss,
         )
         ProfileSheet.DIRECTION -> state.defaultDirection?.let { selected ->

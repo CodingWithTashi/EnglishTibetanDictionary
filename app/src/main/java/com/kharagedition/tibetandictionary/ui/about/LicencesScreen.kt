@@ -31,14 +31,27 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.licenceTitleRes
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.ScreenTitle
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
 /** Space above a licence's heading, and between its paragraphs. */
@@ -47,12 +60,17 @@ private val ParagraphGap = 8.dp
 
 internal const val LICENCES_SCREEN_TAG = "licences_screen"
 
-/** The licence texts bundled in `assets/licenses`, in the order shown, with the heading each is shown under. */
-internal enum class BundledLicence(val asset: String, @param:StringRes val title: Int) {
-    DATA("licenses/GPL-3.0.txt", R.string.licence_data),
-    JOMOLHARI("licenses/OFL-Jomolhari.txt", R.string.licence_font_jomolhari),
-    NOTO_SANS("licenses/OFL-NotoSans.txt", R.string.licence_font_noto_sans),
-}
+/** The font licences bundled in `assets/licenses`, as (asset, heading) pairs in the order shown. */
+private val FontLicences = listOf(
+    "licenses/OFL-Jomolhari.txt" to R.string.licence_font_jomolhari,
+    "licenses/OFL-NotoSans.txt" to R.string.licence_font_noto_sans,
+)
+
+/**
+ * The licence texts to show for [pack], in order, as (asset, heading) pairs: the pack's data licence, then the fonts.
+ */
+internal fun bundledLicences(pack: DictionaryPack): List<Pair<String, Int>> =
+    listOf(pack.licenceAsset to pack.licenceTitleRes()) + FontLicences
 
 /** One licence as shown: its heading ([title]) and its text in [paragraphs]. */
 @Immutable
@@ -80,22 +98,33 @@ private val BLANK_LINE = Regex("\\n\\s*\\n")
 
 private fun String.isHeading(): Boolean = any { it.isLetter() } && none { it.isLowerCase() }
 
-/** Reads every [BundledLicence]; one that cannot be read is shown with its heading only. */
-internal fun AssetManager.readLicences(): List<LicenceUi> = BundledLicence.entries.map { licence ->
-    val text = try {
-        open(licence.asset).bufferedReader().use { it.readText() }
-    } catch (_: IOException) {
-        ""
+/** Reads every [bundledLicences] of [pack]; one that cannot be read is shown with its heading only. */
+internal fun AssetManager.readLicences(pack: DictionaryPack): List<LicenceUi> =
+    bundledLicences(pack).map { (asset, title) ->
+        val text = try {
+            open(asset).bufferedReader().use { it.readText() }
+        } catch (_: IOException) {
+            ""
+        }
+        LicenceUi(title, licenceParagraphs(text))
     }
-    LicenceUi(licence.title, licenceParagraphs(text))
+
+/** The pack whose data licence Licences shows first; waits for a pack to be active. */
+@HiltViewModel
+class LicencesViewModel @Inject constructor(databases: DictionaryDatabases) : ViewModel() {
+
+    val pack: StateFlow<DictionaryPack> = databases.active
+        .filterNotNull()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, databases.active.value ?: DictionaryPack.TIBETAN)
 }
 
 /** Licences, pushed from About: the full texts of the dictionary data's and the fonts' licences. */
 @Composable
-fun LicencesScreen(onBack: () -> Unit) {
+fun LicencesScreen(onBack: () -> Unit, viewModel: LicencesViewModel = hiltViewModel()) {
     val assets = LocalContext.current.assets
-    val licences by produceState<List<LicenceUi>?>(null, assets) {
-        value = withContext(Dispatchers.IO) { assets.readLicences() }
+    val pack by viewModel.pack.collectAsStateWithLifecycle()
+    val licences by produceState<List<LicenceUi>?>(null, assets, pack) {
+        value = withContext(Dispatchers.IO) { assets.readLicences(pack) }
     }
     LicencesScreen(licences, onBack)
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
@@ -29,6 +30,10 @@ class AboutScreenTest {
     private val state = AboutUiState(
         versionName = "3.0.0",
         entryCount = 180_412,
+        pack = DictionaryPack.TIBETAN,
+        sourceName = "Monlam Tibetan Dictionary",
+        author = "Lobsang Monlam",
+        licence = "GPL-3",
         attribution = SampleData.attribution.text,
     )
 

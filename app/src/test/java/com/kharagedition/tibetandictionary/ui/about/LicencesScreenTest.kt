@@ -13,6 +13,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.security.MessageDigest
 import org.junit.Rule
@@ -28,9 +30,14 @@ class LicencesScreenTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    private val databases = DictionaryDatabases { error("not opened in Licences tests") }.apply {
+        activate(DictionaryPack.TIBETAN)
+    }
+
     /** Shows the stateful screen and waits for the texts, which load off the main thread. */
     private fun show(onBack: () -> Unit = {}) {
-        compose.setContent { DictTheme(darkTheme = false) { LicencesScreen(onBack) } }
+        val viewModel = LicencesViewModel(databases)
+        compose.setContent { DictTheme(darkTheme = false) { LicencesScreen(onBack, viewModel) } }
         compose.waitUntil(LOAD_TIMEOUT_MS) { compose.onAllNodes(hasText(GPL_TITLE)).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -46,6 +53,16 @@ class LicencesScreenTest {
     }
 
     @Test
+    fun `data licence follows the pack`() {
+        assertThat(bundledLicences(DictionaryPack.DZONGKHA).first())
+            .isEqualTo("licenses/DDC-permission.txt" to R.string.licence_data_dz)
+        assertThat(bundledLicences(DictionaryPack.TIBETAN).first())
+            .isEqualTo("licenses/GPL-3.0.txt" to R.string.licence_data)
+        assertThat(bundledLicences(DictionaryPack.DZONGKHA).drop(1))
+            .isEqualTo(bundledLicences(DictionaryPack.TIBETAN).drop(1))
+    }
+
+    @Test
     fun `the GPL text is bundled verbatim`() {
         val bytes = context.assets.open("licenses/GPL-3.0.txt").use { it.readBytes() }
         val sha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
@@ -56,7 +73,7 @@ class LicencesScreenTest {
 
     @Test
     fun `every bundled licence is read, the data's first`() {
-        val licences = context.assets.readLicences()
+        val licences = context.assets.readLicences(DictionaryPack.TIBETAN)
 
         assertThat(licences.map { it.title })
             .containsExactly(R.string.licence_data, R.string.licence_font_jomolhari, R.string.licence_font_noto_sans)

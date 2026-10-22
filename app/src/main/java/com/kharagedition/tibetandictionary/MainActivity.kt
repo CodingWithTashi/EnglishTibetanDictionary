@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
                     // DictionaryApplication applied the stored mode before this activity existed, so at start-up this
                     // sets the mode in force and does nothing; a later change in Profile recreates the activity.
                     LaunchedEffect(s.appearance) { AppCompatDelegate.setDefaultNightMode(s.appearance.nightMode()) }
-                    AppRoot(s)
+                    AppRoot(s, viewModel::retrySwitch, viewModel::keepCurrentDictionary)
                 }
             }
         }

@@ -35,6 +35,8 @@ import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.startActivitySafely
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.nameRes
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictIconButton
@@ -123,10 +125,10 @@ fun AboutScreen(
             ScreenTitle(stringResource(R.string.about))
             Column {
                 TibetanText(stringResource(R.string.app_name_tibetan), style = type.tibetanSplash, color = colors.ink)
-                MixedText(versionLine(state.versionName, state.entryCount), type.secondary, type.tibetanInline15, color = colors.muted)
+                MixedText(versionLine(stringResource(state.pack.nameRes()), state.versionName, state.entryCount), type.secondary, type.tibetanInline15, color = colors.muted)
             }
             Column(verticalArrangement = Arrangement.spacedBy(LineGap)) {
-                MixedText(stringResource(R.string.about_data, "Monlam Tibetan Dictionary", "Lobsang Monlam", "GPL-3"), type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
+                MixedText(stringResource(R.string.about_data, state.sourceName, state.author, state.licence), type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
                 if (state.attribution != null) {
                     MixedText(state.attribution, type.secondary, type.tibetanInline15, color = colors.muted)
                 }
@@ -167,6 +169,10 @@ internal fun AboutBackRow(onBack: () -> Unit) {
 private val previewState = AboutUiState(
     versionName = BuildConfig.VERSION_NAME,
     entryCount = 180_412,
+    pack = DictionaryPack.TIBETAN,
+    sourceName = "Monlam Tibetan Dictionary",
+    author = "Lobsang Monlam",
+    licence = "GPL-3",
     attribution = "Dictionary data from the Monlam Tibetan Dictionary by Lobsang Monlam, as published in the " +
         "open-source Monlam Dictionary app under the GNU General Public License, version 3 (GPL-3.0).",
 )

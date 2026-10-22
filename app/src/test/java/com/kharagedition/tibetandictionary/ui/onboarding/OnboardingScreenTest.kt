@@ -23,11 +23,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,9 +45,16 @@ class OnboardingScreenTest {
     private val prefs = FakeUserPreferencesRepository()
     private val events = mutableListOf<OnboardingEvent>()
 
+    private val dictionaryStep = OnboardingUiState(
+        step = OnboardingStep.DICTIONARY,
+        stepCount = 3,
+        directions = SampleData.directions,
+        selectedDirection = SampleData.boEn,
+    )
+
     private val directionStep = OnboardingUiState(
         step = OnboardingStep.DIRECTION,
-        stepCount = 2,
+        stepCount = 3,
         directions = SampleData.directions,
         selectedDirection = SampleData.boEn,
     )
@@ -59,7 +70,13 @@ class OnboardingScreenTest {
 
     /** The screen on a real view model over the fakes, as the route shows it. */
     private fun showWithViewModel(dictionary: FakeDictionaryRepository = FakeDictionaryRepository()) {
-        val viewModel = OnboardingViewModel(SavedStateHandle(), prefs, dictionary, RecordingErrorReporter())
+        val databases = DictionaryDatabases { error("no database is opened in these tests") }
+            .apply { activate(DictionaryPack.TIBETAN) }
+        val switcher = FakeDictionarySwitcher { pack ->
+            databases.activate(pack)
+            runBlocking { prefs.setDictionaryPack(pack) }
+        }
+        val viewModel = OnboardingViewModel(SavedStateHandle(), prefs, dictionary, switcher, databases, RecordingErrorReporter())
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
                 val state by viewModel.uiState.collectAsState()
@@ -78,18 +95,69 @@ class OnboardingScreenTest {
         compose.onNodeWithTag("onboarding_direction_$id").performScrollTo().performClick()
     }
 
+    /** Continue past the dictionary step on the view model screen. */
+    private fun continuePastDictionary() {
+        compose.onNodeWithTag("onboarding_step_1").assertExists()
+        tap("onboarding_continue")
+        compose.onNodeWithTag("onboarding_step_2").assertExists()
+    }
+
     private fun pressBack() {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
     }
 
     @Test
-    fun `step 1 offers a card per visible direction and Continue moves on to step 2`() {
+    fun `dictionary step shows both packs and Continue switches to the chosen one`() {
         showWithViewModel()
 
         compose.onNodeWithTag(ONBOARDING_SCREEN_TAG).assertExists()
         compose.onNodeWithTag("onboarding_step_1").assertExists()
         compose.onNodeWithText("བཀྲ་ཤིས་བདེ་ལེགས།").assertIsDisplayed()
+        compose.onNodeWithText("Which dictionary do you want?").assertIsDisplayed()
+        compose.onNodeWithTag("onboarding_pack_bo").assertIsSelected()
+        compose.onNodeWithTag("onboarding_pack_dz").assertIsNotSelected()
+        compose.onNodeWithText("Dzongkha Dictionary", substring = true).assertExists()
+        compose.onNodeWithText("Tibetan Dictionary", substring = true).assertExists()
+
+        compose.onNodeWithTag("onboarding_pack_dz").performScrollTo().performClick()
+        compose.onNodeWithTag("onboarding_pack_dz").assertIsSelected()
+        compose.onNodeWithTag("onboarding_pack_bo").assertIsNotSelected()
+
+        tap("onboarding_continue")
+
+        compose.onNodeWithTag("onboarding_step_2").assertExists()
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `dictionary step cards and Continue send their events`() {
+        show(dictionaryStep)
+
+        compose.onNodeWithTag("onboarding_pack_dz").performScrollTo().performClick()
+        tap("onboarding_continue")
+
+        assertThat(events).containsExactly(
+            OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA),
+            OnboardingEvent.Next(OnboardingStep.DICTIONARY),
+        ).inOrder()
+    }
+
+    @Test
+    fun `back is disabled on the dictionary step`() {
+        show(dictionaryStep)
+
+        pressBack()
+
+        assertThat(events).isEmpty()
+        assertThat(compose.activity.isFinishing).isTrue()
+    }
+
+    @Test
+    fun `step 2 offers a card per visible direction and Continue moves on to step 3`() {
+        showWithViewModel()
+        continuePastDictionary()
+
         compose.onNodeWithText("Which way do you look up words most?").assertIsDisplayed()
         compose.onNodeWithText("Tibetan definitions").assertExists()
         compose.onNodeWithTag("onboarding_direction_bo-en").assertIsSelected()
@@ -102,8 +170,8 @@ class OnboardingScreenTest {
 
         tap("onboarding_continue")
 
-        compose.onNodeWithTag("onboarding_step_2").assertExists()
-        compose.onNodeWithTag("onboarding_step_1").assertDoesNotExist()
+        compose.onNodeWithTag("onboarding_step_3").assertExists()
+        compose.onNodeWithTag("onboarding_step_2").assertDoesNotExist()
         compose.onNodeWithText("Comfortable to read?").assertIsDisplayed()
         assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo(SampleData.enBo.id)
     }
@@ -112,23 +180,26 @@ class OnboardingScreenTest {
     fun `with no visible direction step 1 has no cards and Continue still moves on`() {
         val emptied = SampleData.capabilities.copy(directions = listOf(SampleData.boEn.copy(entryCount = 0)))
         showWithViewModel(FakeDictionaryRepository(capabilities = emptied))
+        continuePastDictionary()
 
-        compose.onNodeWithTag("onboarding_step_1").assertExists()
+        compose.onNodeWithTag("onboarding_step_2").assertExists()
         compose.onAllNodes(isSelectable()).assertCountEquals(0)
 
         tap("onboarding_continue")
 
-        compose.onNodeWithTag("onboarding_step_2").assertExists()
+        compose.onNodeWithTag("onboarding_step_3").assertExists()
     }
 
     @Test
-    fun `Skip is offered on step 1 only`() {
+    fun `Skip is offered before the last step only`() {
         showWithViewModel()
+        compose.onNodeWithTag("onboarding_skip").assertIsDisplayed()
+        continuePastDictionary()
         compose.onNodeWithTag("onboarding_skip").assertIsDisplayed()
 
         tap("onboarding_continue")
 
-        compose.onNodeWithTag("onboarding_step_2").assertExists()
+        compose.onNodeWithTag("onboarding_step_3").assertExists()
         compose.onNodeWithTag("onboarding_skip").assertDoesNotExist()
     }
 
@@ -148,10 +219,10 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `step 2 shows the reading settings and its sliders change them`() {
+    fun `step 3 shows the reading settings and its sliders change them`() {
         show(directionStep.copy(step = OnboardingStep.READING, textSize = AppTextSize.LARGE, lineSpacing = 2.1f))
 
-        compose.onNodeWithTag("onboarding_step_2").assertExists()
+        compose.onNodeWithTag("onboarding_step_3").assertExists()
         compose.onNodeWithText("Tibetan is shown larger than English so stacked letters stay clear.").assertIsDisplayed()
         compose.onNodeWithText("Text size").assertExists()
         compose.onNodeWithText("Large").assertExists()
@@ -173,7 +244,7 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `back on step 2 returns to step 1`() {
+    fun `back on step 3 returns to step 2`() {
         show(directionStep.copy(step = OnboardingStep.READING))
 
         pressBack()
@@ -183,8 +254,18 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `back on step 1 is left to the system`() {
+    fun `back on the direction step returns to the dictionary step`() {
         show(directionStep)
+
+        pressBack()
+
+        assertThat(events).containsExactly(OnboardingEvent.Back)
+        assertThat(compose.activity.isFinishing).isFalse()
+    }
+
+    @Test
+    fun `back on step 1 is left to the system`() {
+        show(dictionaryStep)
 
         pressBack()
 
@@ -194,9 +275,9 @@ class OnboardingScreenTest {
 
     @Test
     fun `the account step offers sign-in or continuing without an account, and no Skip`() {
-        show(directionStep.copy(step = OnboardingStep.ACCOUNT, stepCount = 3))
+        show(directionStep.copy(step = OnboardingStep.ACCOUNT, stepCount = 4))
 
-        compose.onNodeWithTag("onboarding_step_3").assertExists()
+        compose.onNodeWithTag("onboarding_step_4").assertExists()
         compose.onNodeWithText("Keep your words on every device").assertIsDisplayed()
         compose.onNodeWithText("You can sign in later from Profile.").assertExists()
         compose.onNodeWithTag("onboarding_skip").assertDoesNotExist()
