@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.entryCountRes
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
 import com.kharagedition.tibetandictionary.ui.components.FlagStrand
@@ -32,6 +34,7 @@ import com.kharagedition.tibetandictionary.ui.components.FlagStrandSize
 import com.kharagedition.tibetandictionary.ui.components.FullEmptyState
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.ProgressBar
+import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.preview.DictPreview
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -53,33 +56,59 @@ private val ProgressWidth = 120.dp
 private val LatinNameTracking = 0.02.em
 
 /**
- * First-launch install (3a): the prayer-flag strand at the top, the app icon with the Tibetan and English names
- * in the middle, and a 120dp progress bar over "Preparing … · offline" at the bottom (the entry count comes from
- * [state], else from [bundledEntryCount]). When [state] carries a failure, a full empty state with "Try again"
- * ([onRetry]) replaces it.
+ * First-launch install (3a) of [AppRootState.Installing.pack]: see [InstallingContent]. The entry count comes from
+ * [state], else from [bundledEntryCount].
  *
- * @param bundledEntryCount the entry count the data build recorded for the bundled asset (0 = unknown).
+ * @param bundledEntryCount the entry count the data build recorded for the pack's bundled asset (0 = unknown).
  */
 @Composable
 fun InstallingScreen(
     state: AppRootState.Installing,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    bundledEntryCount: Int = integerResource(R.integer.dictionary_entry_count_bo),
+    bundledEntryCount: Int = integerResource(state.pack.entryCountRes()),
+) {
+    InstallingContent(
+        title = stringResource(R.string.installing_dictionary),
+        // Before the installer knows the count, use the one the data build recorded (0 = unknown).
+        totalEntries = state.totalEntries ?: bundledEntryCount.takeIf { it > 0 },
+        progress = state.progress,
+        failure = state.failure,
+        onRetry = onRetry,
+        modifier = modifier.testTag(INSTALLING_SCREEN_TAG),
+    )
+}
+
+/**
+ * The install body (3a): the prayer-flag strand at the top, the app icon with the Tibetan and English names in the
+ * middle, and a 120dp progress bar over the status line at the bottom: "Preparing N entries · offline" when
+ * [totalEntries] is known, else [title]. A non-null [failure] replaces all of it with a full empty state with
+ * "Try again" ([onRetry]) and, when [secondaryActionLabel] is given, a quiet button under it calling
+ * [onSecondaryAction].
+ */
+@Composable
+fun InstallingContent(
+    title: String,
+    progress: Float?,
+    totalEntries: Int?,
+    failure: Throwable?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null,
 ) {
     Box(
         modifier
             .fillMaxSize()
             .background(DictTheme.colors.background)
-            .testTag(INSTALLING_SCREEN_TAG)
             .systemBarsPadding(),
     ) {
-        if (state.failure != null) {
-            InstallFailed(state.failure, onRetry, Modifier.align(Alignment.Center))
+        if (failure != null) {
+            InstallFailed(failure, onRetry, secondaryActionLabel, onSecondaryAction, Modifier.align(Alignment.Center))
         } else {
             FlagStrand(FlagStrandSize.Splash, Modifier.align(Alignment.TopCenter))
             AppNames(Modifier.align(Alignment.Center))
-            InstallProgress(state, bundledEntryCount, Modifier.align(Alignment.BottomCenter))
+            InstallProgress(title, progress, totalEntries, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
@@ -115,25 +144,32 @@ private fun AppNames(modifier: Modifier) {
 }
 
 @Composable
-private fun InstallProgress(state: AppRootState.Installing, bundledEntryCount: Int, modifier: Modifier) {
-    // Before the installer knows the count, use the one the data build recorded for the bundled asset (0 = unknown).
-    val total = state.totalEntries ?: bundledEntryCount.takeIf { it > 0 }
-    val status = when (total) {
-        null -> stringResource(R.string.installing_dictionary)
-        else -> stringResource(R.string.installing_entries, TibetanNumerals.formatCount(total, DictTheme.language))
+private fun InstallProgress(title: String, progress: Float?, totalEntries: Int?, modifier: Modifier) {
+    val status = when (totalEntries) {
+        null -> title
+        else -> stringResource(
+            R.string.installing_entries,
+            TibetanNumerals.formatCount(totalEntries, DictTheme.language),
+        )
     }
     Column(
         modifier.padding(bottom = StatusBottom),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(StatusGap),
     ) {
-        ProgressBar(state.progress, Modifier.width(ProgressWidth))
+        ProgressBar(progress, Modifier.width(ProgressWidth))
         MixedText(status, DictTheme.type.tiny, DictTheme.type.tibetanInline14, color = DictTheme.colors.muted)
     }
 }
 
 @Composable
-private fun InstallFailed(cause: Throwable, onRetry: () -> Unit, modifier: Modifier) {
+private fun InstallFailed(
+    cause: Throwable,
+    onRetry: () -> Unit,
+    secondaryActionLabel: String?,
+    onSecondaryAction: (() -> Unit)?,
+    modifier: Modifier,
+) {
     // A cancelled copy is not a storage problem: say it was interrupted instead of giving the storage advice.
     val body = if (cause is CancellationException) R.string.install_interrupted else R.string.install_failed_body
     FullEmptyState(
@@ -142,7 +178,15 @@ private fun InstallFailed(cause: Throwable, onRetry: () -> Unit, modifier: Modif
         body = stringResource(body),
         modifier = modifier,
     ) {
-        FilledButton(stringResource(R.string.try_again), onRetry, size = ButtonSize.Medium)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(StatusGap),
+        ) {
+            FilledButton(stringResource(R.string.try_again), onRetry, size = ButtonSize.Medium)
+            if (secondaryActionLabel != null && onSecondaryAction != null) {
+                TextButton(secondaryActionLabel, onSecondaryAction, size = ButtonSize.Medium)
+            }
+        }
     }
 }
 
@@ -150,7 +194,10 @@ private fun InstallFailed(cause: Throwable, onRetry: () -> Unit, modifier: Modif
 @Composable
 private fun InstallingPreview() {
     DictPreview(dark = isSystemInDarkTheme()) {
-        InstallingScreen(AppRootState.Installing(progress = 0.6f, totalEntries = 180_412), onRetry = {})
+        InstallingScreen(
+            AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.6f, totalEntries = 180_412),
+            onRetry = {},
+        )
     }
 }
 
@@ -158,6 +205,9 @@ private fun InstallingPreview() {
 @Composable
 private fun InstallFailedPreview() {
     DictPreview(dark = isSystemInDarkTheme()) {
-        InstallingScreen(AppRootState.Installing(progress = null, totalEntries = null, failure = IOException()), onRetry = {})
+        InstallingScreen(
+            AppRootState.Installing(DictionaryPack.TIBETAN, null, null, failure = IOException()),
+            onRetry = {},
+        )
     }
 }

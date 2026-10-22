@@ -14,9 +14,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainActivity
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.core.di.DatabaseModule
 import com.kharagedition.tibetandictionary.core.di.RepositoryModule
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.install.InstallState
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -27,6 +32,7 @@ import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
@@ -50,9 +56,12 @@ import org.robolectric.annotation.Config
  * The shell on a Hilt graph with fake repositories and an installed dictionary: start destination, app links and
  * back between routes. Every destination but Learn is the real screen (entry 42 is not one of the sample entries, so
  * it shows the missing notice).
+ *
+ * [DatabaseModule] is uninstalled too, so the graph holds a [DictionaryDatabases] the tests can [activate][
+ * DictionaryDatabases.activate] to simulate a finished pack switch; nothing in this graph reads Room through it.
  */
 @HiltAndroidTest
-@UninstallModules(RepositoryModule::class)
+@UninstallModules(RepositoryModule::class, DatabaseModule::class)
 @RunWith(AndroidJUnit4::class)
 @Config(application = HiltTestApplication::class)
 class AppNavHostTest {
@@ -68,6 +77,14 @@ class AppNavHostTest {
     @BindValue @JvmField
     val installer: DictionaryInstaller =
         FakeInstaller().apply { state.value = InstallState.Ready(DictionaryPack.TIBETAN, totalEntries = 3) }
+
+    @BindValue @JvmField
+    val databases: DictionaryDatabases = DictionaryDatabases { inMemoryDictionaryDb() }
+
+    private val fakeSwitcher = FakeDictionarySwitcher()
+
+    @BindValue @JvmField
+    val switcher: DictionarySwitcher = fakeSwitcher
 
     @BindValue @JvmField
     val prefs: UserPreferencesRepository = fakePrefs
@@ -93,6 +110,7 @@ class AppNavHostTest {
 
     private fun launch(onboarded: Boolean, intent: Intent? = null) {
         fakePrefs.prefs.value = UserPrefs(onboarded = onboarded)
+        databases.activate(DictionaryPack.TIBETAN)
         hilt.inject()
         activity = Robolectric.buildActivity(MainActivity::class.java, intent).setup()
         compose.waitForIdle()
@@ -302,5 +320,67 @@ class AppNavHostTest {
         compose.waitForIdle()
 
         assertOnEntry(seeAlso = TASHI_DELEK)
+    }
+
+    @Test
+    fun `a completed switch pops to the Search tab of the new pack`() {
+        launch(onboarded = true)
+        tap("nav_profile")
+        openLink("app://entry/$TASHI")
+        compose.onNodeWithTag("entry_screen").assertExists()
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+        compose.onNodeWithTag("home_screen").assertExists()
+        compose.onNodeWithTag("nav_search").assertIsSelected()
+        pressBack()
+        assertThat(activity.get().isFinishing).isTrue()
+    }
+
+    @Test
+    fun `a switch during onboarding does not pop`() {
+        launch(onboarded = false)
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("onboarding_screen").assertExists()
+    }
+
+    @Test
+    fun `the overlay covers the app while switching and keeps the screen below`() {
+        launch(onboarded = true)
+        openLink("app://entry/$TASHI")
+
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.5f)
+        compose.waitForIdle()
+        compose.onNodeWithTag("switching_overlay").assertExists()
+        pressBack()
+
+        compose.onNodeWithTag("entry_screen").assertExists()
+        assertThat(activity.get().isFinishing).isFalse()
+
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+        compose.onNodeWithTag("switching_overlay").assertDoesNotExist()
+        compose.onNodeWithTag("entry_screen").assertExists()
+    }
+
+    @Test
+    fun `a deep link during a switch is held until it ends`() {
+        launch(onboarded = true)
+        fakeSwitcher.state.value = SwitchState.InProgress(DictionaryPack.DZONGKHA, null)
+        compose.waitForIdle()
+
+        openLink("app://entry/$TASHI")
+
+        compose.onNodeWithTag("entry_screen").assertDoesNotExist()
+
+        fakeSwitcher.state.value = SwitchState.Idle
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("entry_screen").assertExists()
     }
 }
