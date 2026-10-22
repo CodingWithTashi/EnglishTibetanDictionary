@@ -1,0 +1,56 @@
+"""DDC Dzongkha → Dzongkha parser. Inputs are real `dz-dz` rows (stardict-dz-dz/dz-dz)."""
+
+from __future__ import annotations
+
+from dictbuild.model import GLOSS_LANG_DZ, ParsedRow
+from dictbuild.parsers.dz_dz import parse_dz_dz_row
+from dictbuild.source import SourceRow
+from dictbuild.wylie import NullConverter
+
+ROWS = {
+    "ཀ": "<k>ཀ </k>གསལ་བྱེད་སུམ་ཅུའི་དང་པོ་ཀ། མིང་གཞི་ཕོའི་ཡི་གུ། སྟོན་ཀ། དཔྱིད་ཀ། ཐལ་ཀ། བེར་ཀ་ལ་སོགས་པ་མིང་མཐའ་ལུ་འཇུག་པ་ལེ་ཤ་ཡོད།",
+    "མི་ཆོས་གཙང་མ་བཅུ་དྲུག": "<k>མི་ཆོས་གཙང་མ་བཅུ་དྲུག </k>༡ དཀོན་མཆོག་གསུམ་ལུ་ སྐྱབས་སུ་གཟུང་ནི། ༢ དམ་པའི་ཆོས་བསྒྲུབ་ནི། "
+    "༣ ཕ་མ་ལུ་དྲིན་ལན་འཇལ་ནི། ༤ ཡོན་ཏན་ཡོད་མི་ལུ་བརྩི་མཐོང་འབད་ནི། ༥ རང་ལས་མཐོ་བ་དང་རྒན་པའི་རིགས་ལུ་གུས་ཞབས་འབད་ནི། "
+    "༦ ཁྱིམ་མཚེས་གདང་རས་དང་ཡུལ་མི་ཚུ་ལུ་ཕན་ཐོགས་འབད་ནི། ༧ བློ་ཕྲང་སྟེ་སླབ་ཞིན་ན་སེམས་ཆུང་སྦེ་སྡོད་ནི། "
+    "༨ གཉེན་ཉེ་དུ་དང་ གྲོགས་མཛའ་བཤེས་ལུ་སེམས་ཕྲང་སྟེ་འབད་ནི། ༩ ཡ་རབས་ཀྱི་རྗེས་སུ་འབྲང་ནི། ༡༠ ཟས་ནོར་ལུ་སྤྱོད་ཤེསཔ་འབད་ནི། "
+    "༡༡ ཧེ་མ་རང་ལུ་དྲིན་ཡོད་མི་ཚུ་ལུ་བཟང་ལན་འཇལ་ནི། ༡༢ བུ་ལོན་དུས་ཚོད་ཁར་བཏབ་སྟེ་བྲེ་སྲང་ལུ་གཡོ་སྒྱུ་སྤང་ནི། "
+    "༡༣ ཕྲག་དོག་མ་བསྐྱེད་པར་ག་ར་ལུ་ཕྱོགས་རིས་མེད་པར་སྙོམས་ཏེ་འབད་ནི། ༡༤ ཆ་རོགས་ངན་པའི་ཁར་མ་ཉན་པར་རང་ཚོད་རང་གིས་གཟུང་ནི། "
+    "༡༥ བློ་སླབ་ནི་ཁ་ཉུང་། སླབ་མི་འདི་ཧན་ཏོང་ཏོ་སྦེ་སླབ་ནི། "
+    "༡༦ ག་ཅི་ར་འབད་རུང་བློ་ཁོག་ཡངས་ཏོག་ཏོ་དང་བཟོད་བསྲན་ཆེ་ཏོག་ཏོ་སྦེ་སྡོད་ནི་ཚུ།",
+    "ཀླུ་མོ": "<k>ཀླུ་མོ </k>ཀླུ་མོ་གི་མིང༌།\n<k>ཀླུ་མོ </k>ཀླུ་མོའི་རིགས།",
+    "": "<k> </k>\n<k> </k>\n<k> </k>གྲ་ཁེག༌ཁེ༌གྲུ་ལམ་ལམ་ཟེར་དོ་བཟུམ།",
+}
+
+
+def parse(word: str, key: str | None = None) -> ParsedRow:
+    return parse_dz_dz_row(SourceRow(1, word if key is None else key, ROWS[word]), NullConverter())
+
+
+def test_running_definition() -> None:
+    row = parse("ཀ", key="ཀ ")
+    assert (row.headword, row.group_key, row.homonym) == ("ཀ་", "ཀ་", None)
+    assert len(row.senses) == 1
+    assert row.senses[0].gloss.startswith("གསལ་བྱེད་སུམ་ཅུའི་དང་པོ་ཀ།")
+    assert row.senses[0].gloss_lang == GLOSS_LANG_DZ
+    assert row.senses[0].part_of_speech is None
+    assert not row.warnings
+
+
+def test_numbered_senses() -> None:
+    row = parse("མི་ཆོས་གཙང་མ་བཅུ་དྲུག")
+    assert len(row.senses) == 16
+    assert [sense.sense_no for sense in row.senses] == list(range(1, 17))
+    assert row.senses[0].gloss == "དཀོན་མཆོག་གསུམ་ལུ་ སྐྱབས་སུ་གཟུང་ནི།"
+    assert row.senses[15].gloss.startswith("ག་ཅི་ར་འབད་རུང་")
+
+
+def test_second_block_continues_the_sense_numbers() -> None:
+    row = parse("ཀླུ་མོ")
+    assert [sense.gloss for sense in row.senses] == ["ཀླུ་མོ་གི་མིང༌།", "ཀླུ་མོའི་རིགས།"]
+    assert [sense.sense_no for sense in row.senses] == [1, 2]
+
+
+def test_empty_key() -> None:
+    row = parse("")
+    assert (row.headword, row.group_key) == ("", "")
+    assert row.wylie is None

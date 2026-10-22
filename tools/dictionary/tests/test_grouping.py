@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dictbuild.grouping import group_rows
 from dictbuild.model import ParsedRow, ParsedSense, RelatedCandidate
+from dictbuild.packs import MONLAM
 from dictbuild.parsers.entotb import parse_entotb_row
 from dictbuild.source import SourceRow
 
@@ -30,7 +31,7 @@ def test_english_homonyms_merge_even_when_not_adjacent() -> None:
         english(19610, "lead2", "v. led 1. ལམ་སྣ་འཁྲིད་པ། 2. འགོ་འཁྲིད་པ།"),
     ]
 
-    lead, leaden = group_rows("en-bo", rows)
+    lead, leaden = group_rows(MONLAM, "en-bo", rows)
 
     assert (lead.headword, lead.source_id, lead.entry_id) == ("lead", 19600, 3_019_600)
     assert lead.source_ids == [19600, 19608, 19609, 19610]
@@ -51,7 +52,7 @@ def test_english_homonyms_merge_even_when_not_adjacent() -> None:
 def test_english_grouping_is_case_insensitive_and_strips_the_homonym_digit() -> None:
     rows = [english(17000, "i", "(I) ཀཿ ཡི་གེ་དགུ་པ།"), english(17010, "I1", "pron. ང་།")]
 
-    [entry] = group_rows("en-bo", rows)
+    [entry] = group_rows(MONLAM, "en-bo", rows)
 
     assert (entry.headword, entry.group_key, entry.source_ids) == ("i", "i", [17000, 17010])
     assert [s.sense_no for s in entry.senses] == [1, 2]
@@ -60,7 +61,7 @@ def test_english_grouping_is_case_insensitive_and_strips_the_homonym_digit() -> 
 def test_tibetan_duplicates_merge_even_when_not_consecutive() -> None:
     rows = [tibetan(1, "ཀ་", "a"), tibetan(2, "ཁ་", "b"), tibetan(3, "ཀ་", "c")]
 
-    first, second = group_rows("bo-en", rows)
+    first, second = group_rows(MONLAM, "bo-en", rows)
 
     assert (first.headword, first.source_ids, [s.gloss for s in first.senses]) == ("ཀ་", [1, 3], ["a", "c"])
     assert (second.headword, second.source_ids) == ("ཁ་", [2])
@@ -69,7 +70,7 @@ def test_tibetan_duplicates_merge_even_when_not_consecutive() -> None:
 def test_sub_senses_keep_sharing_their_renumbered_sense() -> None:
     rows = [tibetan(1, "ཀ་", "a"), tibetan(2, "ཀ་", "b1", "b2", sub_nos=(1, 2))]
 
-    [entry] = group_rows("bo-bo", rows)
+    [entry] = group_rows(MONLAM, "bo-bo", rows)
 
     assert [(s.sense_no, s.sub_no, s.gloss) for s in entry.senses] == [(1, None, "a"), (2, 1, "b1"), (2, 2, "b2")]
 
@@ -80,7 +81,7 @@ def test_related_links_merge_without_duplicates() -> None:
     second = tibetan(2, "ཀ་", "b")
     second.related = [RelatedCandidate("ཁ་", "see_also", "kha", 7), RelatedCandidate("ག་", "see_also", "ga")]
 
-    [entry] = group_rows("bo-en", [first, second])
+    [entry] = group_rows(MONLAM, "bo-en", [first, second])
 
     assert entry.related == [RelatedCandidate("ཁ་", "see_also", "kha", 7), RelatedCandidate("ག་", "see_also", "ga")]
 
@@ -90,7 +91,7 @@ def test_wylie_comes_from_the_first_row() -> None:
     first.wylie = "ka"
     second = tibetan(2, "ཀ་", "b")
 
-    [entry] = group_rows("bo-en", [first, second])
+    [entry] = group_rows(MONLAM, "bo-en", [first, second])
 
     assert entry.wylie == "ka"
 
@@ -98,6 +99,6 @@ def test_wylie_comes_from_the_first_row() -> None:
 def test_rows_without_a_headword_are_skipped() -> None:
     rows = [tibetan(1, "", "a"), tibetan(2, "ཀ་", "b")]
 
-    [entry] = group_rows("bo-en", rows)
+    [entry] = group_rows(MONLAM, "bo-en", rows)
 
     assert entry.source_ids == [2]

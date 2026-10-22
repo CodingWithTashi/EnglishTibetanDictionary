@@ -1,9 +1,12 @@
-"""Build the app's prebuilt dictionary.db from the Monlam source database (plan §5.3).
+"""Build a pack's prebuilt dictionary database (`bo.db` from the Monlam source, `dz.db` from the DDC files).
 
-    .venv/bin/python -I build_db.py --source MLDic.ml \\
+    .venv/bin/python -I build_db.py --pack bo --source MLDic.ml \\
         --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \\
-        --out ../../app/src/main/assets/dictionary/dictionary.db --data-version 2026.10.1 \\
-        --stats-xml ../../app/src/main/res/values/dictionary_stats.xml --built-at 2026-10-19T00:00:00Z
+        --out ../../app/src/main/assets/dictionary/bo.db --data-version 2026.10.1 \\
+        --stats-xml ../../app/src/main/res/values/dictionary_stats_bo.xml --built-at 2026-10-19T00:00:00Z
+
+`--pack dz` takes the directory holding the DDC StarDict folders as `--source` and writes `dz.db` and
+`dictionary_stats_dz.xml` the same way.
 
 Steps: load the highest `<v>.json` schema → read the three source tables → parse each row → group
 rows into entries → resolve related links across directions → assign word-of-the-day ranks →
@@ -25,7 +28,6 @@ import sqlite3
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
-from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,29 +37,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dictbuild  # noqa: E402
 from dictbuild.grouping import group_rows  # noqa: E402
-from dictbuild.model import DIRECTIONS, EntryDraft, ParsedRow  # noqa: E402
-from dictbuild.parsers.entotb import parse_entotb_row  # noqa: E402
-from dictbuild.parsers.tben import parse_tben_row  # noqa: E402
-from dictbuild.parsers.tbtb import parse_tbtb_row  # noqa: E402
+from dictbuild.model import EntryDraft, ParsedRow  # noqa: E402
+from dictbuild.packs import PACKS, Pack  # noqa: E402
 from dictbuild.related import HeadwordIndex, RelatedStats, resolve_related  # noqa: E402
 from dictbuild.report import BuildReport  # noqa: E402
 from dictbuild.resources import write_stats_xml, write_text_atomically  # noqa: E402
 from dictbuild.schema import Schema, latest_schema_path, load_schema  # noqa: E402
-from dictbuild.source import DIRECTION_BY_TABLE, SourceRow, open_source, read_rows  # noqa: E402
+from dictbuild.source import SourceRow  # noqa: E402
 from dictbuild.stats import RangeCheck, check_ranges, direction_rows, table_counts  # noqa: E402
-from dictbuild.wotd import DEFAULT_WOTD_SEED, WOTD_DIRECTION_ID, assign_ranks  # noqa: E402
+from dictbuild.wotd import DEFAULT_WOTD_SEED, assign_ranks  # noqa: E402
 from dictbuild.writer import assemble_rows, meta_rows, staged_database  # noqa: E402
 from dictbuild.wylie import WylieConverter, WylieUnavailableError, load_converter  # noqa: E402
-
-SOURCE_NAME = "Monlam Dictionary (MLDic.ml)"
-SOURCE_AUTHOR = "Lobsang Monlam"
-SOURCE_URL = "https://github.com/iamironrabbit/monlam-dictionary"
-SOURCE_LICENSE = "GPL-3.0"
-ATTRIBUTION_TEXT = (
-    "Dictionary data from the Monlam Tibetan Dictionary by Lobsang Monlam, as published in the "
-    "open-source Monlam Dictionary app (https://github.com/iamironrabbit/monlam-dictionary) under the "
-    "GNU General Public License, version 3 (GPL-3.0)."
-)
 
 EXIT_INPUT_ERROR = 1
 EXIT_OUT_OF_RANGE = 2
@@ -68,11 +58,20 @@ BUILT_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build dictionary.db from the Monlam source database.")
+    parser = argparse.ArgumentParser(description="Build a pack's prebuilt dictionary database from its source.")
     parser.add_argument("--version", action="version", version=f"dictbuild {dictbuild.__version__}")
-    parser.add_argument("--source", type=Path, required=True, help="Monlam source database (MLDic.ml), read-only")
+    parser.add_argument("--pack", choices=sorted(PACKS), required=True, help="the dictionary pack to build")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help=(
+            "source of the pack, read-only (bo: the Monlam MLDic.ml database; "
+            "dz: the directory holding stardict-dz-en/, stardict-en-dz/ and stardict-dz-dz/)"
+        ),
+    )
     parser.add_argument("--schema-dir", type=Path, required=True, help="app/schemas/<DictionaryDatabase fqcn>/")
-    parser.add_argument("--out", type=Path, required=True, help="dictionary.db to write")
+    parser.add_argument("--out", type=Path, required=True, help="database to write")
     parser.add_argument("--data-version", required=True, help="data release, e.g. 2026.10.1")
     parser.add_argument(
         "--wotd-seed", type=int, default=DEFAULT_WOTD_SEED, help=f"word-of-the-day shuffle seed ({DEFAULT_WOTD_SEED})"
@@ -83,7 +82,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--stats-xml",
         type=Path,
-        help="also write the app's res/values/dictionary_stats.xml (total entry count, asset size) for the database",
+        help="also write the pack's res/values/dictionary_stats_<pack>.xml (total entry count, asset size) for the database",
     )
     parser.add_argument(
         "--built-at",
@@ -120,6 +119,7 @@ def resolve_built_at(value: str | None, environ: Mapping[str, str]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    pack = PACKS[args.pack]
     try:
         schema = load_schema(latest_schema_path(args.schema_dir))
     except (OSError, ValueError, KeyError) as error:
@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         return _fail(str(error))
     try:
-        rows_by_table = read_source(args.source, args.limit)
+        rows_by_table = pack.read_source(args.source, args.limit)
     except sqlite3.Error as error:
         return _fail(f"cannot read the source database {args.source}: {error}")
 
@@ -148,7 +148,9 @@ def main(argv: list[str] | None = None) -> int:
             "limit": args.limit,
         }
     )
-    tables, checks = build(rows_by_table, schema, converter, args.wotd_seed, args.data_version, built_at, report)
+    tables, checks = build(
+        pack, rows_by_table, schema, converter, args.wotd_seed, args.data_version, built_at, report
+    )
     if args.limit is not None:
         checks = []  # a partial build cannot meet the full-build counts
     else:
@@ -164,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         # a failed stats write leaves `out` as it was, and a failed rename puts the old stats file back.
         with staged_database(out, schema, tables) as staged:
             asset_bytes = staged.stat().st_size
-            stats.write(total_entries, asset_bytes)
+            stats.write(total_entries, asset_bytes, pack.id)
     except _StatsXmlError as error:
         return _fail(str(error))
     except (OSError, sqlite3.Error) as error:
@@ -175,15 +177,15 @@ def main(argv: list[str] | None = None) -> int:
 
     entries = ", ".join(f"{direction.id} {direction.entry_count}" for direction in tables["directions"])
     print(
-        f"build_db: wrote {out} ({asset_bytes} bytes; entries: {entries}; schema v{schema.version}; "
+        f"build_db: pack {pack.id}: wrote {out} ({asset_bytes} bytes; entries: {entries}; schema v{schema.version}; "
         f"{converter.name}; built_at {built_at})"
     )
     for check in failed:
         print(f"build_db: {check.name} = {check.value} is outside {check.minimum}–{check.maximum}", file=sys.stderr)
     if stats_xml is not None:
         print(
-            f"build_db: wrote {stats_xml} (dictionary_entry_count {total_entries}, "
-            f"dictionary_asset_bytes {asset_bytes})"
+            f"build_db: wrote {stats_xml} (dictionary_entry_count_{pack.id} {total_entries}, "
+            f"dictionary_asset_bytes_{pack.id} {asset_bytes})"
         )
     if failed:
         print(f"build_db: {args.out} was not replaced", file=sys.stderr)
@@ -202,12 +204,12 @@ class _StatsXml:
         self._previous: str | None = None
         self._written = False
 
-    def write(self, total_entries: int, asset_bytes: int) -> None:
+    def write(self, total_entries: int, asset_bytes: int, pack_id: str) -> None:
         if self.path is None:
             return
         try:
             self._previous = self.path.read_text(encoding="utf-8") if self.path.is_file() else None
-            write_stats_xml(self.path, total_entries, asset_bytes)
+            write_stats_xml(self.path, total_entries, asset_bytes, pack_id)
         except (OSError, ValueError) as error:
             raise _StatsXmlError(f"cannot write {self.path}: {error}") from error
         self._written = True
@@ -225,13 +227,8 @@ class _StatsXml:
             print(f"build_db: cannot restore {self.path}: {error}", file=sys.stderr)
 
 
-def read_source(path: Path, limit: int | None) -> dict[str, list[SourceRow]]:
-    """The rows of every source table in `_id` order (the first `limit` rows of each when given)."""
-    with closing(open_source(path)) as conn:
-        return {table: list(read_rows(conn, table, limit=limit)) for table in DIRECTION_BY_TABLE}
-
-
 def build(
+    pack: Pack,
     rows_by_table: Mapping[str, Sequence[SourceRow]],
     schema: Schema,
     converter: WylieConverter,
@@ -241,41 +238,44 @@ def build(
     report: BuildReport,
 ) -> tuple[dict[str, list[Any]], list[RangeCheck]]:
     """Parse, group, link and rank the source rows; return every table's rows and the range checks."""
-    index = HeadwordIndex.from_source_rows(rows_by_table)
+    index = HeadwordIndex.from_source_rows(pack, rows_by_table)
     parsed: dict[str, list[ParsedRow]] = {
-        "tben": [parse_tben_row(row, converter, index) for row in rows_by_table["tben"]],
-        "tbtb": [parse_tbtb_row(row, converter) for row in rows_by_table["tbtb"]],
-        "entotb": [parse_entotb_row(row) for row in rows_by_table["entotb"]],
+        table: [pack.parse(table, row, converter, index) for row in rows_by_table[table]] for table in pack.tables
     }
     drafts: dict[str, list[EntryDraft]] = {}
     for table, rows in parsed.items():
         report.add_parsed(table, rows)
-        drafts[DIRECTION_BY_TABLE[table]] = group_rows(DIRECTION_BY_TABLE[table], rows)
-    ordered = [draft for direction in DIRECTIONS for draft in drafts[direction.id]]
+        direction_id = pack.direction_by_table[table]
+        drafts[direction_id] = group_rows(pack, direction_id, rows)
+    ordered = [draft for direction in pack.directions for draft in drafts[direction.id]]
     stats = resolve_related(ordered, index, converter)
     ordered = _drop_empty_entries(ordered, stats, report)
     report.add_related(stats)
     ranks = assign_ranks(
-        (draft for draft in ordered if draft.direction_id == WOTD_DIRECTION_ID), wotd_seed, converter, index
+        (draft for draft in ordered if draft.direction_id == pack.wotd_direction_id),
+        wotd_seed,
+        converter,
+        index,
+        wotd_direction_id=pack.wotd_direction_id,
     )
 
     content = assemble_rows(ordered, ranks)
-    directions = direction_rows(content)
+    directions = direction_rows(pack, content)
     counts = table_counts(directions, content)
     meta = meta_rows(
         {
             "schema_version": schema.version,
             "data_version": data_version,
             "built_at": built_at,
-            "source_name": SOURCE_NAME,
-            "source_author": SOURCE_AUTHOR,
-            "source_url": SOURCE_URL,
-            "source_license": SOURCE_LICENSE,
-            "attribution_text": ATTRIBUTION_TEXT,
+            "source_name": pack.meta["source_name"],
+            "source_author": pack.meta["source_author"],
+            "source_url": pack.meta["source_url"],
+            "source_license": pack.meta["source_license"],
+            "attribution_text": pack.meta["attribution_text"],
             "wylie_converter": converter.name,
             "wotd_seed": wotd_seed,
             "wotd_count": len(ranks),
-            "wotd_direction_id": WOTD_DIRECTION_ID,
+            "wotd_direction_id": pack.wotd_direction_id,
             "build_tool_version": dictbuild.__version__,
         },
         counts,
@@ -289,7 +289,7 @@ def build(
         "related_entries": content.related_entries,
         "meta": meta,
     }
-    return tables, check_ranges(directions, content, wylie_available=converter.available)
+    return tables, check_ranges(pack, directions, content, wylie_available=converter.available)
 
 
 def _drop_empty_entries(drafts: list[EntryDraft], stats: RelatedStats, report: BuildReport) -> list[EntryDraft]:
