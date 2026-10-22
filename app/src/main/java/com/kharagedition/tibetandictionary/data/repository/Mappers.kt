@@ -127,12 +127,16 @@ internal fun EntryWithDetails.toDomain(): Entry = Entry(
     related = related.sortedWith(compareBy({ it.position }, { it.id })).map { it.toDomain() },
 )
 
-/** A see-also (`see_also`, or any unknown relation) or synonym (`synonym`) link. */
+/** A synonym (`synonym`), antonym (`antonym`) or see-also (`see_also`, or any unknown relation) link. */
 internal fun RelatedEntryEntity.toDomain(): RelatedEntry = RelatedEntry(
     targetEntryId = targetEntryId,
     headword = targetHeadword,
     wylie = targetWylie,
-    relation = if (relation == "synonym") Relation.SYNONYM else Relation.SEE_ALSO,
+    relation = when (relation) {
+        "synonym" -> Relation.SYNONYM
+        "antonym" -> Relation.ANTONYM
+        else -> Relation.SEE_ALSO
+    },
 )
 
 private val SENSE_ORDER: Comparator<SenseWithExamples> =

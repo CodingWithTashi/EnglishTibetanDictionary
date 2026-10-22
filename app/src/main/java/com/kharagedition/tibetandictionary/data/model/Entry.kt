@@ -40,4 +40,4 @@ data class RelatedEntry(
     val relation: Relation,
 )
 
-enum class Relation { SEE_ALSO, SYNONYM }
+enum class Relation { SEE_ALSO, SYNONYM, ANTONYM }
