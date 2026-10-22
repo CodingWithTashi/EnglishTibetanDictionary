@@ -5,7 +5,9 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.inMemoryUserDb
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.RecentSearch
 import com.kharagedition.tibetandictionary.fakes.FakeClock
 import java.time.Duration
@@ -21,13 +23,15 @@ import org.junit.runner.RunWith
 class RecentSearchesRepositoryImplTest {
 
     private val clock = FakeClock()
+    private val databases = databasesOf()
     private lateinit var db: UserDatabase
     private lateinit var repo: RecentSearchesRepositoryImpl
 
     @Before
     fun setUp() {
         db = inMemoryUserDb()
-        repo = RecentSearchesRepositoryImpl(db, clock, Dispatchers.Unconfined)
+        databases.activate(DictionaryPack.TIBETAN)
+        repo = RecentSearchesRepositoryImpl(db, databases, clock, Dispatchers.Unconfined)
     }
 
     @After
@@ -209,6 +213,34 @@ class RecentSearchesRepositoryImplTest {
             repo.clear()
             assertThat(awaitItem()).isEmpty()
         }
+    }
+
+    @Test
+    fun recentsFollowTheActivePack() = runTest {
+        repo.record("bkra", "bo-en")
+
+        repo.observe().test {
+            assertThat(awaitItem().map { it.query }).containsExactly("bkra")
+            databases.activate(DictionaryPack.DZONGKHA)
+            assertThat(awaitItem()).isEmpty()
+            repo.record("dzong", "dz-en")
+            assertThat(awaitItem().map { it.query }).containsExactly("dzong")
+            databases.activate(DictionaryPack.TIBETAN)
+            assertThat(awaitItem().map { it.query }).containsExactly("bkra")
+        }
+    }
+
+    @Test
+    fun clearOnlyClearsActivePack() = runTest {
+        repo.record("bkra", "bo-en")
+        databases.activate(DictionaryPack.DZONGKHA)
+        repo.record("dzong", "dz-en")
+
+        repo.clear()
+
+        assertThat(repo.observe().first()).isEmpty()
+        databases.activate(DictionaryPack.TIBETAN)
+        assertThat(repo.observe().first().map { it.query }).containsExactly("bkra")
     }
 
     private fun tick() {

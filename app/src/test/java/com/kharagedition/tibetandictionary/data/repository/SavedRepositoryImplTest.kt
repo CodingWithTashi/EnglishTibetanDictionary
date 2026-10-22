@@ -6,7 +6,9 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
+import com.kharagedition.tibetandictionary.data.local.databasesOf
 import com.kharagedition.tibetandictionary.data.local.inMemoryUserDb
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.fakes.FakeClock
@@ -23,13 +25,15 @@ import org.junit.runner.RunWith
 class SavedRepositoryImplTest {
 
     private val clock = FakeClock()
+    private val databases = databasesOf()
     private lateinit var db: UserDatabase
     private lateinit var repo: SavedRepositoryImpl
 
     @Before
     fun setUp() {
         db = inMemoryUserDb()
-        repo = SavedRepositoryImpl(db, clock, Dispatchers.Unconfined)
+        databases.activate(DictionaryPack.TIBETAN)
+        repo = SavedRepositoryImpl(db, databases, clock, Dispatchers.Unconfined)
     }
 
     @After
@@ -439,6 +443,87 @@ class SavedRepositoryImplTest {
                 if (saved.single().glossPreview == "updated gloss") break
             }
         }
+    }
+
+    @Test
+    fun savedListsFollowTheActivePack() = runTest {
+        repo.save(tashi, folderId = null)
+
+        repo.observeAll().test {
+            assertThat(awaitItem().map { it.entryId }).containsExactly(tashi.id)
+            databases.activate(DictionaryPack.DZONGKHA)
+            assertThat(awaitItem()).isEmpty()
+            databases.activate(DictionaryPack.TIBETAN)
+            assertThat(awaitItem().map { it.entryId }).containsExactly(tashi.id)
+        }
+        databases.activate(DictionaryPack.DZONGKHA)
+        assertThat(repo.observeCount().first()).isEqualTo(0)
+        assertThat(repo.observeSavedIds().first()).isEmpty()
+        assertThat(repo.observeFolder(null).first()).isEmpty()
+        assertThat(repo.search("bkra").first()).isEmpty()
+        databases.activate(DictionaryPack.TIBETAN)
+        assertThat(repo.observeCount().first()).isEqualTo(1)
+    }
+
+    @Test
+    fun savesAreFiledUnderTheActivePack() = runTest {
+        databases.activate(DictionaryPack.DZONGKHA)
+        repo.save(nyingje, folderId = null)
+
+        assertThat(db.savedEntryDao().get(nyingje.id)?.packId).isEqualTo("dz")
+    }
+
+    @Test
+    fun saveIgnoresFolderOfOtherPack() = runTest {
+        databases.activate(DictionaryPack.DZONGKHA)
+        val dzFolder = repo.createFolder("Verbs")
+        databases.activate(DictionaryPack.TIBETAN)
+
+        repo.save(tashi, folderId = dzFolder)
+
+        assertThat(db.savedEntryDao().get(tashi.id)?.folderId).isNull()
+    }
+
+    @Test
+    fun restoreKeepsPack() = runTest {
+        repo.save(tashi, folderId = null)
+        val snapshot = repo.observeAll().first().single()
+        repo.unsave(tashi.id)
+        databases.activate(DictionaryPack.DZONGKHA)
+
+        repo.restore(snapshot)
+
+        assertThat(db.savedEntryDao().get(tashi.id)?.packId).isEqualTo("bo")
+        assertThat(repo.observeAll().first()).isEmpty()
+        databases.activate(DictionaryPack.TIBETAN)
+        assertThat(repo.observeAll().first().map { it.entryId }).containsExactly(tashi.id)
+    }
+
+    @Test
+    fun restoreKeepsAFolderOfItsOwnPack() = runTest {
+        val verbs = repo.createFolder("Verbs")
+        repo.save(tashi, folderId = verbs)
+        val snapshot = repo.observeAll().first().single()
+        repo.unsave(tashi.id)
+        databases.activate(DictionaryPack.DZONGKHA)
+
+        repo.restore(snapshot)
+
+        assertThat(db.savedEntryDao().get(tashi.id)?.folderId).isEqualTo(verbs)
+    }
+
+    @Test
+    fun createFolderSameNameInBothPacks() = runTest {
+        val boFolder = repo.createFolder("Verbs")
+        databases.activate(DictionaryPack.DZONGKHA)
+
+        val dzFolder = repo.createFolder("Verbs")
+
+        assertThat(dzFolder).isNotEqualTo(boFolder)
+        assertThat(repo.observeFolders().first().map { it.name }).containsExactly("Verbs")
+        assertThat(repo.observeFolders().first().single().position).isEqualTo(0)
+        databases.activate(DictionaryPack.TIBETAN)
+        assertThat(repo.observeFolders().first().map { it.id }).containsExactly(boFolder)
     }
 
     private fun tick() {

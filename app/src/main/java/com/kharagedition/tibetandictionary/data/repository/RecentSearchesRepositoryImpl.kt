@@ -2,30 +2,40 @@ package com.kharagedition.tibetandictionary.data.repository
 
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
 import com.kharagedition.tibetandictionary.core.time.AppClock
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.entity.RecentSearchEntity
-import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.RecentSearch
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-/** [RecentSearchesRepository] over the user.db recent-searches DAO, which keeps the newest 50 rows. */
+/** [RecentSearchesRepository] over the user.db recent-searches DAO, which keeps the newest 50 rows per pack. */
 @Singleton
 class RecentSearchesRepositoryImpl @Inject constructor(
     db: UserDatabase,
+    private val databases: DictionaryDatabases,
     private val clock: AppClock,
     @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : RecentSearchesRepository {
     private val dao = db.recentSearchDao()
 
+    /** The active pack's id; a write before the first activation is a programming error. */
+    private val packId: String get() = checkNotNull(databases.active.value) { "No active dictionary" }.id
+
+    /** The active pack's recent searches; re-queried on a pack switch, silent while no pack is active. */
     override fun observe(limit: Int): Flow<List<RecentSearch>> =
-        dao.observeRecent(DictionaryPack.TIBETAN.id, limit).map { rows -> rows.map { it.toDomain() } }.flowOn(io)
+        databases.active.filterNotNull()
+            .flatMapLatest { dao.observeRecent(it.id, limit) }
+            .map { rows -> rows.map { it.toDomain() } }
+            .flowOn(io)
 
     /** Blank and one-character queries (after trimming) are not worth remembering and are ignored. */
     override suspend fun record(query: String, directionId: String, opened: EntrySummary?) {
@@ -34,7 +44,7 @@ class RecentSearchesRepositoryImpl @Inject constructor(
         withContext(io) {
             dao.record(
                 RecentSearchEntity(
-                    packId = DictionaryPack.TIBETAN.id,
+                    packId = packId,
                     query = trimmed,
                     directionId = directionId,
                     entryId = opened?.id,
@@ -50,7 +60,7 @@ class RecentSearchesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clear() {
-        withContext(io) { dao.clear(DictionaryPack.TIBETAN.id) }
+        withContext(io) { dao.clear(packId) }
     }
 
     private companion object {
