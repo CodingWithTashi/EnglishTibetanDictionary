@@ -10,6 +10,8 @@ from __future__ import annotations
 import html
 import re
 
+from dictbuild.source import SourceRow
+
 # Part-of-speech labels as the DDC files write them → `senses.part_of_speech` codes. `IDM` (idiom)
 # is a known label without a code: the entry is a phrase.
 DDC_POS_CODES: dict[str, str | None] = {
@@ -36,6 +38,17 @@ DDC_POS_CODES: dict[str, str | None] = {
     "IDM": None,
     "prefix": "prefix",
     "suffix": "suffix",
+    # Typos and variants of the English-Dzongkha file; codes joined by a comma as in the Monlam parsers.
+    "n”": "n",
+    "PHR V": "v",
+    "adj": "adj",
+    "adv;": "adv",
+    "erb": "v",
+    "possessive pron:": "pron",
+    "abbr:": "abbr",
+    "adj. n.": "adj,n",
+    "adj.,adv.": "adj,adv",
+    "exclamation, n.": "interj,n",
 }
 
 _TAG = re.compile(r"<[^>]*>")
@@ -56,6 +69,23 @@ def pos_code(text: str) -> tuple[str | None, bool]:
         if candidate in DDC_POS_CODES:
             return DDC_POS_CODES[candidate], True
     return None, False
+
+
+def sort_case_duplicates(rows: list[SourceRow]) -> list[SourceRow]:
+    """Within rows that share a lower-cased key, put the all-lower-case spelling first.
+
+    The sort is stable and each group keeps the positions it occupied: `A, a, b` → `a, A, b`, and
+    `Cancer, b, cancer` → `cancer, b, Cancer`.
+    """
+    groups: dict[str, list[int]] = {}
+    for position, row in enumerate(rows):
+        groups.setdefault(row.word.strip().lower(), []).append(position)
+    result = list(rows)
+    for positions in groups.values():
+        ordered = sorted((rows[p] for p in positions), key=lambda row: row.word.strip() != row.word.strip().lower())
+        for position, row in zip(positions, ordered):
+            result[position] = row
+    return result
 
 
 def strip_tags(markup: str) -> str:
