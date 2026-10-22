@@ -235,6 +235,8 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 - U+200B and U+FEFF are dropped.
 - U+0F0C → U+0F0B.
 - Whitespace runs collapse to one space, and the text is trimmed.
+- The DDC parsers apply it to the markup after each `</k>` before they read it, so the definition text and
+  its separators (`</kref>༌།`) follow the same rules as the headwords.
 
 **`strip_csv_quotes`**
 - Removes the `"…"` wrapper, or a lone leading `"`.
@@ -429,8 +431,13 @@ are the known gaps in the current source, found while checking the real build. N
   4018568, 4022739, 4025076). Row 5410 is a different case: its first gloss starts with an abbreviated
   form list `(ftr, pt, pst)`.
 - **Verb-form notes.** After a tense label, a parenthesised form such as `pst. (བྱུང་།)` (`dz-en` row 7984)
-  stays in the gloss without its label. That row also repeats its whole definition, so entry 4007984 has two
-  identical senses, `(བྱུང་།) topical`.
+  stays in the gloss without its label. That row also repeats its whole definition (45 `dz-en` rows repeat a
+  `<k>` block this way, for example row 7984, entry 4007984); the `dz-en` parser drops a sense identical in
+  gloss, part of speech and notes to an earlier sense of the same row, so the entry keeps one
+  `(བྱུང་།) topical`.
+- **Missing `༡`.** About 324 glosses (`en-dz` 284, `dz-dz` 40: `loaded`, `sickness`, `hammer`, `duct`,
+  `གཡར་` ...) keep a stray inline numeral because the numbered run does not start at `༡`; the rule only
+  accepts a run that starts at `༡`, so a source that starts at `༢` is not split.
 - **Bare labels.** About 50 `dz-en` senses (in 48 entries) keep a bare `syn`, `opp`, `hon.`, `also` or
   part-of-speech word that carries no markup, in the gloss (rows 199, 666, 3948, 4266, 5353, 6300 ...).
 - **Empty part of speech.** `en-dz` row 5849 (`embers`) has an empty `<pos>`; its body starts with the word
