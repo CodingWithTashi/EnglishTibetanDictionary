@@ -237,7 +237,11 @@ class DictionaryInstallerImpl @Inject constructor(
             } catch (e: IOException) {
                 t.addSuppressed(e)
             }
-            databases.discard(pack)
+            try {
+                databases.discard(pack)
+            } catch (e: Exception) {
+                t.addSuppressed(e)
+            }
         }
         throw t
     }

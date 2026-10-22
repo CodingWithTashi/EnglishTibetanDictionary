@@ -461,6 +461,28 @@ class DictionaryInstallerImplTest {
     }
 
     @Test
+    fun aFailingDiscardIsSuppressedUnderTheOriginalFailure() = runTest {
+        val boom = IOException("cannot open")
+        val installer = installer(
+            FakeAssetSource(goodAsset),
+            StandardTestDispatcher(testScheduler),
+            beforeRoomOpens = {
+                // Discarding the active pack throws; the open then fails with the original error.
+                lastDatabases.activate(DictionaryPack.TIBETAN)
+                throw boom
+            },
+        )
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        val state = installer.state.value
+        assertThat(state).isInstanceOf(InstallState.Failed::class.java)
+        val cause = (state as InstallState.Failed).cause
+        assertThat(cause).isSameInstanceAs(boom)
+        assertThat(cause.suppressed.map { it::class }).contains(IllegalStateException::class)
+    }
+
+    @Test
     fun installsTheRequestedPackOnly() = runTest {
         val asset = FakeAssetSource(mapOf(DictionaryPack.DZONGKHA to goodAsset))
         val installer = installer(asset, StandardTestDispatcher(testScheduler))
