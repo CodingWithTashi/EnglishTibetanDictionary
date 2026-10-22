@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from dictbuild.parsers.common import split_numbered, split_subsenses, split_subsenses_bo, split_subsenses_gt
+from dictbuild.parsers.common import (
+    Segment,
+    split_numbered,
+    split_numbered_tibetan,
+    split_subsenses,
+    split_subsenses_bo,
+    split_subsenses_gt,
+)
 
 
 def test_split_numbered_sequence() -> None:
@@ -136,3 +143,36 @@ def test_split_subsenses_prefers_tibetan_letters_then_gt() -> None:
     assert split_subsenses("ཀཿ ཀ་བ། ཁཿ ཁ་བ།") == [(1, "ཀ་བ།"), (2, "ཁ་བ།")]
     assert split_subsenses("1>ཀ་བ། 2>ཁ་བ།") == [(1, "ཀ་བ།"), (2, "ཁ་བ།")]
     assert split_subsenses("ཀ་བ།") == [(None, "ཀ་བ།")]
+
+
+def test_split_numbered_tibetan_sequence() -> None:
+    assert split_numbered_tibetan("༡ རིལ་རི། ༢ སྒོར་སྒོ། ༣ ཞིབ་བཤལ།") == [
+        (1, "རིལ་རི།"),
+        (2, "སྒོར་སྒོ།"),
+        (3, "ཞིབ་བཤལ།"),
+    ]
+
+
+def test_split_numbered_tibetan_requires_one_first() -> None:
+    assert split_numbered_tibetan("༢ x") is None
+    assert split_numbered_tibetan("no marker") is None
+
+
+def test_split_numbered_tibetan_keeps_lead_text() -> None:
+    segments = split_numbered_tibetan("noun ༡ ཨའི། ༢ ཨ་ཎེམོ།")
+
+    assert segments == [Segment(None, "noun"), Segment(1, "ཨའི།"), Segment(2, "ཨ་ཎེམོ།")]
+
+
+def test_split_numbered_tibetan_ten() -> None:
+    text = " ".join(f"{n} ཀ" for n in "༡ ༢ ༣ ༤ ༥ ༦ ༧ ༨ ༩ ༡༠".split())
+
+    segments = split_numbered_tibetan(text)
+
+    assert segments is not None
+    assert [segment.number for segment in segments] == list(range(1, 11))
+
+
+def test_split_numbered_tibetan_digit_inside_word_or_out_of_order_is_text() -> None:
+    assert split_numbered_tibetan("༡ ཀ༢ཁ ༣ ག ༢ ང") == [(1, "ཀ༢ཁ ༣ ག"), (2, "ང")]
+    assert split_numbered_tibetan("༡ ཀ ༡༠") == [(1, "ཀ ༡༠")]

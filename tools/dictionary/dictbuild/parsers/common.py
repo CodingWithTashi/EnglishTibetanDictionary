@@ -29,6 +29,14 @@ _SENSE_NUMBER = re.compile(
     r"(?<![0-9])(?<![0-9]\.)(?<![A-Za-z])(?P<number>[0-9]{1,2})\.(?![0-9])(?=\s*[^\s.,;:)\]])"
 )
 
+# Rule "numbered senses ༡ ༢ ༣ (Tibetan digits)": a marker is one or two Tibetan digits that start a token
+# (the text start or whitespace before), are not the head of a longer digit run, and are followed by
+# whitespace and sense text or directly by Tibetan text. A digit inside a word is text.
+_TIBETAN_DIGIT_VALUES = str.maketrans("༠༡༢༣༤༥༦༧༨༩", "0123456789")
+_TIBETAN_SENSE_NUMBER = re.compile(
+    r"(?<!\S)(?P<number>[༠-༩]{1,2})(?![༠-༩])(?=\s+\S|[\u0f00-\u0fff])"
+)
+
 # Rule "sub-senses ཀཿ ཁཿ གཿ ངཿ ཅཿ → sub_no 1–5": the letter plus visarga starts a token, so it does not
 # follow a Tibetan letter, vowel sign, subjoined letter or tsheg ("ཧེརུཀཿ" and "དུ་ཀཿ ཐོག" are words).
 # A stray tsheg right after the marker ("ཀཿ་ཟས") belongs to the marker.
@@ -69,6 +77,22 @@ def split_numbered(text: str) -> list[Segment] | None:
     markers: list[tuple[re.Match[str], int]] = []
     for match in _SENSE_NUMBER.finditer(text):
         number = int(match.group("number"))
+        if number == len(markers) + 1:
+            markers.append((match, number))
+    if not markers:
+        return None
+    return _segments(text, markers)
+
+
+def split_numbered_tibetan(text: str) -> list[Segment] | None:
+    """Split senses numbered with Tibetan digits `༡ … ༢ … ༣ …`, or return None without a `༡` marker.
+
+    Like `split_numbered`: markers count only as the sequence ༡, ༢, ༣, … (up to ༡༠ and beyond) in
+    order, any other Tibetan digit stays in the text, and text before `༡` comes first as `Segment(None, …)`.
+    """
+    markers: list[tuple[re.Match[str], int]] = []
+    for match in _TIBETAN_SENSE_NUMBER.finditer(text):
+        number = int(match.group("number").translate(_TIBETAN_DIGIT_VALUES))
         if number == len(markers) + 1:
             markers.append((match, number))
     if not markers:
