@@ -7,7 +7,7 @@ import importlib.util
 import pytest
 
 from dictbuild.model import EntryDraft, RelatedCandidate
-from dictbuild.packs import MONLAM
+from dictbuild.packs import DDC, MONLAM
 from dictbuild.related import HeadwordIndex, resolve_related
 from dictbuild.source import SourceRow
 from dictbuild.wylie import NullConverter, PyewtsConverter
@@ -109,3 +109,32 @@ def test_stats_count_by_relation(index: HeadwordIndex) -> None:
 
     assert stats.by_relation == {"see_also": (1, 2)}
     assert stats.unresolved_samples == {"see_also": [("ཀ་ཐོ་", "ཀ་ཀོ་ལ་")]}
+
+
+def test_ddc_index_resolves_in_dz_en_then_dz_dz() -> None:
+    index = HeadwordIndex.from_source_rows(
+        DDC,
+        {
+            "dz-en": [SourceRow(5, "ཀ་བ་", ""), SourceRow(6, "ཁ།", "")],
+            "dz-dz": [SourceRow(3, "ཀ་བ་", ""), SourceRow(4, "ག་", "")],
+            "en-dz": [SourceRow(10, "Lead", "")],
+        },
+    )
+
+    assert index.lookup_tibetan("ཀ་བ་") == 4_000_005  # dz-en wins over dz-dz
+    assert index.lookup_tibetan("ཁ་") == 4_000_006
+    assert index.lookup_tibetan("ག་") == 5_000_004
+    assert index.lookup_tibetan("ང་") is None
+    assert index.lookup_english("LEAD") == 6_000_010
+    entry = EntryDraft(
+        direction_id="dz-en",
+        source_id=9,
+        entry_id=DDC.entry_id_for("dz-en", 9),
+        headword="ཀ་ཐེ་",
+        group_key="ཀ་ཐེ་",
+        related=[RelatedCandidate("ག་", "synonym"), RelatedCandidate("Lead", "antonym")],
+    )
+
+    resolve_related([entry], index, NullConverter())
+
+    assert [(r.headword, r.target_entry_id) for r in entry.related] == [("ག་", 5_000_004), ("Lead", None)]

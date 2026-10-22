@@ -7,7 +7,7 @@ import dataclasses
 import pytest
 
 from dictbuild.model import RelatedEntryRow
-from dictbuild.packs import MONLAM
+from dictbuild.packs import DDC, MONLAM
 from dictbuild.stats import check_ranges
 from dictbuild.writer import ContentRows
 
@@ -108,3 +108,28 @@ def test_without_pyewts_wylie_must_be_zero_and_resolution_is_not_checked() -> No
 
     assert failing(checks) == set()
     assert "related see_also resolved %" not in {check.name for check in checks}
+
+
+def ddc_directions():
+    return [
+        dataclasses.replace(
+            direction,
+            entry_count=DDC.expected.entries[direction.id][0],
+            sense_count=DDC.expected.senses[direction.id][0],
+            wylie_count=DDC.expected.entries[direction.id][0] if direction.id != "en-dz" else 0,
+            wotd_count=DDC.expected.wotd[0] if direction.id == "dz-en" else 0,
+        )
+        for direction in DDC.directions
+    ]
+
+
+def test_ddc_ranges_include_antonyms() -> None:
+    ok = check_ranges(DDC, ddc_directions(), content(see_also=0, resolved=0, synonyms=900, antonyms=440), wylie_available=True)
+    assert failing(ok) == set()
+    assert "related see_also resolved %" not in {check.name for check in ok}
+    assert {check.name: check.value for check in ok}["related antonym"] == 440
+
+    for rows, name in (({"antonyms": 439}, "related antonym"), ({"antonyms": 461}, "related antonym"), ({"synonyms": 899}, "related synonym")):
+        given = {"see_also": 0, "resolved": 0, "synonyms": 900, "antonyms": 440, **rows}
+        assert failing(check_ranges(DDC, ddc_directions(), content(**given), wylie_available=True)) == {name}
+    assert failing(check_ranges(DDC, ddc_directions(), content(see_also=1, resolved=1, synonyms=900, antonyms=440), wylie_available=True)) == {"related see_also"}

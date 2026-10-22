@@ -6,12 +6,12 @@ import itertools
 
 import pytest
 
-from dictbuild.packs import MONLAM, PACKS
+from dictbuild.packs import DDC, MONLAM, PACKS
 
 
 def test_monlam_pack_matches_previous_constants() -> None:
     assert MONLAM.id == "bo"
-    assert PACKS == {"bo": MONLAM}
+    assert PACKS == {"bo": MONLAM, "dz": DDC}
     assert [
         (d.id, d.source_lang, d.target_lang, d.source_script, d.position, d.id_base) for d in MONLAM.directions
     ] == [
@@ -39,6 +39,64 @@ def test_monlam_pack_matches_previous_constants() -> None:
     assert MONLAM.expected.antonyms == (0, 0)
 
 
+def test_ddc_pack_shape() -> None:
+    assert DDC.id == "dz"
+    assert [
+        (d.id, d.source_lang, d.target_lang, d.source_script, d.position, d.id_base, d.short_label)
+        for d in DDC.directions
+    ] == [
+        ("dz-en", "dz", "en", "tibt", 0, 4_000_000, "རྫོང→EN"),
+        ("dz-dz", "dz", "dz", "tibt", 1, 5_000_000, "རྫོང→རྫོང"),
+        ("en-dz", "en", "dz", "latn", 2, 6_000_000, "EN→རྫོང"),
+    ]
+    assert DDC.tables == ("dz-en", "dz-dz", "en-dz")
+    assert DDC.direction_by_table == {"dz-en": "dz-en", "dz-dz": "dz-dz", "en-dz": "en-dz"}
+    assert DDC.tibetan_lookup_order == ("dz-en", "dz-dz")
+    assert DDC.english_direction == "en-dz"
+    assert DDC.wotd_direction_id == "dz-en"
+    assert DDC.expected.directions == 3
+    assert DDC.expected.see_also == (0, 0)
+    assert set(DDC.meta) == {"source_name", "source_author", "source_url", "source_license", "attribution_text"}
+
+
+def test_ddc_parse_dispatches_on_the_table() -> None:
+    from dictbuild.related import HeadwordIndex
+    from dictbuild.source import SourceRow
+    from dictbuild.wylie import NullConverter
+
+    index = HeadwordIndex({}, {})
+    rows = {
+        "dz-en": SourceRow(1, "ཀ", "<k>ཀ</k> <def><pos>n.</pos> the letter ka</def>"),
+        "dz-dz": SourceRow(2, "ཀ", "<k>ཀ </k>གསལ་བྱེད་ཀ།"),
+        "en-dz": SourceRow(3, "ka", "<k>ka</k> <pos>n.</pos> ཀ"),
+    }
+    glosses = {t: DDC.parse(t, row, NullConverter(), index).senses[0].gloss_lang for t, row in rows.items()}
+    assert glosses == {"dz-en": "en", "dz-dz": "dz", "en-dz": "dz"}
+    with pytest.raises(ValueError):
+        DDC.parse("tben", rows["dz-en"], NullConverter(), index)
+
+
+def test_ddc_read_source_reads_stardict_and_orders_case_duplicates(tmp_path) -> None:
+    from test_stardict import write_stardict
+
+    for name, entries in {
+        "dz-en": [("ཀ", "x")],
+        "dz-dz": [("ཁ", "y")],
+        "en-dz": [("A", "ཀ"), ("a", "ཁ")],
+    }.items():
+        folder = tmp_path / f"stardict-{name}"
+        folder.mkdir()
+        write_stardict(folder, entries)
+        for suffix in (".ifo", ".idx", ".dict"):
+            (folder / f"t{suffix}").rename(folder / f"{name}{suffix}")
+
+    rows = DDC.read_source(tmp_path, None)
+
+    assert list(rows) == ["dz-en", "dz-dz", "en-dz"]
+    assert [row.word for row in rows["en-dz"]] == ["a", "A"]
+    assert [row.word for row in DDC.read_source(tmp_path, 1)["en-dz"]] == ["A"]
+
+
 def test_entry_id_for_adds_id_base() -> None:
     assert MONLAM.entry_id_for("bo-en", 114) == 1_000_114
     assert MONLAM.entry_id_for("bo-bo", 3) == 2_000_003
@@ -60,6 +118,7 @@ def test_unknown_direction_raises_key_error() -> None:
         MONLAM.direction("dz-en")
     with pytest.raises(KeyError):
         MONLAM.entry_id_for("dz-en", 1)
+    assert DDC.entry_id_for("dz-dz", 12_063) == 5_012_063
 
 
 def test_pack_option_is_required_and_limited_to_known_packs(tmp_path, capsys) -> None:

@@ -87,7 +87,7 @@ def check_ranges(
         if related.relation == RELATION_SEE_ALSO and related.target_entry_id is not None
     )  # fmt: skip
     checks.append(RangeCheck("related see_also", relations[RELATION_SEE_ALSO], *expected.see_also))
-    if wylie_available:
+    if wylie_available and expected.see_also != (0, 0):
         percent = round(100 * see_also_resolved / max(relations[RELATION_SEE_ALSO], 1), 1)
         checks.append(RangeCheck("related see_also resolved %", percent, *expected.see_also_resolved_percent))
     checks.append(RangeCheck("related synonym", relations[RELATION_SYNONYM], *expected.synonyms))
