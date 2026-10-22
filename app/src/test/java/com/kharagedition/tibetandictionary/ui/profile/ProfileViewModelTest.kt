@@ -384,7 +384,19 @@ class ProfileViewModelTest {
             assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(PLAY_URL))
 
             vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
-            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.TIBETAN))
+        }
+    }
+
+    @Test
+    fun `Share app names the active pack`() = runTest {
+        databases.activate(DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+        vm.state()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.SHARE))
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.ShareApp(PLAY_URL, DictionaryPack.DZONGKHA))
         }
     }
 

@@ -1,6 +1,8 @@
 package com.kharagedition.tibetandictionary.ui.profile
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -148,7 +150,9 @@ class ProfileScreenTest {
         show(shipped.copy(dictionary = DictionaryPack.DZONGKHA))
 
         compose.onNodeWithTag("profile_row_dictionary").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Dzongkha", substring = true).assertIsDisplayed()
+        compose.onNode(hasTestTag("profile_row_dictionary") and hasText("Dzongkha", substring = true)).assertExists()
+        // The version line at the foot names the pack too.
+        compose.onNodeWithText("Dzongkha Dictionary 3.0.0", substring = true).assertExists()
         tap("profile_row_dictionary")
 
         assertThat(events).containsExactly(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))

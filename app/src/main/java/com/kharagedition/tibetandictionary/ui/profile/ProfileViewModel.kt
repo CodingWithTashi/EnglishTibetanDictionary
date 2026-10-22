@@ -122,7 +122,7 @@ class ProfileViewModel @Inject constructor(
         when (link) {
             ProfileLink.ABOUT -> send(ProfileEffect.NavigateAbout)
             ProfileLink.RATE -> send(ProfileEffect.OpenUrl(linkTargets.playStore))
-            ProfileLink.SHARE -> send(ProfileEffect.ShareApp(linkTargets.playStore))
+            ProfileLink.SHARE -> uiState.value?.let { send(ProfileEffect.ShareApp(linkTargets.playStore, it.dictionary)) }
             ProfileLink.MORE_APPS -> sheet.value = ProfileSheet.MORE_APPS
             ProfileLink.SUPPORT -> send(ProfileEffect.OpenUrl(linkTargets.support))
             ProfileLink.PRIVACY -> send(ProfileEffect.OpenUrl(linkTargets.privacy))

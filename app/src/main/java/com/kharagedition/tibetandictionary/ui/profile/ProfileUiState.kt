@@ -100,7 +100,7 @@ sealed interface ProfileEffect {
     data class OpenUrl(val url: String) : ProfileEffect
 
     /** Share the app; the screen words the message around [listingUrl] in the UI language. */
-    data class ShareApp(val listingUrl: String) : ProfileEffect
+    data class ShareApp(val listingUrl: String, val pack: DictionaryPack) : ProfileEffect
 
     data object NavigateAbout : ProfileEffect
 
