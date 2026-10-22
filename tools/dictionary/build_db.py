@@ -61,7 +61,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a pack's prebuilt dictionary database from its source.")
     parser.add_argument("--version", action="version", version=f"dictbuild {dictbuild.__version__}")
     parser.add_argument("--pack", choices=sorted(PACKS), required=True, help="the dictionary pack to build")
-    parser.add_argument("--source", type=Path, required=True, help="source of the pack, read-only (bo: the Monlam MLDic.ml database; dz: the directory holding stardict-dz-en/, stardict-en-dz/ and stardict-dz-dz/)")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help=(
+            "source of the pack, read-only (bo: the Monlam MLDic.ml database; "
+            "dz: the directory holding stardict-dz-en/, stardict-en-dz/ and stardict-dz-dz/)"
+        ),
+    )
     parser.add_argument("--schema-dir", type=Path, required=True, help="app/schemas/<DictionaryDatabase fqcn>/")
     parser.add_argument("--out", type=Path, required=True, help="database to write")
     parser.add_argument("--data-version", required=True, help="data release, e.g. 2026.10.1")

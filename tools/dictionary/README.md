@@ -149,8 +149,9 @@ The steps, in order:
 3. Parse each row.
 4. Group rows into entries.
 5. Resolve related links across directions.
-6. Drop empty entries: no sense and no link (one in the current Monlam source, `དཔལ་གྱི་ཁབ་`; none in the DDC files). Links that
-   resolved to them become unresolved, and the report warns `build:empty_entry_dropped`.
+6. Drop empty entries: no sense and no link (one in the current Monlam source, `དཔལ་གྱི་ཁབ་`; none in the
+   DDC files). Rows with an empty key are skipped earlier, when rows are grouped: the DDC `dz-dz` and `en-dz`
+   files each have one (source row 1), and the report has no `build:empty_entry_dropped` warning for them.
 7. Assign word-of-the-day ranks.
 8. Compute the direction counts and `meta`.
 9. Write the database to a temporary file.
@@ -417,14 +418,20 @@ All splitters return `(None, leading text)` first when there is text before the 
 The `dz` pack is built from StarDict files with markup and conventions that are not always regular. These
 are the known gaps in the current source, found while checking the real build. None is special-cased.
 
-- **Numbers in running text.** A space-separated Tibetan number that continues a numbered run is taken as a
-  sense marker. About 11 definitions are affected (4 in `en-dz`, 7 in `dz-dz`), for example `p.m.`
-  `ཆུ་ཚོད་ ༡ ལས་`.
-- **Typo debris in `dz-en`.** Source typos leave fragments such as `(ft, )` and `(, im p)` in about a dozen
-  glosses (rows 8649, 18568, 25076).
+- **Source row counts.** `dz-en` has 35,543 rows and gives 35,543 entries. `dz-dz` has 22,787 rows (its
+  `wordcount`), one of them with an empty key, so 22,786 entries. `en-dz` has 23,237 rows, one with an empty
+  key and 91 more that merge into an entry whose key differs only in case, so 23,145 entries.
+- **Numbers in running text.** A space-separated Tibetan numeral that continues a numbered run is read as a
+  sense marker (`split_numbered_tibetan` accepts the next number in the sequence ༡, ༢, ༣ … wherever it starts
+  a token), even when the source meant it as part of the sentence.
+- **Typo debris in `dz-en`.** Five glosses start with a fragment of a mistyped form list: row 8649
+  `(, im p)`, rows 14989, 18568 and 22739 `(ft, )`, row 25076 `(frt, )` (entry ids 4008649, 4014989,
+  4018568, 4022739, 4025076). Row 5410 is a different case: its first gloss starts with an abbreviated
+  form list `(ftr, pt, pst)`.
 - **Verb-form notes.** After a tense label, a parenthesised form such as `pst. (བྱུང་།)` (`dz-en` row 7984)
-  stays in the gloss without its label.
-- **Bare labels.** About 41–50 `dz-en` senses keep a bare `syn`, `opp`, `hon.`, `also` or part-of-speech word
-  that carries no markup, in the gloss (rows 141, 199, 666, 1203, 3948, 4004, 4266, 5353, 6300 …).
+  stays in the gloss without its label. That row also repeats its whole definition, so entry 4007984 has two
+  identical senses, `(བྱུང་།) topical`.
+- **Bare labels.** About 50 `dz-en` senses (in 48 entries) keep a bare `syn`, `opp`, `hon.`, `also` or
+  part-of-speech word that carries no markup, in the gloss (rows 199, 666, 3948, 4266, 5353, 6300 ...).
 - **Empty part of speech.** `en-dz` row 5849 (`embers`) has an empty `<pos>`; its body starts with the word
   `noun`, which stays in the gloss.

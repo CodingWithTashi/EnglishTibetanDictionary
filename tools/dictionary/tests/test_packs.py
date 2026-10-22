@@ -77,7 +77,7 @@ def test_ddc_parse_dispatches_on_the_table() -> None:
 
 
 def test_ddc_read_source_reads_stardict_and_orders_case_duplicates(tmp_path) -> None:
-    from test_stardict import write_stardict
+    from tests.helpers import write_stardict
 
     for name, entries in {
         "dz-en": [("ཀ", "x")],

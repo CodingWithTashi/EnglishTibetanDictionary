@@ -21,7 +21,7 @@ import build_db
 from dictbuild.model import EntryDraft, EntryRow, ParsedExample, ParsedSense, RelatedCandidate, RelatedEntryRow
 from dictbuild.packs import DDC, MONLAM
 from dictbuild.schema import latest_schema_path, load_schema
-from tests.test_stardict import write_stardict
+from tests.helpers import write_stardict
 from dictbuild.writer import entry_part_of_speech, entry_preview, gloss_preview, write_database
 
 SOURCE_ENV = "MLDIC_SOURCE"
