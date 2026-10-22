@@ -46,7 +46,7 @@ def test_numbered_senses() -> None:
 
 def test_second_block_continues_the_sense_numbers() -> None:
     row = parse("ཀླུ་མོ")
-    assert [sense.gloss for sense in row.senses] == ["ཀླུ་མོ་གི་མིང༌།", "ཀླུ་མོའི་རིགས།"]
+    assert [sense.gloss for sense in row.senses] == ["ཀླུ་མོ་གི་མིང་།", "ཀླུ་མོའི་རིགས།"]
     assert [sense.sense_no for sense in row.senses] == [1, 2]
 
 
@@ -54,3 +54,9 @@ def test_empty_key() -> None:
     row = parse("")
     assert (row.headword, row.group_key) == ("", "")
     assert row.wylie is None
+
+
+def test_nbsp_tsheg_becomes_a_tsheg() -> None:
+    # Real rows with U+0F0C in the running definition (the second one has no key).
+    assert [s.gloss for s in parse("ཀླུ་མོ").senses] == ["ཀླུ་མོ་གི་མིང་།", "ཀླུ་མོའི་རིགས།"]
+    assert [s.gloss for s in parse("").senses] == ["གྲ་ཁེག་ཁེ་གྲུ་ལམ་ལམ་ཟེར་དོ་བཟུམ།"]

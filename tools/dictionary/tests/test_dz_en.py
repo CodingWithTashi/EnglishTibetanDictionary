@@ -267,3 +267,62 @@ def test_notes_do_not_carry_across_k_blocks() -> None:
 
     assert [(s.gloss, s.notes) for s in row.senses] == [("hereby", [])]
     assert row.warnings == ["sense_without_gloss"]
+
+
+def test_nbsp_tsheg_in_a_gloss_becomes_a_tsheg() -> None:
+    # Real row 6019: the source writes the non-breaking tsheg U+0F0C inside the bracketed Dzongkha glosses.
+    row = parse(
+        "ཆུ་གཏོར",
+        '<k>ཆུ་གཏོར</k> <def> <pos><abbr><i>noun</i></abbr></pos>water-offering ritual (ཆུ༌མཆོད།) '
+        '<pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  <abbr><i>pst.</i></abbr>,  '
+        '<abbr><i>prs.</i></abbr>, <abbr><i>imp.</i></abbr>) splash (འཐོར༌བ།)</def> ',
+    )
+
+    assert [s.gloss for s in row.senses] == ["water-offering ritual (ཆུ་མཆོད།)", "splash (འཐོར་བ།)"]
+
+
+def test_headword_tail_after_a_kref_is_not_gloss_debris() -> None:
+    # Real rows 2832 and 3692: the `</kref>` is followed by the tsheg U+0F0C and a shad, which are not gloss text.
+    satellite = parse(
+        "གཞན་དབང",
+        '<k>གཞན་དབང</k> <def> <pos><abbr><i>noun</i></abbr></pos> <abbr><i>opp.</i></abbr> '
+        '<kref type="ant">རང་དབང</kref>༌། satellite, tutelage</def> ',
+    )
+    cad = parse(
+        "གཤིས་ངན",
+        '<k>གཤིས་ངན</k> <def> <pos><abbr><i>noun</i></abbr></pos> <abbr><i>opp.</i></abbr> '
+        '<kref type="ant">གཤིས་བཟང</kref>༌། cad</def> ',
+    )
+
+    assert [(s.gloss, s.notes) for s in satellite.senses] == [("satellite, tutelage", ["opp. རང་དབང"])]
+    assert [s.gloss for s in cad.senses] == ["cad"]
+    assert [r.headword for r in satellite.related] == ["རང་དབང་"]
+
+
+def test_a_repeated_k_block_does_not_repeat_its_senses() -> None:
+    # Real rows 7950 and 7984: the second `<k>` block repeats the first.
+    adv = parse(
+        "ད་ཅི",
+        '<k>ད་ཅི</k> <def> <pos><abbr><i>adv.</i></abbr></pos>a while ago, a little before</def> \n'
+        '<k>ད་ཅི</k> <def> <pos><abbr><i>adv.</i></abbr></pos>a while ago, a little before</def> ',
+    )
+    verb = parse(
+        "ད་ལྟོ་འབྱུང་བ",
+        "<k>ད་ལྟོ་འབྱུང་བ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  "
+        "<abbr><i>prs.</i></abbr>)  <abbr><i>pst.</i></abbr> (བྱུང་།) topical</def> \n"
+        "<k>ད་ལྟོ་འབྱུང་བ</k> <def> <pos><abbr><i>verb</i></abbr></pos>( <abbr><i>fut.</i></abbr>,  "
+        "<abbr><i>prs.</i></abbr>)  <abbr><i>pst.</i></abbr> (བྱུང་།) topical</def> ",
+    )
+
+    assert [(s.sense_no, s.gloss) for s in adv.senses] == [(1, "a while ago, a little before")]
+    assert [(s.sense_no, s.gloss) for s in verb.senses] == [(1, "(བྱུང་།) topical")]
+
+
+def test_a_different_second_block_keeps_its_senses() -> None:
+    row = parse(
+        "ད་ལན",
+        '<k>ད་ལན</k> <def> <pos><abbr><i>adv.</i></abbr></pos>hereby</def> \n'
+        '<k>ད་ལན</k> <def> <pos><abbr><i>noun</i></abbr></pos>hereby</def> ',
+    )
+
+    assert [(s.sense_no, s.part_of_speech, s.gloss) for s in row.senses] == [(1, "adv", "hereby"), (2, "n", "hereby")]

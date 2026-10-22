@@ -12,7 +12,7 @@ from dictbuild.model import GLOSS_LANG_DZ, ParsedRow, ParsedSense
 from dictbuild.parsers.common import split_numbered_tibetan, tidy
 from dictbuild.parsers.ddc_common import split_k_blocks, strip_tags
 from dictbuild.source import SourceRow
-from dictbuild.text import normalise_tibetan_headword
+from dictbuild.text import normalise_tibetan_headword, preprocess
 from dictbuild.wylie import WylieConverter
 
 __all__ = ["parse_dz_dz_row"]
@@ -30,7 +30,7 @@ def parse_dz_dz_row(row: SourceRow, converter: WylieConverter) -> ParsedRow:
         wylie=converter.to_wylie(headword) if headword else None,
     )
     for _, rest in blocks or [("", row.definition)]:
-        text = strip_tags(rest)  # a tag becomes a space: `</k>༡` is glued in the source
+        text = strip_tags(preprocess(rest))  # a tag becomes a space: `</k>༡` is glued in the source
         if not text:
             continue
         segments = split_numbered_tibetan(text)

@@ -112,7 +112,7 @@ def test_unknown_label_is_reported() -> None:
     row = parse("a")
 
     assert row.unknown_labels == ["ia:"]
-    assert [(s.part_of_speech, s.gloss) for s in row.senses] == [(None, "ཅིག ཞིག ཤིག གང༌།")]
+    assert [(s.part_of_speech, s.gloss) for s in row.senses] == [(None, "ཅིག ཞིག ཤིག གང་།")]
 
 
 def test_latin_echo_of_the_label_is_dropped() -> None:
@@ -143,3 +143,18 @@ def test_several_pos_labels_in_one_block_join_their_codes() -> None:
         ("adv,adj", "མེ་འབར་བ། མེས་འཚིག་པ།"),
         ("adv,adj", "མདངས་འཕྲོ་བ།"),
     ]
+
+
+def test_nbsp_tsheg_becomes_a_tsheg() -> None:
+    # Real rows 15515 and 15492 (`pillow`, `piggery`): the source ends the gloss with U+0F0C before the shad.
+    pillow = parse_en_dz_row(SourceRow(15515, "pillow", "<k>pillow</k> <pos><abbr><i>noun</i></abbr></pos> ཧང༌།"))
+    piggery = parse_en_dz_row(
+        SourceRow(
+            15492,
+            "piggery",
+            "<k>piggery</k> <pos><abbr><i>noun</i></abbr></pos> ཕག་གསོ་ཁང༌། ཕགཔ་གསོ་སྐྱོང་ཁང༌།",
+        )
+    )
+
+    assert [s.gloss for s in pillow.senses] == ["ཧང་།"]
+    assert [s.gloss for s in piggery.senses] == ["ཕག་གསོ་ཁང་། ཕགཔ་གསོ་སྐྱོང་ཁང་།"]

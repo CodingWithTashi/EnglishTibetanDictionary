@@ -15,7 +15,7 @@ from dictbuild.model import GLOSS_LANG_DZ, ParsedRow, ParsedSense
 from dictbuild.parsers.common import split_numbered_tibetan, tidy
 from dictbuild.parsers.ddc_common import pos_code, split_k_blocks, strip_tags
 from dictbuild.source import SourceRow
-from dictbuild.text import normalise_english_headword
+from dictbuild.text import normalise_english_headword, preprocess
 
 __all__ = ["parse_en_dz_row"]
 
@@ -28,6 +28,7 @@ def parse_en_dz_row(row: SourceRow) -> ParsedRow:
     headword, homonym, group_key = normalise_english_headword(row.word)
     parsed = ParsedRow(source_id=row.source_id, headword=headword, group_key=group_key, homonym=homonym)
     for _, rest in split_k_blocks(row.definition):
+        rest = preprocess(rest)
         labels = [strip_tags(found.group("label")) for found in _POS_BLOCK.finditer(rest)]
         codes: list[str] = []
         for label in labels:
