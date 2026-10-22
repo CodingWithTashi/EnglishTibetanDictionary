@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.ui.about
 
 import android.content.Context
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -60,6 +61,32 @@ class LicencesScreenTest {
             .isEqualTo("licenses/GPL-3.0.txt" to R.string.licence_data)
         assertThat(bundledLicences(DictionaryPack.DZONGKHA).drop(1))
             .isEqualTo(bundledLicences(DictionaryPack.TIBETAN).drop(1))
+    }
+
+    @Test
+    fun `the view model has no pack until one is active, then follows it`() {
+        val inactive = DictionaryDatabases { error("not opened in Licences tests") }
+        val viewModel = LicencesViewModel(inactive)
+
+        assertThat(viewModel.pack.value).isNull()
+
+        inactive.activate(DictionaryPack.DZONGKHA)
+        assertThat(viewModel.pack.value).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `no licence is shown while no pack is active`() {
+        val inactive = DictionaryDatabases { error("not opened in Licences tests") }
+        compose.setContent { DictTheme(darkTheme = false) { LicencesScreen({}, LicencesViewModel(inactive)) } }
+        compose.waitForIdle()
+        Thread.sleep(SETTLE_MS) // the texts would load on a background thread
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Licences").assertIsDisplayed()
+        compose.onAllNodes(hasText("Dictionary data", substring = true)).assertCountEquals(0)
+
+        inactive.activate(DictionaryPack.TIBETAN)
+        compose.waitUntil(LOAD_TIMEOUT_MS) { compose.onAllNodes(hasText(GPL_TITLE)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
@@ -126,5 +153,6 @@ class LicencesScreenTest {
     private companion object {
         const val GPL_TITLE = "GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007"
         const val LOAD_TIMEOUT_MS = 5_000L
+        const val SETTLE_MS = 300L
     }
 }

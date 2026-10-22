@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
@@ -48,10 +47,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
 /** Space above a licence's heading, and between its paragraphs. */
@@ -109,13 +105,11 @@ internal fun AssetManager.readLicences(pack: DictionaryPack): List<LicenceUi> =
         LicenceUi(title, licenceParagraphs(text))
     }
 
-/** The pack whose data licence Licences shows first; waits for a pack to be active. */
+/** The pack whose data licence Licences shows first; null until a pack is active, when no licence is shown. */
 @HiltViewModel
 class LicencesViewModel @Inject constructor(databases: DictionaryDatabases) : ViewModel() {
 
-    val pack: StateFlow<DictionaryPack> = databases.active
-        .filterNotNull()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, databases.active.value ?: DictionaryPack.TIBETAN)
+    val pack: StateFlow<DictionaryPack?> = databases.active
 }
 
 /** Licences, pushed from About: the full texts of the dictionary data's and the fonts' licences. */
@@ -124,7 +118,7 @@ fun LicencesScreen(onBack: () -> Unit, viewModel: LicencesViewModel = hiltViewMo
     val assets = LocalContext.current.assets
     val pack by viewModel.pack.collectAsStateWithLifecycle()
     val licences by produceState<List<LicenceUi>?>(null, assets, pack) {
-        value = withContext(Dispatchers.IO) { assets.readLicences(pack) }
+        value = pack?.let { withContext(Dispatchers.IO) { assets.readLicences(it) } }
     }
     LicencesScreen(licences, onBack)
 }
