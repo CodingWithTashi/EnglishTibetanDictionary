@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.ui.app
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
@@ -91,13 +92,7 @@ fun AppRoot(state: AppRootState.Ready, onRetrySwitch: () -> Unit, onKeepCurrent:
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .then(
-                            if (blocked) {
-                                Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .blockedWhen(blocked),
                 ) {
                     AppNavHost(
                         startDestination = startDestination,
@@ -113,6 +108,18 @@ fun AppRoot(state: AppRootState.Ready, onRetrySwitch: () -> Unit, onKeepCurrent:
         }
     }
 }
+
+/**
+ * While [blocked], hides this subtree from the accessibility tree and keeps focus out of it: the subtree is a focus
+ * group that refuses every focus change into it, so a hardware-keyboard Tab cannot reach a nested focusable (a plain
+ * `canFocus = false` only covers the nearest focus targets).
+ */
+internal fun Modifier.blockedWhen(blocked: Boolean): Modifier =
+    if (blocked) {
+        clearAndSetSemantics {}.focusProperties { onEnter = { cancelFocusChange() } }.focusGroup()
+    } else {
+        this
+    }
 
 /** Test tag of the switching overlay. */
 const val SWITCHING_OVERLAY_TAG = "switching_overlay"
