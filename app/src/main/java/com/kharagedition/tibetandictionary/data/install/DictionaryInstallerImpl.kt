@@ -46,9 +46,9 @@ import kotlinx.coroutines.withContext
  * `-journal`/`-wal`/`-shm` siblings and any `dictionary-<id>.db.tmp`; it never deletes a pack's real `.db` file.
  *
  * Opening checks `meta.data_version` (§5.1): a missing or blank value is a broken build and fails the install. When
- * opening or that check fails, the installed file is deleted so a retry copies the asset again. Room is not closed
- * (Room 2.8 forbids reusing a closed database), so if Room's own open had already succeeded, this process keeps
- * reading the deleted file and only the next launch reads the new copy; that case means the asset itself is bad.
+ * opening or that check fails, the installed file is deleted and the pack's cached Room instance is discarded
+ * ([DictionaryDatabases.discard]), so a retry copies the asset again and opens a fresh instance instead of reading the
+ * deleted file.
  *
  * Progress: [InstallState.Copying] goes from 0 to 1, updated at most every [PROGRESS_STEP_BYTES]. The expected length
  * is [AssetSource.length] (known when the asset is stored uncompressed), else the size the data build recorded
@@ -111,11 +111,11 @@ class DictionaryInstallerImpl @Inject constructor(
     /** Deletes the pre-pack `dictionary.db` and every pack's `.tmp` once per process; best effort, never a `.db`. */
     private fun sweepOnce() {
         if (swept) return
-        swept = true
         val legacy = context.getDatabasePath(LEGACY_DB_NAME)
         val leftovers = DATABASE_FILE_SUFFIXES.map { File(legacy.path + it) } +
             DictionaryPack.entries.map { File(context.getDatabasePath(it.dbName).path + TEMP_SUFFIX) }
         leftovers.forEach { it.delete() }
+        swept = true
     }
 
     /** [pack] is active, so its file is live: only count its entries again; on failure delete nothing. */
@@ -225,8 +225,8 @@ class DictionaryInstallerImpl @Inject constructor(
 
     /**
      * Opens Room on [pack]'s installed [target], checks `meta.data_version` and sums the visible directions' entry
-     * counts. On failure (other than the caller being cancelled) it deletes [target] so a retry copies the asset
-     * again. Only for a pack that is not active yet.
+     * counts. On failure (other than the caller being cancelled) it deletes [target] and discards the pack's Room
+     * instance so a retry copies the asset again and opens it afresh. Only for a pack that is not active yet.
      */
     private suspend fun openAndCount(pack: DictionaryPack, target: File): Int = try {
         countEntries(pack, target)
@@ -237,6 +237,7 @@ class DictionaryInstallerImpl @Inject constructor(
             } catch (e: IOException) {
                 t.addSuppressed(e)
             }
+            databases.discard(pack)
         }
         throw t
     }

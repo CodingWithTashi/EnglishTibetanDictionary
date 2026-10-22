@@ -55,6 +55,38 @@ class DictionaryDatabasesTest {
     }
 
     @Test
+    fun discardForgetsAnInactivePackSoTheNextGetOpensAgain() {
+        val opens = mutableListOf<DictionaryPack>()
+        val databases = countingDatabases(opens)
+        databases.activate(DictionaryPack.TIBETAN)
+        val first = databases.get(DictionaryPack.DZONGKHA)
+
+        databases.discard(DictionaryPack.DZONGKHA)
+
+        assertThat(databases.isOpen(DictionaryPack.DZONGKHA)).isFalse()
+        assertThat(databases.get(DictionaryPack.DZONGKHA)).isNotSameInstanceAs(first)
+        assertThat(opens).containsExactly(DictionaryPack.DZONGKHA, DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun discardOfAPackThatWasNeverOpenedDoesNothing() {
+        val databases = countingDatabases(mutableListOf())
+        databases.discard(DictionaryPack.DZONGKHA)
+        assertThat(databases.isOpen(DictionaryPack.DZONGKHA)).isFalse()
+    }
+
+    @Test
+    fun discardOfTheActivePackThrowsAndKeepsItOpen() {
+        val databases = countingDatabases(mutableListOf())
+        databases.activate(DictionaryPack.TIBETAN)
+        val db = databases.get(DictionaryPack.TIBETAN)
+
+        assertThrows(IllegalStateException::class.java) { databases.discard(DictionaryPack.TIBETAN) }
+
+        assertThat(databases.activeDb).isSameInstanceAs(db)
+    }
+
+    @Test
     fun activateSwitchesActiveDb() = runTest {
         val databases = countingDatabases(mutableListOf())
 

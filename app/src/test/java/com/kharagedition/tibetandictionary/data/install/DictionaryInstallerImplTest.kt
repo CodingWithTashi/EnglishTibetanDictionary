@@ -406,6 +406,25 @@ class DictionaryInstallerImplTest {
     }
 
     @Test
+    fun retryAfterAVerificationFailureOpensAFreshRoomInstance() = runTest {
+        val blank = buildFixtureAsset("blank-version.db", dataVersion = " ")
+        val asset = FakeAssetSource(blank)
+        val installer = installer(asset, StandardTestDispatcher(testScheduler))
+
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+        assertThat(installer.state.value).isInstanceOf(InstallState.Failed::class.java)
+        assertThat(roomOpens).containsExactly(DictionaryPack.TIBETAN)
+
+        asset.file = goodAsset
+        installer.ensureInstalled(DictionaryPack.TIBETAN)
+
+        assertThat(installer.state.value).isEqualTo(InstallState.Ready(DictionaryPack.TIBETAN, 3))
+        assertThat(roomOpens).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.TIBETAN)
+        assertThat(openDbs).hasSize(2)
+        assertThat(openDbs[1]).isNotSameInstanceAs(openDbs[0])
+    }
+
+    @Test
     fun assetWithWrongVersionFails() = runTest {
         val stale = withUserVersion(goodAsset, DictionaryDatabase.VERSION + 1)
         val installer = installer(FakeAssetSource(stale), StandardTestDispatcher(testScheduler))
@@ -615,11 +634,11 @@ class DictionaryInstallerImplTest {
     ): DictionaryInstallerImpl {
         // The production builder (createFromAsset + destructive fallback): there is no asset under Robolectric, so a
         // test passes only if Room finds the installed file and skips its own copy.
-        val production = DatabaseModule.provideDictionaryDatabases(context)
+        // Each open builds its own holder: a discarded instance is closed, and a shared holder would hand it out again.
         lastDatabases = DictionaryDatabases { pack ->
             roomOpens += pack
             beforeRoomOpens()
-            production.get(pack).also { openDbs += it }
+            DatabaseModule.provideDictionaryDatabases(context).get(pack).also { openDbs += it }
         }
         return DictionaryInstallerImpl(context, asset, recordedSize, lastDatabases, io, errors)
     }

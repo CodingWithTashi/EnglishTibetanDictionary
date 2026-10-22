@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * One Room instance of [DictionaryDatabase] per [DictionaryPack], each over its own file, opened lazily by [open].
  *
  * Every opened instance is kept for the life of the process: Room 2.8 forbids reopening a closed instance, so a pack
- * that was switched away from stays open and a switch back reuses it. Only the installer calls [get] for a pack that
+ * that was switched away from stays open and a switch back reuses it. The one exception is [discard]. Only the installer calls [get] for a pack that
  * is not [active] (to verify a freshly copied file); everything else reads [activeDb] or observes [active].
  *
  * [active] is null until [activate] is called after the first successful install. Callers that run before that (a
@@ -33,6 +33,18 @@ class DictionaryDatabases(private val open: (DictionaryPack) -> DictionaryDataba
     /** Makes [pack] the active one; collectors of [active] see it. */
     fun activate(pack: DictionaryPack) {
         _active.value = pack
+    }
+
+    /**
+     * Closes and forgets [pack]'s instance so the next [get] opens a fresh one over whatever file is then in place.
+     * For the installer, after it deleted the file of a pack that failed to open or verify: the cached instance would
+     * keep reading the deleted file. Does nothing if [pack] was never opened. Throws [IllegalStateException] for the
+     * [active] pack, whose instance the app is reading.
+     */
+    @Synchronized
+    fun discard(pack: DictionaryPack) {
+        check(active.value != pack) { "Cannot discard the active dictionary $pack" }
+        opened.remove(pack)?.close()
     }
 
     /** Whether [get] has already opened [pack]. */
