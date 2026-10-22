@@ -12,6 +12,7 @@ import com.kharagedition.tibetandictionary.ui.model.UiText
 import java.io.IOException
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -149,6 +150,21 @@ class ProfileViewModelTest {
 
         assertThat(vm.state().sheet).isNull()
         assertThat(switcher.requests).isEmpty()
+    }
+
+    @Test
+    fun `setDictionaryWhileASwitchRunsClosesTheSheetAndRecordsNothing`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(ProfileEvent.OpenSheet(ProfileSheet.DICTIONARY))
+        val running = SwitchState.InProgress(DictionaryPack.DZONGKHA, 0.4f)
+        switcher.state.value = running
+
+        vm.onEvent(ProfileEvent.SetDictionary(DictionaryPack.TIBETAN))
+
+        assertThat(vm.state().sheet).isNull()
+        assertThat(errors.recorded).isEmpty()
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(switcher.state.value).isEqualTo(running)
     }
 
     // Dictionary pack
