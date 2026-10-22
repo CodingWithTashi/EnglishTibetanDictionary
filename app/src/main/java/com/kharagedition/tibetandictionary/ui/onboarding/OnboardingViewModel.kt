@@ -34,10 +34,10 @@ import kotlinx.coroutines.launch
  * accounts). Choices start from the stored [prefs] and the visible directions; each step's values are stored when the
  * user leaves it with Continue, and Skip stores what the remaining steps show. Storing the dictionary step runs the
  * pack switch through [switcher] and checks that [databases] then has that pack active (the switcher also ends idle
- * when it rejects a request or is cancelled); a switch that did not take is recorded through [errors], and the user
- * stays on the step, so Continue never moves on, and Skip never finishes, without the chosen dictionary. The last step
- * also stores onboarding as done and sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and
- * capabilities load. A preferences write that fails (DataStore's IOException) is recorded through [errors] and
+ * when it rejects a request or is cancelled); a switch that did not take stays on the step (the switching overlay shows
+ * a failed one; a rejected or cancelled one is recorded through [errors]), so Continue never moves on, and Skip never
+ * finishes, without the chosen dictionary. The last step also stores onboarding as done and sends
+ * [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A preferences write that fails (DataStore's IOException) is recorded through [errors] and
  * onboarding carries on: the choices still apply for this session, and the user is not stuck on the first-run
  * screens. The step and the choices not yet stored live in [savedState], so a process death mid-setup comes back to
  * the same step.
@@ -115,7 +115,7 @@ class OnboardingViewModel @Inject constructor(
                 try {
                     // A failed preferences write is only recorded (the choice still applies this session); a dictionary
                     // switch that did not take keeps the user on the step.
-                    val stored = recordedOk { store(state.step, state) }
+                    val stored = store(state.step, state)
                     if (stored || state.step != OnboardingStep.DICTIONARY) updateDraft { it.copy(step = state.step + 1) }
                 } finally {
                     advancing = false
@@ -136,15 +136,15 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             for (step in state.step..state.stepCount) {
                 if (step == OnboardingStep.DICTIONARY) {
-                    if (!recordedOk { store(step, state) }) {
+                    if (!store(step, state)) {
                         finished = false
                         return@launch
                     }
                 } else {
-                    recorded { store(step, state) }
+                    store(step, state)
                 }
             }
-            recorded { prefs.setOnboarded(true) }
+            recordedOk { prefs.setOnboarded(true) }
             effectChannel.send(OnboardingEffect.Finished)
         }
     }
@@ -169,12 +169,10 @@ class OnboardingViewModel @Inject constructor(
         lineSpacing = savedState.get<Float>(KEY_LINE_SPACING),
     )
 
-    /** Runs [block]; a failure is recorded and swallowed, so onboarding continues. Cancellation still propagates. */
-    private suspend fun recorded(block: suspend () -> Unit) {
-        recordedOk(block)
-    }
-
-    /** Like [recorded], but returns whether [block] ran without failing. */
+    /**
+     * Runs [block]; a failure is recorded and swallowed, so onboarding continues, and the result says whether [block]
+     * ran without failing. Cancellation still propagates.
+     */
     private suspend fun recordedOk(block: suspend () -> Unit): Boolean = try {
         block()
         true
@@ -186,19 +184,26 @@ class OnboardingViewModel @Inject constructor(
     }
 
     /**
-     * Stores what [step] of [state] sets; the account step stores nothing. The dictionary step switches the pack and
-     * throws unless that pack is active afterwards, because a rejected or cancelled switch also ends idle.
+     * Stores what [step] of [state] sets and returns whether onboarding may move past it; the account step stores
+     * nothing. A failed preferences write is recorded and does not hold the user back. The dictionary step switches the
+     * pack and returns false unless that pack is active afterwards, because a rejected or cancelled switch also ends
+     * idle. A switch that ended [SwitchState.Failed] is shown by the switching overlay, so only the other ways of not
+     * taking are recorded.
      */
-    private suspend fun store(step: Int, state: OnboardingUiState) {
-        when (step) {
-            OnboardingStep.DICTIONARY -> {
-                switcher.switchTo(state.selectedPack).join()
-                check(databases.active.value == state.selectedPack) {
-                    "Switching to ${state.selectedPack.id} did not take; active is ${databases.active.value?.id}"
-                }
-            }
-            else -> prefs.store(step, state)
+    private suspend fun store(step: Int, state: OnboardingUiState): Boolean {
+        if (step != OnboardingStep.DICTIONARY) {
+            recordedOk { prefs.store(step, state) }
+            return true
         }
+        var took = false
+        recordedOk {
+            switcher.switchTo(state.selectedPack).join()
+            took = databases.active.value == state.selectedPack
+            check(took || switcher.state.value is SwitchState.Failed) {
+                "Switching to ${state.selectedPack.id} did not take; active is ${databases.active.value?.id}"
+            }
+        }
+        return took
     }
 
     private fun state(

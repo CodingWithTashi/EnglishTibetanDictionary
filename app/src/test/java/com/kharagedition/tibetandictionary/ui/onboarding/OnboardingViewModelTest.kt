@@ -120,6 +120,20 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun `a restored draft whose pack is already active still records the choice on Continue`() = runTest {
+        val savedState = SavedStateHandle(mapOf("onboarding_pack" to DictionaryPack.TIBETAN.id))
+        val vm = viewModel(savedState = savedState)
+        assertThat(databases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isFalse()
+
+        vm.next()
+
+        assertThat(switcher.requests).containsExactly(DictionaryPack.TIBETAN)
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isTrue()
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+    }
+
+    @Test
     fun `a switch that fails keeps the step on the dictionary and onboarding unfinished`() = runTest {
         val failing = failingSwitcher()
         val vm = viewModel(switcher = failing)
@@ -129,7 +143,8 @@ class OnboardingViewModelTest {
             vm.next()
 
             assertThat(vm.state().step).isEqualTo(OnboardingStep.DICTIONARY)
-            assertThat(errors.recorded).hasSize(1)
+            // The switching overlay shows the failure, so it is not also recorded as a generic error.
+            assertThat(errors.recorded).isEmpty()
             expectNoEvents()
         }
         assertThat(prefs.prefs.value.onboarded).isFalse()
@@ -151,7 +166,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `Skip after a failed switch records it, does not finish and can be tapped again`() = runTest {
+    fun `Skip after a failed switch does not finish and can be tapped again`() = runTest {
         val failing = failingSwitcher()
         val vm = viewModel(switcher = failing)
         vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
@@ -160,7 +175,7 @@ class OnboardingViewModelTest {
             vm.onEvent(OnboardingEvent.Skip)
             expectNoEvents()
             assertThat(prefs.prefs.value.onboarded).isFalse()
-            assertThat(errors.recorded).hasSize(1)
+            assertThat(errors.recorded).isEmpty()
 
             // The user retries after the failure is dismissed; this time the switch works.
             failing.onSwitch = { succeed(it) }

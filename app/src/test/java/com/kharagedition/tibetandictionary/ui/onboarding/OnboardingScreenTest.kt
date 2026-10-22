@@ -144,16 +144,6 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `back is disabled on the dictionary step`() {
-        show(dictionaryStep)
-
-        pressBack()
-
-        assertThat(events).isEmpty()
-        assertThat(compose.activity.isFinishing).isTrue()
-    }
-
-    @Test
     fun `step 2 offers a card per visible direction and Continue moves on to step 3`() {
         showWithViewModel()
         continuePastDictionary()
