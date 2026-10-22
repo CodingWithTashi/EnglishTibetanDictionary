@@ -30,7 +30,8 @@ sealed interface SwitchState {
     data class InProgress(val pack: DictionaryPack, val progress: Float?) : SwitchState
 
     /**
-     * Switching to [pack] failed; the previous dictionary is still active and the stored choice is unchanged.
+     * Switching to [pack] failed; the previous dictionary is still active and the stored choice is unchanged (if the
+     * choice could not be saved, the previous pack is re-activated).
      * Leave it with [DictionarySwitcher.retry] or [DictionarySwitcher.dismiss].
      */
     data class Failed(val pack: DictionaryPack, val cause: Throwable) : SwitchState
@@ -54,6 +55,12 @@ interface DictionarySwitcher {
      * Installs, activates, then persists [pack]; the returned job completes when the switch ended (success or
      * [SwitchState.Failed]). A request for the pack already being switched to returns the running job; a request
      * for another pack while a switch runs is rejected: it returns an already-completed job and changes nothing.
+     *
+     * Success, rejection and cancellation all end in [SwitchState.Idle], so after `join()` check that the active
+     * pack is [pack]. The returned job is the switch itself: cancelling it aborts the switch.
+     *
+     * Only one switch runs at a time because the check and the launch share a lock; that atomicity is not covered by
+     * a multithreaded test.
      */
     fun switchTo(pack: DictionaryPack): Job
 
@@ -83,18 +90,22 @@ class DictionarySwitcherImpl @Inject constructor(
         running?.let { (runningPack, job) ->
             return if (runningPack == pack) job else Job().apply { complete() }
         }
-        val alreadyActive = databases.active.value == pack
+        val previous = databases.active.value
+        val alreadyActive = previous == pack
         val job = scope.launch(start = CoroutineStart.LAZY) {
-            if (alreadyActive) persistOnly(pack) else run(pack)
+            if (alreadyActive) persistOnly(pack) else run(pack, previous)
         }
         running = pack to job
         if (!alreadyActive) _state.value = SwitchState.InProgress(pack, null)
         job.invokeOnCompletion {
             synchronized(lock) {
-                if (running?.second === job) running = null
                 // Cancelled (the scope went away or the job was cancelled): nothing failed and nothing changed, so
                 // go back to Idle rather than stay InProgress with nobody left to finish the switch.
-                if ((_state.value as? SwitchState.InProgress)?.pack == pack) _state.value = SwitchState.Idle
+                // Only if this job still owns the slot: after finish() a retry may already run its own job.
+                if (running?.second === job) {
+                    running = null
+                    if (_state.value is SwitchState.InProgress) _state.value = SwitchState.Idle
+                }
             }
         }
         job.start()
@@ -120,7 +131,7 @@ class DictionarySwitcherImpl @Inject constructor(
         }
     }
 
-    private suspend fun run(pack: DictionaryPack) {
+    private suspend fun run(pack: DictionaryPack, previous: DictionaryPack?) {
         val outcome = try {
             coroutineScope {
                 val mirror = launch {
@@ -140,8 +151,7 @@ class DictionarySwitcherImpl @Inject constructor(
             when (val result = installer.state.value) {
                 is InstallState.Ready ->
                     if (result.pack == pack && databases.active.value == pack) {
-                        prefs.setDictionaryPack(pack)
-                        SwitchState.Idle
+                        persistChoice(pack, previous)
                     } else {
                         SwitchState.Failed(pack, IllegalStateException("$pack was not activated: $result"))
                     }
@@ -157,6 +167,33 @@ class DictionarySwitcherImpl @Inject constructor(
             SwitchState.Failed(pack, e)
         }
         finish(outcome)
+    }
+
+    /**
+     * Saves [pack] as the stored choice. If that fails the installer has already activated [pack], so the previous
+     * pack is re-activated to keep the active pack and the stored choice equal (also on cancellation).
+     */
+    private suspend fun persistChoice(pack: DictionaryPack, previous: DictionaryPack?): SwitchState {
+        try {
+            prefs.setDictionaryPack(pack)
+            return SwitchState.Idle
+        } catch (e: CancellationException) {
+            restore(previous)
+            throw e
+        } catch (e: Exception) {
+            errors.record(e)
+            restore(previous)
+            return SwitchState.Failed(pack, e)
+        }
+    }
+
+    /**
+     * Re-activates [previous]. Normally only the installer activates, but [previous] was verified when it was
+     * installed and its database is still open, so this is safe. Without a previous pack, [DictionaryDatabases.active]
+     * stays as it is.
+     */
+    private fun restore(previous: DictionaryPack?) {
+        if (previous != null) databases.activate(previous)
     }
 
     /** Publishes the final state and frees the switch slot together, so [retry] right after a failure is accepted. */

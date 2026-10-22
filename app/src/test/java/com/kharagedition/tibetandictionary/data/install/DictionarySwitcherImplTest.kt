@@ -140,11 +140,43 @@ class DictionarySwitcherImplTest {
         val switcher = switcher(installer)
         val job = switcher.switchTo(DictionaryPack.DZONGKHA)
         runCurrent()
+        assertThat(installer.ensureInstalledCalls).containsExactly(DictionaryPack.DZONGKHA)
         job.cancel()
         job.join()
 
         assertThat(switcher.state.value).isEqualTo(SwitchState.Idle)
         assertThat(errors.recorded).isEmpty()
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+    }
+
+    @Test
+    fun unsavableChoiceRestoresThePreviousPack() = runTest {
+        val boom = IllegalStateException("datastore")
+        prefs.beforeSetDictionaryPack = { throw boom }
+        val switcher = switcher(installer())
+        switcher.switchTo(DictionaryPack.DZONGKHA).join()
+
+        val failed = switcher.state.value as SwitchState.Failed
+        assertThat(failed.pack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(failed.cause).hasMessageThat().isEqualTo("datastore")
+        assertThat(databases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(errors.recorded.map { it.message }).containsExactly("datastore")
+    }
+
+    @Test
+    fun cancellationDuringTheSaveRestoresThePreviousPack() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        prefs.beforeSetDictionaryPack = { gate.await() }
+        val switcher = switcher(installer())
+        val job = switcher.switchTo(DictionaryPack.DZONGKHA)
+        runCurrent()
+        assertThat(databases.active.value).isEqualTo(DictionaryPack.DZONGKHA)
+        job.cancel()
+        job.join()
+
+        assertThat(databases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(switcher.state.value).isEqualTo(SwitchState.Idle)
         assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
     }
 
