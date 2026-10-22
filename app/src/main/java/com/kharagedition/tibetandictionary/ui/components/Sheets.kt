@@ -74,6 +74,7 @@ private val OptionHeight = 64.dp
 private val OptionSide = 18.dp
 private val OptionVertical = 8.dp
 private val OptionGapInside = 14.dp
+private val OptionGapStacked = 2.dp
 private val OptionLabel = 84.dp
 private val OptionCheck = 22.dp
 private val SelectedBorder = 2.dp
@@ -138,7 +139,8 @@ fun SheetTitle(text: String, modifier: Modifier = Modifier) {
 /**
  * A large choice card (onboarding step 1, picker sheets): at least 64 high, radius 16. Selected = accentContainer
  * fill, 2dp accent border and a 22dp accent check; otherwise a 1dp outline border. [label] sits in an 84dp
- * column (content colour: onAccentContainer when selected, ink otherwise), then the optional [description].
+ * column (content colour: onAccentContainer when selected, ink otherwise), then the optional [description]. With
+ * [stacked] a long [label] takes the full width and the [description] sits under it instead of beside it.
  */
 @Composable
 fun OptionCard(
@@ -146,6 +148,7 @@ fun OptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
+    stacked: Boolean = false,
     label: @Composable () -> Unit,
 ) {
     val colors = DictTheme.colors
@@ -167,10 +170,7 @@ fun OptionCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OptionGapInside),
     ) {
-        Box(Modifier.widthIn(min = OptionLabel)) {
-            CompositionLocalProvider(LocalContentColor provides content) { label() }
-        }
-        Box(Modifier.weight(1f)) {
+        val descriptionText: @Composable () -> Unit = {
             if (description != null) {
                 MixedText(
                     description,
@@ -179,6 +179,17 @@ fun OptionCard(
                     color = if (selected) colors.onAccentContainer else colors.muted,
                 )
             }
+        }
+        if (stacked) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OptionGapStacked)) {
+                CompositionLocalProvider(LocalContentColor provides content) { label() }
+                descriptionText()
+            }
+        } else {
+            Box(Modifier.widthIn(min = OptionLabel)) {
+                CompositionLocalProvider(LocalContentColor provides content) { label() }
+            }
+            Box(Modifier.weight(1f)) { descriptionText() }
         }
         if (selected) {
             Icon(DictIcons.Bold.Check, contentDescription = null, Modifier.size(OptionCheck), tint = colors.accent)
@@ -256,7 +267,7 @@ private fun LanguagePickerContent(selected: AppLanguage, onPick: (AppLanguage) -
 }
 
 /**
- * One dictionary pack as an option card: its name and gloss, with the description and entry count underneath. Shared by
+ * One dictionary pack as an option card: its name and gloss on top, with the description and entry count underneath. Shared by
  * the onboarding Dictionary step and [DictionaryPickerSheet].
  */
 @Composable
@@ -266,6 +277,7 @@ fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit,
         selected = selected,
         onClick = onClick,
         modifier = modifier,
+        stacked = true,
         description = stringResource(
             pack.descriptionRes(),
             TibetanNumerals.formatCount(integerResource(pack.entryCountRes()), DictTheme.language),
