@@ -74,6 +74,23 @@ class DirectionSlotsTest {
     }
 
     @Test
+    fun aDefaultFromAnotherPackFallsBackToThePacksOwnDefault() {
+        // Right after a switch the stored default still names a direction of the previous pack.
+        val dzEn = boEn.copy(id = "dz-en", position = 1)
+        val enDz = enBo.copy(id = "en-dz", position = 0)
+        val dz = listOf(enDz, dzEn)
+
+        assertThat(DirectionSlots.defaultDirection(dz, "bo-en", packDefaultId = "dz-en")).isEqualTo(dzEn)
+        assertThat(ids(DirectionSlots.compute(dz, "bo-en", selectedId = "dz-en", packDefaultId = "dz-en")))
+            .isEqualTo(Triple(listOf("dz-en", "en-dz"), emptyList<String>(), null))
+        // A stored default that is visible wins over the pack's.
+        assertThat(DirectionSlots.defaultDirection(dz, "en-dz", packDefaultId = "dz-en")).isEqualTo(enDz)
+        // A hidden pack default falls back to the first visible direction.
+        assertThat(DirectionSlots.defaultDirection(listOf(enDz, dzEn.copy(entryCount = 0)), "bo-en", "dz-en"))
+            .isEqualTo(enDz)
+    }
+
+    @Test
     fun defaultDirectionIsTheStoredOneWhenVisible() {
         assertThat(DirectionSlots.defaultDirection(four, "en-bo")).isEqualTo(enBo)
         assertThat(DirectionSlots.defaultDirection(emptyList(), "bo-en")).isNull()

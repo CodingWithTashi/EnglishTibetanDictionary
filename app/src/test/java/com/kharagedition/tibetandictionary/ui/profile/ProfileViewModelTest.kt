@@ -241,6 +241,22 @@ class ProfileViewModelTest {
         }
 
     @Test
+    fun `a default direction left over from the other pack shows the active pack's default`() = runTest {
+        val dzEn = SampleData.boEn.copy(id = "dz-en", position = 1)
+        val enDz = SampleData.enBo.copy(id = "en-dz", position = 0)
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(enDz, dzEn),
+        )
+        prefs.prefs.value = UserPrefs(defaultDirectionId = "bo-en")
+
+        val state = viewModel().state()
+
+        assertThat(state.defaultDirection).isEqualTo(dzEn)
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("bo-en")
+    }
+
+    @Test
     fun `no default direction when no direction has entries`() = runTest {
         dictionary.capabilities.value = SampleData.capabilities.copy(directions = emptyList())
 

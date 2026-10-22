@@ -17,6 +17,7 @@ import com.kharagedition.tibetandictionary.SampleData.recentTashi
 import com.kharagedition.tibetandictionary.SampleData.tashi
 import com.kharagedition.tibetandictionary.SampleData.tashiBoBo
 import com.kharagedition.tibetandictionary.SampleData.tashiDelek
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.MatchField
 import com.kharagedition.tibetandictionary.data.model.Script
 import com.kharagedition.tibetandictionary.data.model.SearchHit
@@ -273,6 +274,22 @@ class SearchViewModelTest {
             assertThat(slots.fixed).containsExactly(boEn, boBo, enBo).inOrder()
         }
         assertThat(dictionary.searches).isEmpty()
+    }
+
+    @Test
+    fun `a default direction left over from the other pack selects the active pack's default`() = runTest {
+        val dzEn = boEn.copy(id = "dz-en", position = 1)
+        val enDz = enBo.copy(id = "en-dz", position = 0)
+        dictionary.capabilities.value = SampleData.capabilities.copy(
+            pack = DictionaryPack.DZONGKHA,
+            directions = listOf(enDz, dzEn),
+        )
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.defaultDirectionId).isEqualTo("bo-en")
+        assertThat(vm.state.selectedDirection).isEqualTo(dzEn)
+        assertThat(vm.state.slots.fixed).containsExactly(dzEn, enDz).inOrder()
     }
 
     @Test

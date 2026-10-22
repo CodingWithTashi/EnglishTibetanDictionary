@@ -404,7 +404,7 @@ class SearchViewModel @AssistedInject constructor(
             script = shown?.script ?: DetectScript.detect(field.text),
             // Ordered by the stored default, which nothing on Search changes (taps and detection only select), so
             // the segments stay in place for the whole visit.
-            slots = DirectionSlots.compute(directions, defaultId, selected?.id),
+            slots = DirectionSlots.compute(directions, defaultId, selected?.id, caps.pack.defaultDirectionId),
             selectedDirection = selected,
             autoSelected = !selection.pinned && shown?.autoSelected == true,
             phase = phase,
@@ -444,7 +444,7 @@ class SearchViewModel @AssistedInject constructor(
         /** The user's selection when it is visible, else the default direction (falling back to the first). */
         fun selectedDirection(sel: Selection, caps: DictionaryCapabilities, defaultId: String): Direction? =
             caps.directions.firstOrNull { it.id == sel.directionId && it.entryCount > 0 }
-                ?: DirectionSlots.defaultDirection(caps.directions, defaultId)
+                ?: DirectionSlots.defaultDirection(caps.directions, defaultId, caps.pack.defaultDirectionId)
 
         /** User-perceived characters in [text]: a Tibetan stack such as ཀྲ counts once. */
         fun graphemeCount(text: String): Int {

@@ -154,11 +154,12 @@ class HomeViewModel @Inject constructor(
         recents,
     ) { caps, (userPrefs, layoutDefaultId), (timeOfDay, streakDays), todaysWord, recentChips ->
         val directions = caps?.directions.orEmpty()
-        val selected = DirectionSlots.defaultDirection(directions, userPrefs.defaultDirectionId)
+        val packDefaultId = caps?.pack?.defaultDirectionId
+        val selected = DirectionSlots.defaultDirection(directions, userPrefs.defaultDirectionId, packDefaultId)
         HomeUiState(
             greeting = timeOfDay,
             streakDays = streakDays,
-            slots = DirectionSlots.compute(directions, layoutDefaultId, selected?.id),
+            slots = DirectionSlots.compute(directions, layoutDefaultId, selected?.id, packDefaultId),
             selectedDirection = selected,
             wotd = todaysWord?.toUi(),
             recents = recentChips,

@@ -139,7 +139,7 @@ class ProfileViewModel @Inject constructor(
             lineSpacing = prefs.lineSpacing,
             appearance = prefs.appearance,
             dictionary = capabilities.pack,
-            defaultDirection = defaultDirection(visible, prefs.defaultDirectionId),
+            defaultDirection = defaultDirection(visible, prefs.defaultDirectionId, capabilities.pack),
             directions = visible,
             language = language,
             wotdNotification = if (Features.WOTD_NOTIFICATION) {
@@ -184,9 +184,12 @@ class ProfileViewModel @Inject constructor(
 
         /**
          * The stored default when it is visible, else the first visible direction (a data release removed or emptied
-         * it). Display only: the stored preference is left as it is.
+         * it); a stored id of the other pack (right after a switch) falls back to [pack]'s own default first.
+         * Display only: the stored preference is left as it is.
          */
-        fun defaultDirection(visible: List<Direction>, storedId: String): Direction? =
-            visible.firstOrNull { it.id == storedId } ?: visible.firstOrNull()
+        fun defaultDirection(visible: List<Direction>, storedId: String, pack: DictionaryPack): Direction? =
+            visible.firstOrNull { it.id == storedId }
+                ?: visible.firstOrNull { it.id == pack.defaultDirectionId }
+                ?: visible.firstOrNull()
     }
 }
