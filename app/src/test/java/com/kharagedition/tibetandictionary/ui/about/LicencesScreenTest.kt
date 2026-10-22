@@ -87,6 +87,15 @@ class LicencesScreenTest {
     }
 
     @Test
+    fun `the Dzongkha pack reads the DDC permission as its first licence`() {
+        val licences = context.assets.readLicences(DictionaryPack.DZONGKHA)
+
+        assertThat(licences.map { it.title }.first()).isEqualTo(R.string.licence_data_dz)
+        assertThat(licences.first().paragraphs.first()).contains("Dzongkha Development Commission")
+        licences.forEach { licence -> assertThat(licence.paragraphs).isNotEmpty() }
+    }
+
+    @Test
     fun `the screen shows each licence under its heading, and back pops it`() {
         var backs = 0
         show(onBack = { backs++ })

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -21,7 +22,9 @@ import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
+import com.kharagedition.tibetandictionary.data.local.UserDatabase
 import com.kharagedition.tibetandictionary.data.local.inMemoryDictionaryDb
+import com.kharagedition.tibetandictionary.data.local.inMemoryUserDb
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
@@ -29,13 +32,14 @@ import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
-import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import dagger.hilt.android.testing.BindValue
@@ -44,6 +48,8 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -92,8 +98,11 @@ class AppNavHostTest {
     @BindValue @JvmField
     val dictionary: DictionaryRepository = FakeDictionaryRepository()
 
+    private val userDb: UserDatabase by lazy { inMemoryUserDb() }
+
+    /** The real repository over an in-memory user.db and this graph's [databases]: the scoping is not faked. */
     @BindValue @JvmField
-    val saved: SavedRepository = FakeSavedRepository()
+    val saved: SavedRepository = SavedRepositoryImpl(userDb, databases, FakeClock(), Dispatchers.Unconfined)
 
     @BindValue @JvmField
     val recents: RecentSearchesRepository = FakeRecentSearchesRepository()
@@ -153,6 +162,7 @@ class AppNavHostTest {
     @After
     fun tearDown() {
         if (::activity.isInitialized) activity.pause().stop().destroy()
+        userDb.close()
     }
 
     private companion object {
@@ -409,5 +419,30 @@ class AppNavHostTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag("entry_screen").assertExists()
+    }
+
+    @Test
+    fun `a word saved in one pack is not shown in the other and returns on switching back`() {
+        launch(onboarded = true)
+        runBlocking { saved.save(SampleData.tashi, folderId = null) }
+        val row = "saved_row_${TASHI}"
+        tap("nav_saved")
+        awaitNode(row)
+
+        databases.activate(DictionaryPack.DZONGKHA)
+        compose.waitForIdle()
+        tap("nav_saved")
+        awaitNode("saved_empty_cta")
+        compose.onNodeWithTag(row).assertDoesNotExist()
+
+        databases.activate(DictionaryPack.TIBETAN)
+        compose.waitForIdle()
+        tap("nav_saved")
+        awaitNode(row)
+    }
+
+    /** Room delivers its first emission off the main thread. */
+    private fun awaitNode(tag: String) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     }
 }

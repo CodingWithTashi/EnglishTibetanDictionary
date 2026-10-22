@@ -11,7 +11,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import java.io.File
 
-/** In-memory dictionary.db with the production schema (Room creates the tables, indices and FTS sync triggers). */
+/** In-memory dictionary database (the schema of every pack's `<pack>.db`) with the production schema (Room creates the tables, indices and FTS sync triggers). */
 fun inMemoryDictionaryDb(): DictionaryDatabase =
     Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), DictionaryDatabase::class.java)
         .allowMainThreadQueries()
@@ -121,12 +121,20 @@ fun related(
 )
 
 /**
- * [path] relative to the app module, looked up from the working directory and its parents: Gradle runs unit tests
- * in the module directory, an IDE run configuration may use the project root. Null when there is no such file.
+ * [path] relative to the app module, looked up from the working directory and its parents up to the project root (the
+ * directory holding `settings.gradle[.kts]`, which is the last one searched): Gradle runs unit tests in the module
+ * directory, an IDE run configuration may use the project root. Null when there is no such file.
  */
 fun findProjectFile(path: String): File? {
     val workingDir = File("").absoluteFile
-    return generateSequence(workingDir) { it.parentFile }
+    val dirs = generateSequence(workingDir) { it.parentFile }
+    val upToRoot = sequence {
+        for (dir in dirs) {
+            yield(dir)
+            if (File(dir, "settings.gradle.kts").exists() || File(dir, "settings.gradle").exists()) break
+        }
+    }
+    return upToRoot
         .flatMap { dir -> sequenceOf(File(dir, path), File(dir, "app/$path")) }
         .firstOrNull { it.exists() }
 }

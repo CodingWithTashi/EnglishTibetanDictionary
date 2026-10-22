@@ -27,13 +27,19 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
  * count and its size in bytes (the installer's expected length, since the asset ships compressed), the build's
  * `wotd_direction_id` is the pack's default direction, and every direction belongs to the pack's language. When one
  * fails, rebuild the asset and the stats file together (tools/dictionary/README.md, "Shipping a data release").
- * A pack whose asset file is not in the checkout is skipped, not failed.
+ * A pack whose asset file is not in the checkout skips the other tests; `assetShipsInTheRepository` fails for it.
  *
  * The files are read as they are in the repository, without Room. The entry total needs SQL and the platform SQLite
  * is the only one on the unit-test classpath, so the class runs under Robolectric.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 class DictionaryAssetVersionTest(private val pack: DictionaryPack) {
+
+    /** Not skipped: a moved or missing asset must fail here instead of silently skipping every other test. */
+    @Test
+    fun assetShipsInTheRepository() {
+        assertWithMessage("src/main/assets/${pack.assetPath}").that(pack.assetFileOrNull()).isNotNull()
+    }
 
     @Test
     fun headerUserVersionIsTheDatabaseVersion() {
