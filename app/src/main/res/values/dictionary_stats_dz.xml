@@ -7,5 +7,5 @@
 -->
 <resources>
     <integer name="dictionary_entry_count_dz">81474</integer>
-    <integer name="dictionary_asset_bytes_dz">37261312</integer>
+    <integer name="dictionary_asset_bytes_dz">37249024</integer>
 </resources>

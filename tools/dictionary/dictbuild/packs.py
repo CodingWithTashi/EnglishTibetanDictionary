@@ -246,15 +246,15 @@ DDC = Pack(
             "Dzongkha Development and Culture Division."
         ),
     },
-    # Measured on the first full build (2026-10-21). Entry counts are exact (dz-en 35,543 and dz-dz 22,786
-    # source headwords; en-dz 23,145 after case merging). The other counts are the measured value
-    # (senses 36,284 / 26,553 / 37,412; synonyms 923; antonyms 454; word-of-the-day 31,135) with a 5 %
+    # Measured on the final full build (2026-10-22). Entry counts are exact (dz-en 35,543 and dz-dz 22,786 source
+    # headwords; en-dz 23,145 after case merging). The other counts are the measured value
+    # (senses 36,238 / 26,551 / 37,404; synonyms 923; antonyms 454; word-of-the-day 31,135) with a 5 %
     # window each way, rounded outward. The DDC files hold no see-also links, examples or truncated
     # glosses; synonym and antonym links come from the dz-en `<kref>` targets.
     expected=Expected(
         directions=3,
         entries={"dz-en": (35_543, 35_543), "dz-dz": (22_786, 22_786), "en-dz": (23_145, 23_145)},
-        senses={"dz-en": (34_469, 38_099), "dz-dz": (25_225, 27_881), "en-dz": (35_541, 39_283)},
+        senses={"dz-en": (34_426, 38_050), "dz-dz": (25_223, 27_879), "en-dz": (35_533, 39_275)},
         examples={},
         see_also=(0, 0),
         see_also_resolved_percent=(0.0, 100.0),
