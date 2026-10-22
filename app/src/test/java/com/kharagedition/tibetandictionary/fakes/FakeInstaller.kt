@@ -21,6 +21,9 @@ class FakeInstaller(
     /** Optional hook run inside [ensureInstalled] before [outcome] is applied; tests suspend here to hold an install. */
     var beforeOutcome: (suspend (DictionaryPack) -> Unit)? = null
 
+    /** Optional hook run inside [ensureInstalled] after the pack was activated and [state] updated. */
+    var afterOutcome: (suspend (DictionaryPack) -> Unit)? = null
+
     private val calls = mutableListOf<DictionaryPack>()
 
     /** The packs [ensureInstalled] was called with, in order. */
@@ -32,5 +35,6 @@ class FakeInstaller(
         val result = outcome(pack)
         if (result is InstallState.Ready) databases?.activate(result.pack)
         state.value = result
+        afterOutcome?.invoke(pack)
     }
 }

@@ -45,7 +45,8 @@ sealed interface SwitchState {
  * middle of a switch lands on the old pack at the next start.
  *
  * If the job is cancelled (for example the application scope goes away) the state returns to [SwitchState.Idle], not
- * [SwitchState.Failed]: nothing went wrong, nobody is left to show an error to, and the stored choice is unchanged.
+ * [SwitchState.Failed]: nothing went wrong, nobody is left to show an error to, and the stored choice is unchanged. If it was cancelled after the installer activated the new pack, the previous pack is
+ * re-activated first.
  */
 interface DictionarySwitcher {
     /** [SwitchState.Idle] at rest, [SwitchState.InProgress] while a switch runs, [SwitchState.Failed] after a failure. */
@@ -161,9 +162,11 @@ class DictionarySwitcherImpl @Inject constructor(
                 else -> SwitchState.Failed(pack, IllegalStateException("Install of $pack ended in $result"))
             }
         } catch (e: CancellationException) {
+            restoreIfActivated(pack, previous)
             throw e // invokeOnCompletion resets InProgress to Idle
         } catch (e: Exception) {
             errors.record(e)
+            restoreIfActivated(pack, previous)
             SwitchState.Failed(pack, e)
         }
         finish(outcome)
@@ -185,6 +188,11 @@ class DictionarySwitcherImpl @Inject constructor(
             restore(previous)
             return SwitchState.Failed(pack, e)
         }
+    }
+
+    /** Undoes an activation of [pack] that a cancellation or failure left without a stored choice. */
+    private fun restoreIfActivated(pack: DictionaryPack, previous: DictionaryPack?) {
+        if (databases.active.value == pack) restore(previous)
     }
 
     /**

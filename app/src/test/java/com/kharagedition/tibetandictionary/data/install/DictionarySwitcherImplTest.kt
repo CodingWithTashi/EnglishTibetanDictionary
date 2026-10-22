@@ -13,6 +13,7 @@ import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -173,6 +174,19 @@ class DictionarySwitcherImplTest {
         runCurrent()
         assertThat(databases.active.value).isEqualTo(DictionaryPack.DZONGKHA)
         job.cancel()
+        job.join()
+
+        assertThat(databases.active.value).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(switcher.state.value).isEqualTo(SwitchState.Idle)
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+    }
+
+    @Test
+    fun cancellationAfterActivationBeforeTheSaveRestoresThePreviousPack() = runTest {
+        lateinit var job: Job
+        val installer = installer().apply { afterOutcome = { job.cancel() } }
+        val switcher = switcher(installer)
+        job = switcher.switchTo(DictionaryPack.DZONGKHA)
         job.join()
 
         assertThat(databases.active.value).isEqualTo(DictionaryPack.TIBETAN)
