@@ -66,6 +66,7 @@ class SavedRepositoryImpl @Inject constructor(
             perPack { savedDao.search(it, normalised) }.mapToDomain()
         }
 
+    /** Entry ids are unique across packs, so this is keyed by id alone. */
     override fun observeIsSaved(entryId: Long): Flow<Boolean> =
         savedDao.observeIsSaved(entryId).distinctUntilChanged().flowOn(io)
 
@@ -100,6 +101,7 @@ class SavedRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Entry ids are unique across packs, so this is keyed by id alone. */
     override suspend fun unsave(entryId: Long) {
         withContext(io) { savedDao.delete(entryId) }
     }
@@ -119,11 +121,15 @@ class SavedRepositoryImpl @Inject constructor(
         }
     }
 
-    /** Moves the entry to [folderId]; a folder that no longer exists leaves the entry with no folder. */
+    /**
+     * Moves the entry to [folderId]; a folder that no longer exists, or belongs to another pack than the entry's own
+     * (not necessarily the active one), leaves the entry with no folder.
+     */
     override suspend fun setFolder(entryId: Long, folderId: Long?) {
         withContext(io) {
             db.withTransaction {
-                savedDao.setFolder(entryId, existingFolderOrNull(packId, folderId), clock.now().toEpochMilli())
+                val entryPack = savedDao.get(entryId)?.packId ?: return@withTransaction
+                savedDao.setFolder(entryId, existingFolderOrNull(entryPack, folderId), clock.now().toEpochMilli())
             }
         }
     }
@@ -179,6 +185,7 @@ class SavedRepositoryImpl @Inject constructor(
         }
     }
 
+    /** Folder ids are unique across packs, so this is keyed by id alone. */
     override suspend fun deleteFolder(id: Long) {
         withContext(io) { folderDao.delete(id) }
     }

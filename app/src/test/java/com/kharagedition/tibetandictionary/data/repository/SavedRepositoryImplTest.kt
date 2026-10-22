@@ -526,6 +526,36 @@ class SavedRepositoryImplTest {
         assertThat(repo.observeFolders().first().map { it.id }).containsExactly(boFolder)
     }
 
+    @Test
+    fun setFolderChecksTheEntrysOwnPack() = runTest {
+        val boFolder = repo.createFolder("Verbs")
+        databases.activate(DictionaryPack.DZONGKHA)
+        val dzFolder = repo.createFolder("Nouns")
+        repo.save(nyingje, folderId = null)
+
+        repo.setFolder(nyingje.id, boFolder)
+        assertThat(db.savedEntryDao().get(nyingje.id)?.folderId).isNull()
+
+        databases.activate(DictionaryPack.TIBETAN)
+        repo.setFolder(nyingje.id, dzFolder) // its own pack's folder is accepted while bo is active
+        assertThat(db.savedEntryDao().get(nyingje.id)?.folderId).isEqualTo(dzFolder)
+        repo.setFolder(nyingje.id, boFolder) // the entry is a dz one: a bo folder is still refused
+        assertThat(db.savedEntryDao().get(nyingje.id)?.folderId).isNull()
+    }
+
+    @Test
+    fun renameFolderAllowsANameUsedInTheOtherPack() = runTest {
+        repo.createFolder("Verbs")
+        databases.activate(DictionaryPack.DZONGKHA)
+        val dzFolder = repo.createFolder("Nouns")
+        val dzOther = repo.createFolder("Actions")
+
+        repo.renameFolder(dzFolder, "Verbs")
+
+        assertThat(repo.observeFolders().first().map { it.name }).containsExactly("Verbs", "Actions")
+        assertThat(failureOf { repo.renameFolder(dzOther, "verbs") }).isInstanceOf(IllegalArgumentException::class.java)
+    }
+
     private fun tick() {
         clock.instant = clock.instant.plus(Duration.ofSeconds(1))
     }
