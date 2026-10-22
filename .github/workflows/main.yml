@@ -78,3 +78,47 @@ jobs:
 
       - name: Run the pipeline tests
         run: .venv/bin/python -I -m pytest -q
+
+  translation-backend:
+    # backend/functions: the translate and getTranslationStatus Cloud Functions. Unit tests run on Node; the quota,
+    # cache and security-rules tests run against the Firestore emulator, which needs Java 21+.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+
+      - name: Set up Java for the Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache the Firestore emulator
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('backend/functions/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Format, lint and typecheck
+        run: npm run format:check && npm run lint && npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Emulator tests
+        run: npm run test:emulator
+
+      - name: Build
+        run: npm run build
