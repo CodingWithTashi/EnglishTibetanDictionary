@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,5 +94,62 @@ class AppInitializerTest {
         scope.testScheduler.advanceUntilIdle()
 
         assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `an onboarded user without a stored pack is kept on Tibetan even when the default is Dzongkha`() {
+        prefs.prefs.value = UserPrefs(onboarded = true, dictionaryPack = DictionaryPack.DZONGKHA)
+        val installer = ProbeInstaller(prefs)
+        val init = initializer(installer)
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isTrue()
+        assertThat(installer.installedPacks).containsExactly(DictionaryPack.TIBETAN)
+    }
+
+    @Test
+    fun `a user who is not onboarded gets no pack stored`() {
+        prefs.prefs.value = UserPrefs(onboarded = false, dictionaryPack = DictionaryPack.DZONGKHA)
+        val installer = ProbeInstaller(prefs)
+        val init = initializer(installer)
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isFalse()
+        assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `a stored pack choice is left untouched`() {
+        prefs.prefs.value =
+            UserPrefs(onboarded = true, dictionaryPack = DictionaryPack.DZONGKHA, dictionaryPackChosen = true)
+        val installer = ProbeInstaller(prefs)
+        val init = initializer(installer)
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `a failed write of the migrated pack is reported and start-up continues with the resolved pack`() {
+        val bug = IllegalStateException("disk full")
+        prefs.prefs.value = UserPrefs(onboarded = true, dictionaryPack = DictionaryPack.DZONGKHA)
+        prefs.beforeSetDictionaryPack = { throw bug }
+        val installer = ProbeInstaller(prefs)
+        val init = initializer(installer)
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        assertThat(errors.recorded).containsExactly(bug)
+        assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
+        assertThat(init.ready.value).isTrue()
     }
 }

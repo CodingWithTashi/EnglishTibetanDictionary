@@ -47,6 +47,10 @@ sealed interface SwitchState {
  * If the job is cancelled (for example the application scope goes away) the state returns to [SwitchState.Idle], not
  * [SwitchState.Failed]: nothing went wrong, nobody is left to show an error to, and the stored choice is unchanged.
  * If it was cancelled after the installer activated the new pack, the previous pack is re-activated first.
+ *
+ * One window remains: a cancellation after the DataStore write committed but before the preferences call returns
+ * re-activates the previous pack while the new one is stored. Only an explicit `job.cancel()` on the job returned
+ * by [switchTo] reaches it, and no app code cancels that job.
  */
 interface DictionarySwitcher {
     /** [SwitchState.Idle] at rest, [SwitchState.InProgress] while a switch runs, [SwitchState.Failed] after one fails. */
