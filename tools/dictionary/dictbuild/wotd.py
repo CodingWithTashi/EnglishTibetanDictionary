@@ -44,8 +44,8 @@ def is_eligible(
     *,
     wotd_direction_id: str,
 ) -> bool:
-    """In `wotd_direction_id` (Monlam: bo-en), 2–4 syllables, ≤24 code points, pure Tibetan letters, first gloss English 3–100 chars
-    with no digit, "/", "[" or "(", not truncated, and not Tibetan written in Wylie:
+    """In `wotd_direction_id` (Monlam: bo-en), 2–4 syllables, ≤24 code points, pure Tibetan letters, first gloss
+    English 3–100 chars with no digit, "/", "[" or "(", not truncated, and not Tibetan written in Wylie:
     - on an entry with see-also links, a first gloss of Wylie syllables only ("pags", "bzo ba": the rest
       of an `SA` list) does not count;
     - on any entry, with a `converter`, neither does a first gloss whose every comma-separated item is
@@ -80,7 +80,11 @@ def assign_ranks(
     wotd_direction_id: str,
 ) -> dict[int, int]:
     """Entry id → 0-based rank for every eligible entry, in the seeded shuffle order."""
-    eligible = {entry.entry_id for entry in entries if is_eligible(entry, converter, index, wotd_direction_id=wotd_direction_id)}
+    eligible = {
+        entry.entry_id
+        for entry in entries
+        if is_eligible(entry, converter, index, wotd_direction_id=wotd_direction_id)
+    }
     ordered = sorted(eligible, key=lambda entry_id: (_shuffle_key(seed, entry_id), entry_id))
     return {entry_id: rank for rank, entry_id in enumerate(ordered)}
 

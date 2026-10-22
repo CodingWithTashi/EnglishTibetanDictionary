@@ -25,7 +25,10 @@ def open_source(path: Path | str) -> sqlite3.Connection:
 
 
 def read_rows(conn: sqlite3.Connection, table: str, *, limit: int | None = None) -> Iterator[SourceRow]:
-    """Rows of a source table in `_id` order (Monlam order); NULL text reads as ""."""
+    """Rows of a Monlam source table in `_id` order; NULL text reads as "".
+
+    This is the Monlam reader only; the DDC StarDict files are read by `stardict.py`.
+    """
     if table not in MONLAM_TABLES:
         raise ValueError(f"unknown source table {table!r}; expected one of {sorted(MONLAM_TABLES)}")
     sql = f"SELECT _id, word, definition FROM {table} ORDER BY _id"

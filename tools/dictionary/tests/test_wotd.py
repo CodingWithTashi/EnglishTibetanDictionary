@@ -13,6 +13,8 @@ from dictbuild.wotd import assign_ranks as _assign_ranks
 from dictbuild.wotd import is_eligible as _is_eligible
 from dictbuild.wylie import PyewtsConverter, WylieConverter
 
+DDC_DIRECTIONS = ("dz-en", "dz-dz", "en-dz")
+
 
 def is_eligible(entry: EntryDraft, converter: WylieConverter | None = None, index: HeadwordIndex | None = None) -> bool:
     return _is_eligible(entry, converter, index, wotd_direction_id=MONLAM.wotd_direction_id)
@@ -43,7 +45,7 @@ def entry(
     return EntryDraft(
         direction_id=direction_id,
         source_id=source_id,
-        entry_id=(DDC if "dz" in direction_id else MONLAM).entry_id_for(direction_id, source_id),
+        entry_id=(DDC if direction_id in DDC_DIRECTIONS else MONLAM).entry_id_for(direction_id, source_id),
         headword=headword,
         group_key=headword,
         senses=senses,
@@ -162,6 +164,7 @@ ENGLISH_GLOSSES = [
 ]  # fmt: skip
 # The en-bo headwords of the build that those English words are (or are plurals of).
 ENGLISH_INDEX = HeadwordIndex(
+    english_direction="en-bo",
     english={
         word: 3_000_000 + number
         for number, word in enumerate(
@@ -171,6 +174,7 @@ ENGLISH_INDEX = HeadwordIndex(
 )
 # Words of the Wylie glosses that are English headwords too: one Tibetan word is enough to reject.
 ENGLISH_INDEX_WITH_WYLIE_LOOKALIKES = HeadwordIndex(
+    english_direction="en-bo",
     english={word: 3_000_100 + number for number, word in enumerate("red man dam shes lug lugs lo".split())}
 )
 

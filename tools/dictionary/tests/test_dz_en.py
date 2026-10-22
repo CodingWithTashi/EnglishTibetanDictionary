@@ -13,7 +13,7 @@ from dictbuild.related import HeadwordIndex
 from dictbuild.source import SourceRow
 from dictbuild.wylie import NullConverter, PyewtsConverter, WylieConverter
 
-EMPTY_INDEX = HeadwordIndex()
+EMPTY_INDEX = HeadwordIndex(english_direction="en-dz")
 
 ROWS = {
     "ཀ": '<k>ཀ</k> <def> <pos><abbr><i>noun</i></abbr></pos>the 1st letter of the Dzongkha alphabet</def> ',

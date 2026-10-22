@@ -139,4 +139,5 @@ def test_ddc_ranges_include_antonyms() -> None:
         ({"synonyms": syn_high + 1}, "related synonym"),
     ):
         assert failing(check_ranges(DDC, ddc_directions(), content(**{**base, **rows}), wylie_available=True)) == {name}
-    assert failing(check_ranges(DDC, ddc_directions(), content(**{**base, "see_also": 1, "resolved": 1}), wylie_available=True)) == {"related see_also"}
+    see_also = content(**{**base, "see_also": 1, "resolved": 1})
+    assert failing(check_ranges(DDC, ddc_directions(), see_also, wylie_available=True)) == {"related see_also"}

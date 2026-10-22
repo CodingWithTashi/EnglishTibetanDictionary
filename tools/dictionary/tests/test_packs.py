@@ -64,7 +64,7 @@ def test_ddc_parse_dispatches_on_the_table() -> None:
     from dictbuild.source import SourceRow
     from dictbuild.wylie import NullConverter
 
-    index = HeadwordIndex({}, {})
+    index = HeadwordIndex({}, {}, english_direction="en-bo")
     rows = {
         "dz-en": SourceRow(1, "ཀ", "<k>ཀ</k> <def><pos>n.</pos> the letter ka</def>"),
         "dz-dz": SourceRow(2, "ཀ", "<k>ཀ </k>གསལ་བྱེད་ཀ།"),

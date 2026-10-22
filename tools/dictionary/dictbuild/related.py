@@ -2,7 +2,8 @@
 
 The index maps every headword the build will write to its entry id, so links resolve without a
 second pass over the database: Tibetan targets are looked up in the pack's directions in its lookup order
-(Monlam: bo-en, then bo-bo); English targets by their lower-cased group key in its English direction (en-bo). Lookups are dictionary hits, never scans.
+(Monlam: bo-en, then bo-bo); English targets by their lower-cased group key in its English direction (en-bo).
+Lookups are dictionary hits, never scans.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ class HeadwordIndex:
         english: Mapping[str, int] | None = None,
         *,
         tibetan_lookup_order: Sequence[str] | None = None,
-        english_direction: str = "",
+        english_direction: str,
     ) -> None:
         self._tibetan = {direction: dict(headwords) for direction, headwords in (tibetan or {}).items()}
         self._english = dict(english or {})
