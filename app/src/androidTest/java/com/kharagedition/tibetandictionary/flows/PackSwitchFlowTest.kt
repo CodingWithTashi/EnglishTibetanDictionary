@@ -1,15 +1,21 @@
 package com.kharagedition.tibetandictionary.flows
 
+import android.content.Context
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicBoolean
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
@@ -32,8 +39,26 @@ class PackSwitchFlowTest : AppFlowTest() {
 
     @Inject lateinit var switcher: DictionarySwitcher
 
+    /**
+     * Onboarded on Tibetan, and the Dzongkha file left by earlier runs is deleted before the activity launches, so
+     * the first switch really copies the ~37 MB asset and the overlay stays up long enough to be seen.
+     */
+    override suspend fun preparePrefs(prefs: UserPreferencesRepository) {
+        super.preparePrefs(prefs)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = DictionaryPack.DZONGKHA.dbName
+        context.deleteDatabase(name)
+        context.deleteDatabase(name + TEMP_SUFFIX)
+    }
+
     @Before
     fun onHome() = waitForHome()
+
+    /** A failed test must not leave a switch running into the next one. */
+    @After
+    fun switchSettled() {
+        runCatching { runBlocking { withTimeout(UI_TIMEOUT_MS) { switcher.state.first { it == SwitchState.Idle } } } }
+    }
 
     @Test
     fun switchingToDzongkhaAndBackKeepsEachPacksSavedWordsAndData() {
@@ -50,13 +75,15 @@ class PackSwitchFlowTest : AppFlowTest() {
         leaveSearch()
 
         // Profile → Dictionary → Dzongkha: the overlay comes up, then the app lands on Home in the Dzongkha pack.
-        switchTo("dz")
+        switchTo("dz", expectOverlay = true)
         awaitPrefs { it.dictionaryPack == DictionaryPack.DZONGKHA }
         waitFor(hasTestTag("direction_segment_dz-en") and isSelected())
         assertThat(exists(hasTestTag("direction_segment_bo-en"))).isFalse()
 
         // Saved words are per pack: none here.
         openTab("saved", "saved_screen")
+        // Wait for the empty state first: the list is empty before it loads, too.
+        waitFor(hasText(compose.activity.getString(R.string.saved_empty_title)))
         compose.onAllNodes(hasTestTagPrefix(SAVED_ROW)).assertCountEquals(0)
         openTab("search", "home_screen")
 
@@ -75,15 +102,13 @@ class PackSwitchFlowTest : AppFlowTest() {
         assertThat(exists(hasTestTag("direction_segment_dz-en"))).isFalse()
         openTab("saved", "saved_screen")
         waitFor(hasTestTag("$SAVED_ROW$boEntryId"))
-        assertThat(awaitPrefs { it.dictionaryPack == DictionaryPack.TIBETAN }.dictionaryPack)
-            .isEqualTo(DictionaryPack.TIBETAN)
     }
 
     /**
      * Profile → Dictionary → the card of pack [id]. The full-screen overlay must appear and then go; the first
      * switch to a pack copies tens of MB, so the wait is generous. Home follows the switch.
      */
-    private fun switchTo(id: String) {
+    private fun switchTo(id: String, expectOverlay: Boolean = false) {
         openTab("profile", "profile_screen")
         tapAndWait(hasTestTag("profile_row_dictionary"), hasTestTag("dictionary_option_$id"))
         // The overlay shows exactly while the switcher is InProgress, which can be shorter than one poll of the
@@ -96,6 +121,13 @@ class PackSwitchFlowTest : AppFlowTest() {
         }
         try {
             compose.onNode(hasTestTag("dictionary_option_$id")).performClick()
+            var sawOverlay = false
+            // On the test thread: the overlay is up while the asset is copied, then the choice is stored.
+            compose.waitUntil("overlay shown or pack $id stored", SWITCH_TIMEOUT_MS) {
+                if (overlayShown()) sawOverlay = true
+                sawOverlay || storedPack() == pack
+            }
+            if (expectOverlay) assertWithMessage("switching overlay seen on screen").that(sawOverlay).isTrue()
             compose.waitUntil("pack $id stored", SWITCH_TIMEOUT_MS) { storedPack() == pack }
             compose.waitUntil("overlay gone", SWITCH_TIMEOUT_MS) { !exists(hasTestTag("switching_overlay")) }
             waitFor(hasTestTag("home_screen"), SWITCH_TIMEOUT_MS)
@@ -105,6 +137,11 @@ class PackSwitchFlowTest : AppFlowTest() {
         assertWithMessage("switcher state while switching to $id").that(inProgress.get()).isTrue()
         assertThat(switcher.state.value).isEqualTo(SwitchState.Idle)
     }
+
+    private fun overlayShown(): Boolean = runCatching {
+        compose.onAllNodesWithTag("switching_overlay", useUnmergedTree = true)
+            .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+    }.getOrDefault(false)
 
     private fun storedPack(): DictionaryPack = runBlocking { prefs.prefs.first().dictionaryPack }
 
@@ -118,6 +155,7 @@ class PackSwitchFlowTest : AppFlowTest() {
         const val RESULT_ROW = "result_row_"
         const val SAVED_ROW = "saved_row_"
         const val SWITCH_TIMEOUT_MS = 60_000L
+        const val TEMP_SUFFIX = ".tmp"
 
         /** "ཆུ་" in the Dzongkha dictionary (dz-en). */
         const val DZ_ENTRY_ID = 4006006L
