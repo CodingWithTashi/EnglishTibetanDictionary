@@ -1,16 +1,20 @@
 package com.kharagedition.tibetandictionary.ui.app
 
+import android.content.Context
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.entryCountRes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.io.IOException
+import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Rule
 import org.junit.Test
@@ -146,10 +150,24 @@ class InstallingScreenTest {
     }
 
     @Test
-    fun `an unknown Dzongkha count reads as the generic status`() {
-        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
+    fun `an unknown count reads as the generic status`() {
+        show(
+            AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null),
+            bundledEntryCount = 0,
+        )
 
         compose.onNodeWithText("Preparing the dictionary · offline").assertExists()
+    }
+
+    @Test
+    fun `a Dzongkha install without the installer's count shows the bundled Dzongkha count`() {
+        val bundled = ApplicationProvider.getApplicationContext<Context>().resources
+            .getInteger(DictionaryPack.DZONGKHA.entryCountRes())
+        assertThat(bundled).isGreaterThan(0)
+
+        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
+
+        compose.onNodeWithText("Preparing ${"%,d".format(Locale.US, bundled)} entries · offline").assertExists()
     }
 
     @Test
