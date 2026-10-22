@@ -49,6 +49,17 @@ def test_ddc_pack_shape() -> None:
         ("dz-dz", "dz", "dz", "tibt", 1, 5_000_000, "རྫོང→རྫོང"),
         ("en-dz", "en", "dz", "latn", 2, 6_000_000, "EN→རྫོང"),
     ]
+    assert [(d.id, d.label_en, d.label_bo) for d in DDC.directions] == [
+        ("dz-en", "Dzongkha → English", "རྫོང་ཁ → དབྱིན་ཡིག"),
+        ("dz-dz", "Dzongkha → Dzongkha", "རྫོང་ཁ → རྫོང་ཁ"),
+        ("en-dz", "English → Dzongkha", "དབྱིན་ཡིག → རྫོང་ཁ"),
+    ]
+    assert DDC.meta["source_license"] == "Used with permission of the DCDD"
+    assert DDC.meta["attribution_text"] == (
+        "Dictionary data from the Dzongkha–English, English–Dzongkha and Dzongkha dictionaries of the "
+        "Dzongkha Development Commission (2014 digital edition), used with the permission of the "
+        "Dzongkha Development and Culture Division."
+    )
     assert DDC.tables == ("dz-en", "dz-dz", "en-dz")
     assert DDC.direction_by_table == {"dz-en": "dz-en", "dz-dz": "dz-dz", "en-dz": "en-dz"}
     assert DDC.tibetan_lookup_order == ("dz-en", "dz-dz")

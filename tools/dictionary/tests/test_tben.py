@@ -215,7 +215,10 @@ def test_sa_list_stops_at_an_item_that_is_not_a_headword(pyewts: WylieConverter)
 
 @requires_pyewts
 def test_sa_longest_prefix_resolution(pyewts: WylieConverter) -> None:
-    index = HeadwordIndex(english_direction="en-bo", tibetan={"bo-en": {"ཀ་": 1_000_001}, "bo-bo": {"ཀ་སྟེགས་": 2_000_021}})
+    index = HeadwordIndex(
+        english_direction="en-bo",
+        tibetan={"bo-en": {"ཀ་": 1_000_001}, "bo-bo": {"ཀ་སྟེགས་": 2_000_021}},
+    )
 
     row = parse(21, "ཀ་གདན་", "SA ka stegs base or pedestal on which a pillar stands", pyewts, index)
 
@@ -225,7 +228,10 @@ def test_sa_longest_prefix_resolution(pyewts: WylieConverter) -> None:
 
 @requires_pyewts
 def test_sa_prefers_bo_en_over_bo_bo(pyewts: WylieConverter) -> None:
-    index = HeadwordIndex(english_direction="en-bo", tibetan={"bo-en": {"ཀ་བ་": 1_000_114}, "bo-bo": {"ཀ་བ་": 2_000_090}})
+    index = HeadwordIndex(
+        english_direction="en-bo",
+        tibetan={"bo-en": {"ཀ་བ་": 1_000_114}, "bo-bo": {"ཀ་བ་": 2_000_090}},
+    )
 
     row = parse(64, "ཀ་ཐེ་", "SA ka ba", pyewts, index)
 
@@ -251,7 +257,10 @@ def test_sa_unresolved_target_stops_before_english_words(pyewts: WylieConverter)
 
 @requires_pyewts
 def test_sa_prefix_never_cuts_the_wylie_run(pyewts: WylieConverter) -> None:
-    index = HeadwordIndex(english_direction="en-bo", tibetan={"bo-en": {"ཁ་": 1_000_001, "སྤུ་": 1_000_002, "སྤུ་ཟིང་": 1_000_003}})
+    index = HeadwordIndex(
+        english_direction="en-bo",
+        tibetan={"bo-en": {"ཁ་": 1_000_001, "སྤུ་": 1_000_002, "སྤུ་ཟིང་": 1_000_003}},
+    )
 
     leather = parse(2414, "ཁ་ལྤགས་", "SA kha pags", pyewts, index)
     bristle = parse(8504, "གཟིལ་བུན་པ་", "SA spu zing byed pa", pyewts, index)
@@ -264,7 +273,10 @@ def test_sa_prefix_never_cuts_the_wylie_run(pyewts: WylieConverter) -> None:
 
 @requires_pyewts
 def test_sa_final_stopword_that_is_wylie_belongs_to_the_run(pyewts: WylieConverter) -> None:
-    index = HeadwordIndex(english_direction="en-bo", tibetan={"bo-en": {"ཕོན་": 1_030_539, "མི་སྲིད་པ་": 1_046_710}})
+    index = HeadwordIndex(
+        english_direction="en-bo",
+        tibetan={"bo-en": {"ཕོན་": 1_030_539, "མི་སྲིད་པ་": 1_046_710}},
+    )
 
     ponto = parse(29450, "པོན་ཏོ་", "SA phon to", pyewts, index)
     denier = parse(37596, "བསྙོན་ཅན་", '"SA mi srid pa, gzhan la bsnyon to"', pyewts, index)
@@ -303,7 +315,10 @@ def test_sa_later_item_of_wylie_syllables_is_a_target(pyewts: WylieConverter) ->
     ],
 )
 def test_sa_later_english_item_is_gloss(pyewts: WylieConverter, definition: str, gloss: str) -> None:
-    index = HeadwordIndex(english_direction="en-bo", tibetan={"bo-en": {"གྲང་བ་": 1, "བཀལ་བ་": 2, "རྒས་པ་": 3}})
+    index = HeadwordIndex(
+        english_direction="en-bo",
+        tibetan={"bo-en": {"གྲང་བ་": 1, "བཀལ་བ་": 2, "རྒས་པ་": 3}},
+    )
 
     row = parse(11617, "གྲང་", definition, pyewts, index)
 
