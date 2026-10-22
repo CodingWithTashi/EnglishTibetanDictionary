@@ -244,21 +244,23 @@ DDC = Pack(
             "Dzongkha Development and Culture Division."
         ),
     },
-    # Entry counts are exact (dz-en 35,543 and dz-dz 22,786 source headwords; en-dz after case merging).
-    # Sense ranges bracket the measured counts. The DDC files hold no see-also links, examples or
-    # truncated glosses; synonym and antonym links come from the dz-en `<kref>` targets.
+    # Measured on the first full build (2026-10-21). Entry counts are exact (dz-en 35,543 and dz-dz 22,786
+    # source headwords; en-dz 23,145 after case merging). The other counts are the measured value
+    # (senses 36,284 / 26,553 / 37,412; synonyms 923; antonyms 454; word-of-the-day 31,135) with a 5 %
+    # window each way, rounded outward. The DDC files hold no see-also links, examples or truncated
+    # glosses; synonym and antonym links come from the dz-en `<kref>` targets.
     expected=Expected(
         directions=3,
-        entries={"dz-en": (35_543, 35_543), "dz-dz": (22_786, 22_786), "en-dz": (23_100, 23_237)},
-        senses={"dz-en": (36_000, 42_000), "dz-dz": (26_000, 32_000), "en-dz": (30_000, 42_000)},
+        entries={"dz-en": (35_543, 35_543), "dz-dz": (22_786, 22_786), "en-dz": (23_145, 23_145)},
+        senses={"dz-en": (34_469, 38_099), "dz-dz": (25_225, 27_881), "en-dz": (35_541, 39_283)},
         examples={},
         see_also=(0, 0),
         see_also_resolved_percent=(0.0, 100.0),
-        synonyms=(900, 940),
-        antonyms=(440, 460),
+        synonyms=(876, 970),
+        antonyms=(431, 477),
         wylie=58_329,  # every dz-en and dz-dz entry
         truncated=(0, 0),
-        wotd=(30_000, 33_000)  # measured 31,135 (the brief's 5,000–30,000 was a profile estimate),
+        wotd=(29_578, 32_693),
     ),
     read_source=_read_ddc_source,
     parse=_parse_ddc_row,

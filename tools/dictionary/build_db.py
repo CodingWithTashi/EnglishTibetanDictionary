@@ -1,9 +1,12 @@
-"""Build the app's prebuilt dictionary.db from the Monlam source database (plan §5.3).
+"""Build a pack's prebuilt dictionary database (`bo.db` from the Monlam source, `dz.db` from the DDC files).
 
     .venv/bin/python -I build_db.py --pack bo --source MLDic.ml \\
         --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \\
-        --out ../../app/src/main/assets/dictionary/dictionary.db --data-version 2026.10.1 \\
-        --stats-xml ../../app/src/main/res/values/dictionary_stats.xml --built-at 2026-10-19T00:00:00Z
+        --out ../../app/src/main/assets/dictionary/bo.db --data-version 2026.10.1 \\
+        --stats-xml ../../app/src/main/res/values/dictionary_stats_bo.xml --built-at 2026-10-19T00:00:00Z
+
+`--pack dz` takes the directory holding the DDC StarDict folders as `--source` and writes `dz.db` and
+`dictionary_stats_dz.xml` the same way.
 
 Steps: load the highest `<v>.json` schema → read the three source tables → parse each row → group
 rows into entries → resolve related links across directions → assign word-of-the-day ranks →
@@ -58,7 +61,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a pack's prebuilt dictionary database from its source.")
     parser.add_argument("--version", action="version", version=f"dictbuild {dictbuild.__version__}")
     parser.add_argument("--pack", choices=sorted(PACKS), required=True, help="the dictionary pack to build")
-    parser.add_argument("--source", type=Path, required=True, help="source of the pack (bo: the Monlam MLDic.ml database), read-only")
+    parser.add_argument("--source", type=Path, required=True, help="source of the pack, read-only (bo: the Monlam MLDic.ml database; dz: the directory holding stardict-dz-en/, stardict-en-dz/ and stardict-dz-dz/)")
     parser.add_argument("--schema-dir", type=Path, required=True, help="app/schemas/<DictionaryDatabase fqcn>/")
     parser.add_argument("--out", type=Path, required=True, help="database to write")
     parser.add_argument("--data-version", required=True, help="data release, e.g. 2026.10.1")
@@ -71,7 +74,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--stats-xml",
         type=Path,
-        help="also write the app's res/values/dictionary_stats.xml (total entry count, asset size) for the database",
+        help="also write the pack's res/values/dictionary_stats_<pack>.xml (total entry count, asset size) for the database",
     )
     parser.add_argument(
         "--built-at",
@@ -155,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         # a failed stats write leaves `out` as it was, and a failed rename puts the old stats file back.
         with staged_database(out, schema, tables) as staged:
             asset_bytes = staged.stat().st_size
-            stats.write(total_entries, asset_bytes)
+            stats.write(total_entries, asset_bytes, pack.id)
     except _StatsXmlError as error:
         return _fail(str(error))
     except (OSError, sqlite3.Error) as error:
@@ -166,15 +169,15 @@ def main(argv: list[str] | None = None) -> int:
 
     entries = ", ".join(f"{direction.id} {direction.entry_count}" for direction in tables["directions"])
     print(
-        f"build_db: wrote {out} ({asset_bytes} bytes; entries: {entries}; schema v{schema.version}; "
+        f"build_db: pack {pack.id}: wrote {out} ({asset_bytes} bytes; entries: {entries}; schema v{schema.version}; "
         f"{converter.name}; built_at {built_at})"
     )
     for check in failed:
         print(f"build_db: {check.name} = {check.value} is outside {check.minimum}–{check.maximum}", file=sys.stderr)
     if stats_xml is not None:
         print(
-            f"build_db: wrote {stats_xml} (dictionary_entry_count {total_entries}, "
-            f"dictionary_asset_bytes {asset_bytes})"
+            f"build_db: wrote {stats_xml} (dictionary_entry_count_{pack.id} {total_entries}, "
+            f"dictionary_asset_bytes_{pack.id} {asset_bytes})"
         )
     if failed:
         print(f"build_db: {args.out} was not replaced", file=sys.stderr)
@@ -193,12 +196,12 @@ class _StatsXml:
         self._previous: str | None = None
         self._written = False
 
-    def write(self, total_entries: int, asset_bytes: int) -> None:
+    def write(self, total_entries: int, asset_bytes: int, pack_id: str) -> None:
         if self.path is None:
             return
         try:
             self._previous = self.path.read_text(encoding="utf-8") if self.path.is_file() else None
-            write_stats_xml(self.path, total_entries, asset_bytes)
+            write_stats_xml(self.path, total_entries, asset_bytes, pack_id)
         except (OSError, ValueError) as error:
             raise _StatsXmlError(f"cannot write {self.path}: {error}") from error
         self._written = True
