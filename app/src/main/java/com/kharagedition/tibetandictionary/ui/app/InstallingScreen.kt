@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.em
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
 import com.kharagedition.tibetandictionary.ui.components.FlagStrand
@@ -66,9 +66,10 @@ fun InstallingScreen(
     state: AppRootState.Installing,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
-    bundledEntryCount: Int = integerResource(state.pack.entryCountRes()),
+    bundledEntryCount: Int = integerResource(state.pack.resources.entryCount),
 ) {
     InstallingContent(
+        pack = state.pack,
         title = stringResource(R.string.installing_dictionary),
         // Before the installer knows the count, use the one the data build recorded (0 = unknown).
         totalEntries = state.totalEntries ?: bundledEntryCount.takeIf { it > 0 },
@@ -80,14 +81,15 @@ fun InstallingScreen(
 }
 
 /**
- * The install body (3a): the prayer-flag strand at the top, the app icon with the Tibetan and English names in the
- * middle, and a 120dp progress bar over the status line at the bottom: "Preparing N entries · offline" when
- * [totalEntries] is known, else [title]. A non-null [failure] replaces all of it with a full empty state with
- * "Try again" ([onRetry]) and, when [secondaryActionLabel] is given, a quiet button under it calling
+ * The install body (3a) for [pack]: the prayer-flag strand at the top, the pack's icon tile with its Tibetan-script
+ * and Latin names in the middle, and a 120dp progress bar over the status line at the bottom: "Preparing N entries ·
+ * offline" when [totalEntries] is known, else [title]. A non-null [failure] replaces all of it with a full empty
+ * state with "Try again" ([onRetry]) and, when [secondaryActionLabel] is given, a quiet button under it calling
  * [onSecondaryAction].
  */
 @Composable
 fun InstallingContent(
+    pack: DictionaryPack,
     title: String,
     progress: Float?,
     totalEntries: Int?,
@@ -107,34 +109,35 @@ fun InstallingContent(
             InstallFailed(failure, onRetry, secondaryActionLabel, onSecondaryAction, Modifier.align(Alignment.Center))
         } else {
             FlagStrand(FlagStrandSize.Splash, Modifier.align(Alignment.TopCenter))
-            AppNames(Modifier.align(Alignment.Center))
+            PackNames(pack, Modifier.align(Alignment.Center))
             InstallProgress(title, progress, totalEntries, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
 
 @Composable
-private fun AppNames(modifier: Modifier) {
+private fun PackNames(pack: DictionaryPack, modifier: Modifier) {
     val colors = DictTheme.colors
     val type = DictTheme.type
+    val resources = pack.resources
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        // The same tile as the system splash. Its drawable includes the shadow, so it is larger than the icon slot
-        // and overflows it evenly on every side (requiredSize centres it on the slot).
+        // The pack's tile, as the system splash draws it. Its drawable includes the shadow, so it is larger than the
+        // icon slot and overflows it evenly on every side (requiredSize centres it on the slot).
         Image(
-            painterResource(R.drawable.ic_splash_tile),
+            painterResource(resources.tile),
             contentDescription = null,
             modifier = Modifier
                 .size(DictTheme.dimens.splashIcon)
                 .requiredSize(SplashTileFrame),
         )
         TibetanText(
-            stringResource(R.string.app_name_tibetan),
+            stringResource(resources.title),
             Modifier.padding(top = TibetanNameTop),
             style = type.tibetanSplash,
             color = colors.ink,
         )
         MixedText(
-            stringResource(R.string.app_name),
+            stringResource(resources.titleLatin),
             type.buttonLarge.copy(letterSpacing = LatinNameTracking),
             type.tibetanInline16,
             Modifier.offset(y = LatinNameOverlap),
@@ -198,6 +201,14 @@ private fun InstallingPreview() {
             AppRootState.Installing(DictionaryPack.TIBETAN, progress = 0.6f, totalEntries = 180_412),
             onRetry = {},
         )
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun InstallingDzongkhaPreview() {
+    DictPreview(dark = isSystemInDarkTheme()) {
+        InstallingScreen(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.3f, totalEntries = null), onRetry = {})
     }
 }
 

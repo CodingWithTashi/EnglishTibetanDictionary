@@ -24,12 +24,15 @@ class DictionaryPackTest {
 
     @Test
     fun resourceMappingsAreDistinct() {
-        val mappings: List<(DictionaryPack) -> Int> = listOf(
-            { it.nameRes() }, { it.glossRes() }, { it.descriptionRes() }, { it.licenceTitleRes() },
-            { it.entryCountRes() }, { it.assetBytesRes() },
+        // A pack copied from another and only half edited would show the other pack's name, greeting or icon.
+        val mappings: List<(PackResources) -> Int> = listOf(
+            PackResources::name, PackResources::gloss, PackResources::title, PackResources::titleLatin,
+            PackResources::language, PackResources::description, PackResources::welcome,
+            PackResources::greetingMorning, PackResources::greetingAfternoon, PackResources::greetingEvening,
+            PackResources::licenceTitle, PackResources::tile, PackResources::entryCount, PackResources::assetBytes,
         )
         for (mapping in mappings) {
-            assertThat(DictionaryPack.entries.map(mapping).toSet()).hasSize(DictionaryPack.entries.size)
+            assertThat(DictionaryPack.entries.map { mapping(it.resources) }.toSet()).hasSize(DictionaryPack.entries.size)
         }
     }
 }

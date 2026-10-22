@@ -124,6 +124,9 @@ class OnboardingScreenTest {
         compose.onNodeWithTag("onboarding_pack_dz").performScrollTo().performClick()
         compose.onNodeWithTag("onboarding_pack_dz").assertIsSelected()
         compose.onNodeWithTag("onboarding_pack_bo").assertIsNotSelected()
+        // The welcome follows the chosen dictionary's language.
+        compose.onNodeWithText("སྐུ་གཟུགས་བཟང་པོ་ལགས།").assertExists()
+        compose.onNodeWithText("བཀྲ་ཤིས་བདེ་ལེགས།").assertDoesNotExist()
 
         tap("onboarding_continue")
 
@@ -232,6 +235,16 @@ class OnboardingScreenTest {
             OnboardingEvent.SetTextSize(AppTextSize.LARGEST),
             OnboardingEvent.SetLineSpacing(2.3f),
         ).inOrder()
+    }
+
+    @Test
+    fun `with Dzongkha chosen step 3 names Dzongkha and previews a Dzongkha entry`() {
+        show(directionStep.copy(step = OnboardingStep.READING, selectedPack = DictionaryPack.DZONGKHA))
+
+        compose.onNodeWithText("Dzongkha is shown larger than English so stacked letters stay clear.").assertIsDisplayed()
+        compose.onNodeWithText("Tibetan", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("auspicious, good, prosperity", substring = true).assertExists()
+        compose.onNodeWithText("ལེགས་ཤོམ། དགེ་བ་ཕུན་སུམ་ཚོགས་མི་ཅིག་ལུ་སླབཔ་ཨིན།", substring = true).assertExists()
     }
 
     @Test

@@ -36,7 +36,7 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.nameRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictIconButton
@@ -72,7 +72,7 @@ fun AboutScreen(onBack: () -> Unit, onOpenLicences: () -> Unit) {
             onBack = onBack,
             onLicences = onOpenLicences,
             onEmail = {
-                val subject = resources.getString(R.string.app_name) + " " + loaded.versionName
+                val subject = resources.getString(loaded.pack.resources.name) + " " + loaded.versionName
                 val email = Intent(Intent.ACTION_SENDTO, "mailto:${Links.DEV_EMAIL}".toUri())
                     .putExtra(Intent.EXTRA_EMAIL, arrayOf(Links.DEV_EMAIL))
                     .putExtra(Intent.EXTRA_SUBJECT, subject)
@@ -124,9 +124,9 @@ fun AboutScreen(
         ) {
             ScreenTitle(stringResource(R.string.about))
             Column {
-                TibetanText(stringResource(R.string.app_name_tibetan), style = type.tibetanSplash, color = colors.ink)
+                TibetanText(stringResource(state.pack.resources.title), style = type.tibetanSplash, color = colors.ink)
                 MixedText(
-                    versionLine(stringResource(state.pack.nameRes()), state.versionName, state.entryCount),
+                    versionLine(stringResource(state.pack.resources.name), state.versionName, state.entryCount),
                     type.secondary,
                     type.tibetanInline15,
                     color = colors.muted,

@@ -2,5 +2,4 @@
 <!-- Bhutan (mcc402) branding; every other string falls back to the default resources. -->
 <resources>
     <string name="app_name">Dzongkha Dictionary</string>
-    <string name="app_name_tibetan">རྫོང་ཁའི་ཚིག་མཛོད།</string>
 </resources>

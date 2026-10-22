@@ -16,6 +16,7 @@ import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 class AboutScreenTest {
@@ -55,6 +56,34 @@ class AboutScreenTest {
         compose.onNodeWithText("Dictionary data: Monlam Tibetan Dictionary by Lobsang Monlam (GPL-3)").assertExists()
         compose.onNodeWithText(SampleData.attribution.text).assertExists()
         compose.onNodeWithText("Fonts: Jomolhari and Noto Sans (SIL Open Font License)").assertExists()
+    }
+
+    @Test
+    fun `with the Dzongkha dictionary About names Dzongkha and its source`() {
+        show(
+            state.copy(
+                entryCount = 81_474,
+                pack = DictionaryPack.DZONGKHA,
+                sourceName = "Dzongkha Development Commission dictionaries",
+                author = "Dzongkha Development Commission",
+                licence = "used with permission",
+                attribution = null,
+            ),
+        )
+
+        compose.onNodeWithText("རྫོང་ཁའི་ཚིག་མཛོད།").assertIsDisplayed()
+        compose.onNodeWithText("Dzongkha Dictionary 3.0.0 · 81,474 entries · offline").assertIsDisplayed()
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertDoesNotExist()
+        compose.onNodeWithText("Tibetan", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "mcc402")
+    fun `on a Bhutanese SIM the Tibetan dictionary's About still names Tibetan`() {
+        show(state)
+
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertIsDisplayed()
+        compose.onNodeWithText("Tibetan Dictionary 3.0.0 · 180,412 entries · offline").assertIsDisplayed()
     }
 
     @Test

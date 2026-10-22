@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.components.DirectionLabel
 import com.kharagedition.tibetandictionary.ui.components.FlagStrand
 import com.kharagedition.tibetandictionary.ui.components.FlagStrandSize
@@ -50,15 +51,12 @@ private val ControlsTop = 28.dp
 private val ControlGap = 14.dp
 private val SecondControlTop = 6.dp
 
-/** "Tashi delek", in Tibetan in every UI language. */
-private const val GREETING = "བཀྲ་ཤིས་བདེ་ལེགས།"
-
 private fun stepTag(step: Int) = "onboarding_step_$step"
 
 /**
- * Step 1 (2a): the prayer-flag strand, the greeting, and an option card per dictionary pack with the selected one
- * checked: its name with the name in the other language, and a description with the entry count. Test tags:
- * `onboarding_step_1`, `onboarding_pack_{id}`.
+ * Step 1 (2a): the prayer-flag strand, the greeting in the selected pack's language, and an option card per
+ * dictionary pack with the selected one checked: its name with the name in the other language, and a description
+ * with the entry count. Test tags: `onboarding_step_1`, `onboarding_pack_{id}`.
  */
 @Composable
 internal fun DictionaryStep(
@@ -69,7 +67,12 @@ internal fun DictionaryStep(
     val type = DictTheme.type
     Column(modifier.testTag(stepTag(OnboardingStep.DICTIONARY))) {
         FlagStrand(FlagStrandSize.Onboarding, Modifier.padding(top = StrandTop))
-        TibetanText(GREETING, Modifier.padding(top = GreetingTop), style = type.tibetanGreeting, color = DictTheme.colors.accent)
+        TibetanText(
+            stringResource(state.selectedPack.resources.welcome),
+            Modifier.padding(top = GreetingTop),
+            style = type.tibetanGreeting,
+            color = DictTheme.colors.accent,
+        )
         StepHeader(
             title = stringResource(R.string.onboarding_dictionary_title),
             body = stringResource(R.string.onboarding_dictionary_body),
@@ -131,18 +134,21 @@ internal fun DirectionStep(
 }
 
 /**
- * Step 3 (2c): a live [PreviewCard] at the chosen text size and line spacing, and a slider for each. Test tags:
- * `onboarding_step_3`, `onboarding_text_size`, `onboarding_line_spacing`.
+ * Step 3 (2c): a live [PreviewCard] of the chosen pack at the chosen text size and line spacing, and a slider for
+ * each. Test tags: `onboarding_step_3`, `onboarding_text_size`, `onboarding_line_spacing`.
  */
 @Composable
 internal fun ReadingStep(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.testTag(stepTag(OnboardingStep.READING))) {
         StepHeader(
             title = stringResource(R.string.onboarding_textsize_title),
-            body = stringResource(R.string.onboarding_textsize_body),
+            body = stringResource(
+                R.string.onboarding_textsize_body,
+                stringResource(state.selectedPack.resources.language),
+            ),
             titleTop = TitleTop,
         )
-        PreviewCard(state.textSize, state.lineSpacing, Modifier.padding(top = PreviewTop))
+        PreviewCard(state.textSize, state.lineSpacing, Modifier.padding(top = PreviewTop), pack = state.selectedPack)
         Column(Modifier.padding(top = ControlsTop), verticalArrangement = Arrangement.spacedBy(ControlGap)) {
             SliderHeader(stringResource(R.string.text_size), textSizeLabel(state.textSize))
             TextSizeSlider(

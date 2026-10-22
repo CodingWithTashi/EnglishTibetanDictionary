@@ -332,3 +332,18 @@ def test_a_different_second_block_keeps_its_senses() -> None:
     )
 
     assert [(s.sense_no, s.part_of_speech, s.gloss) for s in row.senses] == [(1, "adv", "hereby"), (2, "n", "hereby")]
+
+
+def test_the_period_after_a_label_is_not_gloss_text() -> None:
+    # Real rows 12884 and 19371: "syn." and "prep." are followed by a lone period, which is left in front of the gloss
+    # once the label and the links are taken out.
+    auspicious = parse(
+        "བཀྲ་ཤིས",
+        '<k>བཀྲ་ཤིས</k> <def> <pos><abbr><i>noun</i></abbr></pos> <abbr><i>short</i></abbr> བཀྲིས།  '
+        '<abbr><i>syn.</i></abbr>. <kref type="syn"> དགེ་ལེགས</kref>། <kref type="syn"> དགེ་མཚན</kref>། '
+        '<kref type="syn"> ཕུན་སུམ་ཚོགས་པ</kref>། auspicious, good, prosperity</def>',
+    )
+    plural = parse("ཚུ", "<k>ཚུ</k> <def> <abbr><i>prep.</i></abbr>. plural particle </def> ")
+
+    assert [s.gloss for s in auspicious.senses] == ["auspicious, good, prosperity"]
+    assert [s.gloss for s in plural.senses] == ["plural particle"]

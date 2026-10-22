@@ -37,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.licenceTitleRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.MixedText
@@ -66,7 +66,7 @@ private val FontLicences = listOf(
  * The licence texts to show for [pack], in order, as (asset, heading) pairs: the pack's data licence, then the fonts.
  */
 internal fun bundledLicences(pack: DictionaryPack): List<Pair<String, Int>> =
-    listOf(pack.licenceAsset to pack.licenceTitleRes()) + FontLicences
+    listOf(pack.licenceAsset to pack.resources.licenceTitle) + FontLicences
 
 /** One licence as shown: its heading ([title]) and its text in [paragraphs]. */
 @Immutable

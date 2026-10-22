@@ -30,11 +30,12 @@ import androidx.navigation.compose.rememberNavController
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.Appearance
-import com.kharagedition.tibetandictionary.data.model.nameRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.navigation.AppNavHost
 import com.kharagedition.tibetandictionary.navigation.Main
 import com.kharagedition.tibetandictionary.navigation.Onboarding
 import com.kharagedition.tibetandictionary.ui.components.AppToastHost
+import com.kharagedition.tibetandictionary.ui.components.LocalActivePack
 import com.kharagedition.tibetandictionary.ui.components.LocalToastAnchors
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.ToastAnchors
@@ -74,6 +75,7 @@ fun AppRoot(state: AppRootState.Ready, onRetrySwitch: () -> Unit, onKeepCurrent:
         CompositionLocalProvider(
             LocalToaster provides toaster,
             LocalToastAnchors provides remember { ToastAnchors() },
+            LocalActivePack provides state.pack,
         ) {
             Box(
                 Modifier
@@ -140,7 +142,8 @@ fun SwitchingOverlay(switching: SwitchState, onRetry: () -> Unit, onKeepCurrent:
     }
     val failed = switching as? SwitchState.Failed
     InstallingContent(
-        title = stringResource(R.string.switching_dictionary, stringResource(pack.nameRes())),
+        pack = pack,
+        title = stringResource(R.string.switching_dictionary, stringResource(pack.resources.name)),
         progress = (switching as? SwitchState.InProgress)?.progress,
         totalEntries = null,
         failure = failed?.cause,

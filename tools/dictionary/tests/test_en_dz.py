@@ -211,3 +211,12 @@ def test_case_variants_with_the_same_body_keep_the_senses_once() -> None:
 
     assert [(s.sense_no, s.gloss) for s in entry.senses] == [(1, "ཨིང་ལིཤ་གི་ཡི་གུ་ ༢༤ པ།"), (2, "རོ་མཱན་ཨང་ ༡༠ པ།")]
     assert entry.source_ids == [23118, 23119]
+
+
+def test_the_period_after_the_part_of_speech_is_not_gloss_text() -> None:
+    # Real row 188 (`acrid`): a lone period follows the part of speech.
+    row = parse_en_dz_row(
+        SourceRow(188, "acrid", "<k>acrid</k> <pos><abbr><i>adj.</i></abbr></pos> . དྲིམ་གདུག་དྲགས། བྲོཝ་ཁག་དྲགས།"),
+    )
+
+    assert [s.gloss for s in row.senses] == ["དྲིམ་གདུག་དྲགས། བྲོཝ་ཁག་དྲགས།"]

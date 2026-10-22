@@ -6,8 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.assetBytesRes
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import java.io.File
 import java.nio.ByteBuffer
 import kotlinx.serialization.json.Json
@@ -67,14 +66,14 @@ class DictionaryAssetVersionTest(private val pack: DictionaryPack) {
         val total = query("SELECT SUM(entry_count) FROM directions").single().getValue(0).toInt()
 
         assertThat(total).isGreaterThan(0)
-        assertThat(context.resources.getInteger(pack.entryCountRes())).isEqualTo(total)
+        assertThat(context.resources.getInteger(pack.resources.entryCount)).isEqualTo(total)
     }
 
     @Test
     fun statsResourceHoldsTheAssetsSize() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
-        assertThat(context.resources.getInteger(pack.assetBytesRes()).toLong()).isEqualTo(assetFile().length())
+        assertThat(context.resources.getInteger(pack.resources.assetBytes).toLong()).isEqualTo(assetFile().length())
     }
 
     @Test

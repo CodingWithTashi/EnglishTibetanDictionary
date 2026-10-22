@@ -43,10 +43,7 @@ import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
-import com.kharagedition.tibetandictionary.data.model.descriptionRes
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
-import com.kharagedition.tibetandictionary.data.model.glossRes
-import com.kharagedition.tibetandictionary.data.model.nameRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -273,25 +270,26 @@ private fun LanguagePickerContent(selected: AppLanguage, onPick: (AppLanguage) -
 @Composable
 fun PackOptionCard(pack: DictionaryPack, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val type = DictTheme.type
+    val resources = pack.resources
     OptionCard(
         selected = selected,
         onClick = onClick,
         modifier = modifier,
         stacked = true,
         description = stringResource(
-            pack.descriptionRes(),
-            TibetanNumerals.formatCount(integerResource(pack.entryCountRes()), DictTheme.language),
+            resources.description,
+            TibetanNumerals.formatCount(integerResource(resources.entryCount), DictTheme.language),
         ),
     ) {
         MixedText(
-            stringResource(pack.nameRes()) + " · " + stringResource(pack.glossRes()),
+            stringResource(resources.name) + " · " + stringResource(resources.gloss),
             type.buttonLarge,
             type.tibetanGloss,
         )
     }
 }
 
-/** Picks the dictionary pack: Tibetan or Dzongkha. Test tags: `dictionary_option_{pack id}`. */
+/** Picks the dictionary pack, one card per [DictionaryPack]. Test tags: `dictionary_option_{pack id}`. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictionaryPickerSheet(

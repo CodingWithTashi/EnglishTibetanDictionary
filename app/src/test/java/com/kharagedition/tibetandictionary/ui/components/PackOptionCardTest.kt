@@ -16,9 +16,7 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.descriptionRes
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
-import com.kharagedition.tibetandictionary.data.model.nameRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import org.junit.Rule
 import org.junit.Test
@@ -56,11 +54,11 @@ class PackOptionCardTest {
         for (pack in DictionaryPack.entries) {
             val card = compose.onNodeWithTag("card_${pack.id}").getBoundsInRoot()
             val name = compose
-                .onNodeWithText(context.getString(pack.nameRes()), substring = true, useUnmergedTree = true)
+                .onNodeWithText(context.getString(pack.resources.name), substring = true, useUnmergedTree = true)
                 .getBoundsInRoot()
-            val count = TibetanNumerals.formatCount(context.resources.getInteger(pack.entryCountRes()), language)
+            val count = TibetanNumerals.formatCount(context.resources.getInteger(pack.resources.entryCount), language)
             val description = compose
-                .onNodeWithText(context.getString(pack.descriptionRes(), count), useUnmergedTree = true)
+                .onNodeWithText(context.getString(pack.resources.description, count), useUnmergedTree = true)
                 .getBoundsInRoot()
             assertThat(description.top.value).isAtLeast(name.bottom.value)
             assertThat(card.height).isAtMost(160.dp)

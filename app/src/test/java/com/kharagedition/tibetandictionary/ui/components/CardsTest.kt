@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -23,6 +24,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
+import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictColors
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -167,6 +172,41 @@ class CardsTest {
 
         assertThat(opened).isEqualTo(1)
         assertThat(signIns).isEqualTo(1)
+    }
+
+    /** The reading preview and the greeting as a screen under the app root with [active] in use shows them. */
+    private fun showPackContent(active: DictionaryPack) {
+        compose.setContent {
+            DictTheme(darkTheme = false) {
+                CompositionLocalProvider(LocalActivePack provides active) {
+                    Column {
+                        Greeting(TimeOfDay.EVENING)
+                        PreviewCard(AppTextSize.DEFAULT, LineSpacing.DEFAULT)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `the greeting and the reading preview follow the Tibetan dictionary`() {
+        showPackContent(DictionaryPack.TIBETAN)
+
+        compose.onNodeWithText("Good evening · དགོང་དྲོ་བདེ་ལེགས།").assertExists()
+        compose.onNodeWithText("bkra shis").assertExists()
+        compose.onNodeWithText("1\u00A0 auspicious, fortunate", substring = true).assertExists()
+        compose.onNodeWithText("བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།").assertExists()
+    }
+
+    @Test
+    fun `the greeting and the reading preview follow the Dzongkha dictionary`() {
+        showPackContent(DictionaryPack.DZONGKHA)
+
+        compose.onNodeWithText("Good evening · ཕྱི་རུ་བདེ་ལེགས།").assertExists()
+        // A single gloss is not numbered.
+        compose.onNodeWithText("auspicious, good, prosperity").assertExists()
+        compose.onNodeWithText("ལེགས་ཤོམ། དགེ་བ་ཕུན་སུམ་ཚོགས་མི་ཅིག་ལུ་སླབཔ་ཨིན།").assertExists()
+        compose.onNodeWithText("དགོང་དྲོ་བདེ་ལེགས།", substring = true).assertDoesNotExist()
     }
 
     private companion object {

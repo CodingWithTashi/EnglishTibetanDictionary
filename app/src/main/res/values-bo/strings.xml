@@ -5,7 +5,7 @@
     (greetings, the search placeholder) put the Tibetan half first. Counts arrive already in Tibetan digits.
 -->
 <resources>
-    <!-- Kept in Latin: the splash shows app_name_tibetan with this name under it. -->
+    <!-- The launcher label stays in Latin: Play lists the app under this name. -->
     <string name="app_name">Tibetan Dictionary</string>
 
     <!-- Bottom navigation: Tibetan label with an English gloss. -->
@@ -19,9 +19,12 @@
     <string name="tab_profile_gloss">Profile</string>
 
     <!-- Home -->
-    <string name="greeting_morning">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
-    <string name="greeting_afternoon">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
-    <string name="greeting_evening">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
+    <string name="greeting_morning_bo">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
+    <string name="greeting_afternoon_bo">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
+    <string name="greeting_evening_bo">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
+    <string name="greeting_morning_dz">དྲོ་པ་བདེ་ལེགས། · Good morning</string>
+    <string name="greeting_afternoon_dz">ཉི་མ་བདེ་ལེགས། · Good afternoon</string>
+    <string name="greeting_evening_dz">ཕྱི་རུ་བདེ་ལེགས། · Good evening</string>
     <plurals name="streak_days">
         <item quantity="other">ཉིན་ %1$s མཐུད་མར།</item>
     </plurals>
@@ -100,7 +103,7 @@
     <string name="onboarding_direction_title">ཚིག་འཚོལ་སྐབས་ཁ་ཕྱོགས་གང་མང་ཤོས་བེད་སྤྱོད་གཏོང་གི་ཡོད།</string>
     <string name="onboarding_direction_body">འདིས་སྔོན་སྒྲིག་ཁ་ཕྱོགས་གཏན་འཁེལ་བྱེད། དུས་ནམ་ཡིན་ཡང་ཐེངས་གཅིག་མནན་ནས་བརྗེ་ཆོག</string>
     <string name="onboarding_textsize_title">ཀློག་བདེ་པོ་འདུག་གམ།</string>
-    <string name="onboarding_textsize_body">བརྩེགས་ཡིག་གསལ་པོ་མཐོང་ཆེད་བོད་ཡིག་དབྱིན་ཡིག་ལས་ཆེ་བ་སྟོན།</string>
+    <string name="onboarding_textsize_body">བརྩེགས་ཡིག་གསལ་པོ་མཐོང་ཆེད་%1$s་དབྱིན་ཡིག་ལས་ཆེ་བ་སྟོན།</string>
     <string name="onboarding_account_title">ཁྱེད་ཀྱི་ཚིག་རྣམས་སྒྲིག་ཆས་ཚང་མར་ཉར།</string>
     <string name="onboarding_account_body">ནང་འཛུལ་བྱས་ན་ཉར་བའི་ཚིག་དང་། འཚོལ་ཐོ། སྒྲིག་འགོད་བཅས་མཉམ་སྒྲིག་ཁོ་ན་བྱེད། ནང་འཛུལ་མ་བྱས་ཀྱང་ཚང་མ་དྲ་རྒྱ་མེད་པར་བེད་སྤྱོད་ཐུབ།</string>
     <string name="continue_without_account">ཐོ་ཁོངས་མེད་པར་མུ་མཐུད།</string>
@@ -148,6 +151,9 @@
     <string name="pack_gloss_dz">Dzongkha Dictionary</string>
     <string name="pack_desc_bo">སྨོན་ལམ། · བོད་ཡིག ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
     <string name="pack_desc_dz">DDC · རྫོང་ཁ ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
+    <!-- No final tsheg: onboarding_textsize_body adds it -->
+    <string name="pack_language_bo">བོད་ཡིག</string>
+    <string name="pack_language_dz">རྫོང་ཁ</string>
     <string name="dictionary">ཚིག་མཛོད།</string>
     <string name="onboarding_dictionary_title">ཚིག་མཛོད་གང་དགོས་སམ།</string>
     <string name="onboarding_dictionary_body">མཉེན་ཆས་འདི་ཚིག་མཛོད་འདིས་འགོ་འཛུགས། སྒེར་གྱི་སྒྲིག་འགོད་ནས་དུས་ནམ་ཡང་བརྗེ་ཆོག</string>
@@ -188,6 +194,8 @@
     <!-- The apps' own Tibetan names -->
     <string name="other_app_prayer">ཉིན་རེའི་ཁ་འདོན།</string>
     <string name="other_app_calendar">བོད་ཀྱི་ལོ་ཐོ།</string>
+    <string name="other_app_dzongkha_keyboard">རྫོང་ཁའི་མཐེབ་གཞོང་།</string>
+    <string name="other_app_bhutanese_calendar">འབྲུག་གི་ལོ་ཐོ།</string>
 
     <!-- Search (T2.2) -->
     <string name="no_match_body">དག་ཆ་བརྟག་ཞིབ་བྱོས། ཡང་ན་ཚིག་ཐུང་བ་ཞིག་ལ་ཚོད་ལྟ་བྱོས།</string>

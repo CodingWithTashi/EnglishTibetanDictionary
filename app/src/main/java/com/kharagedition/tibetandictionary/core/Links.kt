@@ -5,6 +5,8 @@ object Links {
     const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.kharagedition.tibetandictionary"
     const val DAILY_PRAYER_URL = "https://play.google.com/store/apps/details?id=com.codingwithtashi.dailyprayer"
     const val CALENDAR_URL = "https://play.google.com/store/apps/details?id=com.codingwithtashi.tibetan_calender"
+    const val DZONGKHA_KEYBOARD_URL =
+        "https://play.google.com/store/apps/details?id=com.kharagedition.tibetankeyboard&listing=dzongkha"
     const val GITHUB_URL = "https://github.com/CodingWithTashi/EnglishTibetanDictionary"
     const val DEV_EMAIL = "developer.kharag@gmail.com"
 

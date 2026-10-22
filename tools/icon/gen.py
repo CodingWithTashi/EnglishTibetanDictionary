@@ -7,9 +7,15 @@ Writes drawable/ic_launcher_{background,foreground,monochrome}.xml, mipmap-anydp
 drawable/ic_splash_tile.xml (84dp tile + shadow in a 136dp frame, also drawn by the installing screen) and
 ic_splash_icon.xml (that tile inset to the 288dp splash frame: dp insets in drawable/, fractions in drawable-v26/).
 
+The Dzongkha variant puts "རྫོང" on the left page instead: drawable/ic_splash_tile_dz.xml (the installing screen while
+the Dzongkha pack is prepared) and, for Bhutan SIMs, drawable-mcc402/ic_launcher_foreground.xml,
+mipmap-mcc402-anydpi-v26/ic_launcher{,_round}.xml and drawable-mcc402{,-v26}/ic_splash_icon.xml. The background and
+monochrome layers have no text and are shared.
+
 All book geometry lives in the 160-unit tile space of the design (5a). Glyph runs are shaped with HarfBuzz
 (uharfbuzz) and outlined with fontTools, then placed exactly as the SVG <text text-anchor="middle"> runs:
-"བོད" Jomolhari 30 centred on x=54, baseline 92; "En" Noto Sans 600 26 centred on x=106, baseline 90.
+"བོད" Jomolhari 30 centred on x=54, baseline 92; "En" Noto Sans 600 26 centred on x=106, baseline 90. "རྫོང" is as wide
+as "བོད" at the same size but shorter, so its baseline 95 centres its ink where the ink of "བོད" is centred.
 """
 import math
 import os
@@ -88,7 +94,20 @@ def text_paths(font_file, text, size, cx, baseline):
 
 
 BOD, BOD_SPAN = text_paths("jomolhari_regular.ttf", "བོད", 30, 54, 92)
+DZ, DZ_SPAN = text_paths("jomolhari_regular.ttf", "རྫོང", 30, 54, 95)
 EN, EN_SPAN = text_paths("noto_sans_semibold.ttf", "En", 26, 106, 90)
+
+
+class Word:
+    """The Tibetan-script run on the left page: its outlined glyphs and the comment naming it in the drawables."""
+
+    def __init__(self, glyphs, comment):
+        self.glyphs = glyphs
+        self.comment = comment
+
+
+BO_WORD = Word(BOD, '"བོད" Jomolhari 30 centred on 54, baseline 92: outlined, one path per glyph')
+DZ_WORD = Word(DZ, '"རྫོང" Jomolhari 30 centred on 54, baseline 95: outlined, one path per glyph')
 
 # ---------------------------------------------------------------- book geometry (tile space, verbatim from 6.5)
 
@@ -185,7 +204,7 @@ PAGE_R = [(0, "#FFD9CDB9"), (0.15, "#FFF3EDE3"), (1, "#FFFBF8F3")]
 GUTTER_STOPS = [(0, "#004A1409"), (0.5, "#734A1409"), (1, "#004A1409")]  # 0x73 = 0.45 alpha
 
 
-def book(indent, glyphs=True):
+def book(indent, word=BO_WORD, glyphs=True):
     """Base, pages, gutter and (optionally) the two glyph runs, in tile space, drawing order of the design."""
     g = indent + 4
     out = path(indent, BASE, fill=BASE_COLOR, alpha=0.8, comment="Cover under the pages")
@@ -196,8 +215,8 @@ def book(indent, glyphs=True):
     out += path(indent, GUTTER, grad=gradient("linear", g, GUTTER_STOPS, startX=72, startY=0, endX=88, endY=0),
                 comment="Gutter shadow")
     if glyphs:
-        out += f"{' ' * indent}<!-- \"བོད\" Jomolhari 30 centred on 54, baseline 92: outlined, one path per glyph -->\n"
-        out += "".join(path(indent, d, fill=INK, comment=name) for name, d, _ in BOD)
+        out += f"{' ' * indent}<!-- {word.comment} -->\n"
+        out += "".join(path(indent, d, fill=INK, comment=name) for name, d, _ in word.glyphs)
         out += f"{' ' * indent}<!-- \"En\" Noto Sans SemiBold 26 centred on 106, baseline 90: outlined -->\n"
         out += "".join(path(indent, d, fill=INK, comment=name) for name, d, _ in EN)
     return out
@@ -242,6 +261,9 @@ write("drawable/ic_launcher_background.xml", vector(108, 108, path(
 
 write("drawable/ic_launcher_foreground.xml", vector(108, 108, group(4, S, O, book(8)), outlined=True,
                                                     comment="Open bilingual book (6.5 / 5a); inside the 33dp safe radius"))
+write("drawable-mcc402/ic_launcher_foreground.xml", vector(
+    108, 108, group(4, S, O, book(8, DZ_WORD)), outlined=True,
+    comment="Bhutan SIMs (mcc402): the open bilingual book with \"རྫོང\"; inside the 33dp safe radius"))
 
 MONO_GAP = 6
 write("drawable/ic_launcher_monochrome.xml", vector(108, 108, group(4, S, O, path(
@@ -255,6 +277,10 @@ ADAPTIVE = (HEADER + '<adaptive-icon xmlns:android="http://schemas.android.com/a
             '</adaptive-icon>\n')
 write("mipmap-anydpi-v26/ic_launcher.xml", ADAPTIVE)
 write("mipmap-anydpi-v26/ic_launcher_round.xml", ADAPTIVE)
+# The country qualifier outranks density and version, so without these the mipmap-mcc402-* PNGs (render.py, for API
+# 24 and 25) would replace the adaptive icon on every API level. The same layers resolve to the mcc402 foreground.
+write("mipmap-mcc402-anydpi-v26/ic_launcher.xml", ADAPTIVE)
+write("mipmap-mcc402-anydpi-v26/ic_launcher_round.xml", ADAPTIVE)
 
 # ---------------------------------------------------------------- splash tile (84dp tile + shadow) and splash icon
 
@@ -333,14 +359,18 @@ write("drawable/ic_splash_tile.xml", vector(
     comment=f"Splash tile: the app icon at {TILE_DP}dp with its drop shadow, centred in a {num(FRAME)}dp frame (the\n"
             f"     smallest that holds the shadow). ic_splash_icon insets it to the {SPLASH_FRAME}dp splash frame; the\n"
             "     installing screen draws it as is."))
+write("drawable/ic_splash_tile_dz.xml", vector(
+    num(FRAME), num(FRAME), shadow + group(4, SS, SO, tile + book(8, DZ_WORD)), outlined=True,
+    comment=f"Splash tile with \"རྫོང\": ic_splash_tile for the Dzongkha pack (the installing screen) and, through\n"
+            "     drawable-mcc402/ic_splash_icon, the splash of Bhutan SIMs."))
 
 INSET = (SPLASH_FRAME - FRAME) / 2  # 76dp a side
 
 
-def inset(value, comment):
+def inset(value, comment, tile_name="ic_splash_tile"):
     return (HEADER + GENERATED + f"<!-- {comment} -->\n"
             '<inset xmlns:android="http://schemas.android.com/apk/res/android"\n'
-            '    android:drawable="@drawable/ic_splash_tile"\n'
+            f'    android:drawable="@drawable/{tile_name}"\n'
             f'    android:inset="{value}" />\n')
 
 
@@ -355,11 +385,23 @@ write("drawable-v26/ic_splash_icon.xml", inset(
     f"     {SPLASH_FRAME}dp). The insets are fractions of the bounds: the API 31+ splash may give the icon bounds of\n"
     "     another size and scale the result, and fixed dp insets would not scale with the tile."))
 
-for name, d, ref in BOD + EN:
+write("drawable-mcc402/ic_splash_icon.xml", inset(
+    f"{num(INSET)}dp",
+    "Bhutan SIMs (mcc402), API 24-25: ic_splash_tile_dz inset as drawable/ic_splash_icon insets ic_splash_tile.",
+    "ic_splash_tile_dz"))
+write("drawable-mcc402-v26/ic_splash_icon.xml", inset(
+    f"{num(100 * INSET / SPLASH_FRAME, 4)}%",
+    "Bhutan SIMs (mcc402): ic_splash_tile_dz inset as drawable-v26/ic_splash_icon insets ic_splash_tile.",
+    "ic_splash_tile_dz"))
+
+for name, d, ref in BOD + DZ + EN:
     print(f"glyph {name}: {len(d)} chars (reference {len(ref)})")
-print("spans", [round(v, 2) for v in BOD_SPAN], [round(v, 2) for v in EN_SPAN])
+print("spans", [round(v, 2) for v in BOD_SPAN], [round(v, 2) for v in DZ_SPAN], [round(v, 2) for v in EN_SPAN])
 import json  # noqa: E402
-# Exact (unrounded) glyph outlines for render.py's fidelity check; git-ignored.
+# Exact (unrounded) glyph outlines for render.py's fidelity check, per foreground drawable folder; git-ignored.
 with open(os.path.join(HERE, "glyph_reference.json"), "w") as f:
-    json.dump({name: ref for name, _, ref in BOD + EN}, f)
+    json.dump({
+        "drawable": [[name, ref] for name, _, ref in BOD + EN],
+        "drawable-mcc402": [[name, ref] for name, _, ref in DZ + EN],
+    }, f)
 print("shadow stops", shadow_stops(SPREAD, -SPREAD))

@@ -55,8 +55,9 @@ DDC_POS_CODES: dict[str, str | None] = {
 _TAG = re.compile(r"<[^>]*>")
 _WHITESPACE_RUN = re.compile(r"\s+")
 _K_BLOCK = re.compile(r"<k>(?P<key>.*?)</k>", re.DOTALL)
-# A tsheg or shad at the start of a gloss is what is left of the headword's tail or of a cut sense marker.
-_LEADING_MARKS = "\u0f0b\u0f0c\u0f0d\u0f0e \t\n"
+# A tsheg or shad at the start of a gloss is what is left of the headword's tail or of a cut sense marker, and a
+# lone period (not an ellipsis) the end of a label such as "syn." or "adj." once the label is taken out.
+_LEADING_DEBRIS = re.compile(r"^(?:[\u0f0b\u0f0c\u0f0d\u0f0e\s]|\.(?!\.))+")
 
 
 def pos_code(text: str) -> tuple[str | None, bool]:
@@ -92,8 +93,9 @@ def sort_case_duplicates(rows: list[SourceRow]) -> list[SourceRow]:
 
 
 def clean_gloss(text: str) -> str:
-    """`tidy` the text of a gloss and drop the tsheg and shad marks left in front of it (empty if only those remain)."""
-    return tidy(text).lstrip(_LEADING_MARKS)
+    """`tidy` the text of a gloss and drop the tsheg, shad and lone period marks left in front of it (empty if only
+    those remain)."""
+    return _LEADING_DEBRIS.sub("", tidy(text))
 
 
 def strip_tags(markup: str) -> str:

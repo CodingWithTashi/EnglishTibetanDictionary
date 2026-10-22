@@ -114,12 +114,12 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun openLink(link: ProfileLink) {
-        if (link !in linkTargets.visible) return
+        val shown = uiState.value ?: return
+        if (link !in shown.links) return
         when (link) {
             ProfileLink.ABOUT -> send(ProfileEffect.NavigateAbout)
             ProfileLink.RATE -> send(ProfileEffect.OpenUrl(linkTargets.playStore))
-            ProfileLink.SHARE ->
-                uiState.value?.let { send(ProfileEffect.ShareApp(linkTargets.playStore, it.dictionary)) }
+            ProfileLink.SHARE -> send(ProfileEffect.ShareApp(linkTargets.playStore, shown.dictionary))
             ProfileLink.MORE_APPS -> sheet.value = ProfileSheet.MORE_APPS
             ProfileLink.SUPPORT -> send(ProfileEffect.OpenUrl(linkTargets.support))
             ProfileLink.PRIVACY -> send(ProfileEffect.OpenUrl(linkTargets.privacy))
@@ -149,8 +149,8 @@ class ProfileViewModel @Inject constructor(
             },
             versionName = BuildConfig.VERSION_NAME,
             entryCount = capabilities.totalEntries.takeIf { it > 0 },
-            links = linkTargets.visible,
-            otherApps = linkTargets.otherApps,
+            links = linkTargets.visibleFor(capabilities.pack),
+            otherApps = linkTargets.otherAppsFor(capabilities.pack),
             sheet = sheet,
         )
     }

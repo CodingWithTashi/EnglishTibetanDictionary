@@ -107,12 +107,13 @@ The shipped assets were built with Python 3.13.7, SQLite 3.53.3 and pyewts 0.2.0
 
 Each pack ships its own asset and stats file, all committed: `assets/dictionary/bo.db` with
 `res/values/dictionary_stats_bo.xml`, and `assets/dictionary/dz.db` with `res/values/dictionary_stats_dz.xml`.
-A release of one pack leaves the other untouched. To ship new data:
+Each pack is built on its own, but both carry the schema version (step 1). To ship new data:
 
-1. If the schema changed, bump `DictionaryDatabase.VERSION` and export the schema
-   (`./gradlew :app:compileDebugKotlin` writes `app/schemas/…DictionaryDatabase/<VERSION>.json`). The build
-   stamps the highest schema version into `PRAGMA user_version`, and the installer recopies the asset when
-   that differs from the device's file. A schema change makes every pack's asset stale, so rebuild both.
+1. Bump `DictionaryDatabase.VERSION` and export the schema (`./gradlew :app:compileDebugKotlin` writes
+   `app/schemas/…DictionaryDatabase/<VERSION>.json`), whether or not the schema changed. The build stamps the
+   highest schema version into `PRAGMA user_version`, and the installer copies the asset again only when that
+   differs from the device's file: without the bump, devices that already have the pack keep the old data.
+   The bump makes every pack's asset stale, so rebuild both, even for a release of one pack.
 2. From `tools/dictionary`, build the pack's two files (exit 0 required). Pass the release date as
    `--built-at`, so building the same release again gives the same bytes:
 

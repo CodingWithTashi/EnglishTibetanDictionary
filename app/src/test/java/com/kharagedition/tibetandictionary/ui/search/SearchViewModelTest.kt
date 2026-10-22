@@ -743,6 +743,34 @@ class SearchViewModelTest {
         assertThat(recents.recents.value.map { it.query }).containsExactly("བཀྲ")
     }
 
+    @Test
+    fun `a one-stack word is recorded when the opened entry is that word`() = runTest {
+        val water = tashi.copy(id = 1_020_001, headword = "ཆུ་", wylie = "chu", glossPreview = "water")
+        for (query in listOf("ཆུ", "ཆུ་")) {
+            dictionary.searchResults[query to boEn.id] = SearchResult(
+                query = query,
+                directionId = boEn.id,
+                script = Script.TIBETAN,
+                hits = listOf(SearchHit(water, MatchField.HEADWORD, null, null, null)),
+                hasMore = false,
+                suggestions = emptyList(),
+            )
+        }
+        val vm = viewModel()
+
+        // ཆུ is one character on screen but a whole word: opening ཆུ་ records it, typed with or without the tsheg.
+        vm.type("ཆུ")
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(water.id))
+        advanceUntilIdle()
+        vm.type("ཆུ་")
+        advanceUntilIdle()
+        vm.onEvent(SearchEvent.OpenResult(water.id))
+        advanceUntilIdle()
+
+        assertThat(recents.recents.value.map { it.query }).containsExactly("ཆུ་", "ཆུ").inOrder()
+    }
+
     // Opening a result
 
     @Test

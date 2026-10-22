@@ -11,7 +11,7 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
-import com.kharagedition.tibetandictionary.data.model.entryCountRes
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.io.IOException
 import java.util.Locale
@@ -19,6 +19,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 class InstallingScreenTest {
@@ -162,12 +163,32 @@ class InstallingScreenTest {
     @Test
     fun `a Dzongkha install without the installer's count shows the bundled Dzongkha count`() {
         val bundled = ApplicationProvider.getApplicationContext<Context>().resources
-            .getInteger(DictionaryPack.DZONGKHA.entryCountRes())
+            .getInteger(DictionaryPack.DZONGKHA.resources.entryCount)
         assertThat(bundled).isGreaterThan(0)
 
         show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
 
         compose.onNodeWithText("Preparing ${"%,d".format(Locale.US, bundled)} entries · offline").assertExists()
+    }
+
+    @Test
+    fun `a Dzongkha install shows the Dzongkha names and no Tibetan ones`() {
+        show(AppRootState.Installing(DictionaryPack.DZONGKHA, progress = 0.2f, totalEntries = null))
+
+        compose.onNodeWithText("རྫོང་ཁའི་ཚིག་མཛོད།").assertExists()
+        compose.onNodeWithText("Dzongkha Dictionary").assertExists()
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertDoesNotExist()
+        compose.onNodeWithText("Tibetan", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "mcc402")
+    fun `on a Bhutanese SIM preparing the Tibetan dictionary still shows the Tibetan names`() {
+        showOverlay(SwitchState.InProgress(DictionaryPack.TIBETAN, 0.4f))
+
+        compose.onNodeWithText("བོད་ཡིག་ཚིག་མཛོད།").assertExists()
+        compose.onNodeWithText("Tibetan Dictionary").assertExists()
+        compose.onNodeWithText("Dzongkha", substring = true).assertDoesNotExist()
     }
 
     @Test

@@ -44,7 +44,7 @@ class ProfileViewModelTest {
         playStore = PLAY_URL,
         support = "",
         privacy = "",
-        otherApps = listOf(OtherApp.PRAYER, OtherApp.CALENDAR),
+        otherApps = OtherApp.entries,
     )
 
     /** A per-app language that starts at [current] (null = none set) and records every switch. */
@@ -419,7 +419,7 @@ class ProfileViewModelTest {
             privacy = "https://privacy.example",
             otherApps = OtherApp.entries,
         )
-        assertThat(all.visible).containsExactly(
+        assertThat(all.visibleFor(DictionaryPack.TIBETAN)).containsExactly(
             ProfileLink.ABOUT,
             ProfileLink.RATE,
             ProfileLink.SHARE,
@@ -429,7 +429,20 @@ class ProfileViewModelTest {
         ).inOrder()
 
         val none = ProfileLinkTargets(playStore = "", support = "", privacy = " ", otherApps = emptyList())
-        assertThat(none.visible).containsExactly(ProfileLink.ABOUT)
+        assertThat(none.visibleFor(DictionaryPack.TIBETAN)).containsExactly(ProfileLink.ABOUT)
+    }
+
+    @Test
+    fun `More apps lists the active dictionary's apps and hides when it has none`() {
+        val targets = ProfileLinkTargets(otherApps = OtherApp.entries)
+        assertThat(targets.otherAppsFor(DictionaryPack.TIBETAN))
+            .containsExactly(OtherApp.PRAYER, OtherApp.CALENDAR).inOrder()
+        assertThat(targets.otherAppsFor(DictionaryPack.DZONGKHA))
+            .containsExactly(OtherApp.DZONGKHA_KEYBOARD, OtherApp.BHUTANESE_CALENDAR).inOrder()
+
+        val tibetanOnly = ProfileLinkTargets(otherApps = listOf(OtherApp.PRAYER))
+        assertThat(tibetanOnly.visibleFor(DictionaryPack.TIBETAN)).contains(ProfileLink.MORE_APPS)
+        assertThat(tibetanOnly.visibleFor(DictionaryPack.DZONGKHA)).doesNotContain(ProfileLink.MORE_APPS)
     }
 
     @Test
@@ -494,6 +507,26 @@ class ProfileViewModelTest {
 
             assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(OtherApp.CALENDAR.url))
             assertThat(vm.state().sheet).isNull()
+        }
+    }
+
+    @Test
+    fun `with the Dzongkha dictionary active More apps lists the Dzongkha apps`() = runTest {
+        dictionary.capabilities.value = SampleData.capabilities.copy(pack = DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenLink(ProfileLink.MORE_APPS))
+            assertThat(vm.state().otherApps)
+                .containsExactly(OtherApp.DZONGKHA_KEYBOARD, OtherApp.BHUTANESE_CALENDAR).inOrder()
+
+            vm.onEvent(ProfileEvent.OpenOtherApp(OtherApp.DZONGKHA_KEYBOARD))
+
+            assertThat(awaitItem()).isEqualTo(
+                ProfileEffect.OpenUrl(
+                    "https://play.google.com/store/apps/details?id=com.kharagedition.tibetankeyboard&listing=dzongkha",
+                ),
+            )
         }
     }
 

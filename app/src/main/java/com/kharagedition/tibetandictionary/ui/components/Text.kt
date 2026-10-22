@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.isSpecified
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 
@@ -223,14 +225,15 @@ fun Overline(
     MixedText(text.uppercase(), style, DictTheme.type.tibetanInline15, modifier, color = color)
 }
 
-/** The Home greeting line for [timeOfDay] ("Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།"), 12 muted. */
+/** The Home greeting line for [timeOfDay] in [pack]'s language ("Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།"), 12 muted. */
 @Composable
-fun Greeting(timeOfDay: TimeOfDay, modifier: Modifier = Modifier) {
+fun Greeting(timeOfDay: TimeOfDay, modifier: Modifier = Modifier, pack: DictionaryPack = LocalActivePack.current) {
+    val resources = pack.resources
     val text = stringResource(
         when (timeOfDay) {
-            TimeOfDay.MORNING -> R.string.greeting_morning
-            TimeOfDay.AFTERNOON -> R.string.greeting_afternoon
-            TimeOfDay.EVENING -> R.string.greeting_evening
+            TimeOfDay.MORNING -> resources.greetingMorning
+            TimeOfDay.AFTERNOON -> resources.greetingAfternoon
+            TimeOfDay.EVENING -> resources.greetingEvening
         },
     )
     MixedText(text, DictTheme.type.caption, DictTheme.type.tibetanInline14, modifier, color = DictTheme.colors.muted)
@@ -258,6 +261,7 @@ private fun TextPreview() {
             DictTheme.type.tibetanInline16,
             tibetanColor = DictTheme.colors.accent,
         )
+        Greeting(TimeOfDay.MORNING, pack = DictionaryPack.DZONGKHA)
         TibetanText("བཀྲ་ཤིས་བདེ་ལེགས།", style = DictTheme.type.tibetanGreeting, color = DictTheme.colors.accent)
         LatinText("Which way do you look up words most?", style = DictTheme.type.onboardingTitle)
     }
