@@ -4,8 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
@@ -26,25 +30,32 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 
 /**
- * First-run setup: the default direction, then text size and line spacing (then sign-in, with accounts). Choices
- * start from the stored [prefs] and the visible directions; each step's values are stored when the user leaves it
- * with Continue, and Skip stores what the remaining steps show. The last step also stores onboarding as done and
- * sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and capabilities load. A write that fails
- * (DataStore's IOException) is recorded through [errors] and onboarding carries on: the choices still apply for this
- * session, and the user is not stuck on the first-run screens. The step and the choices not yet stored live in
- * [savedState], so a process death mid-setup comes back to the same step.
+ * First-run setup: the dictionary pack, the default direction, then text size and line spacing (then sign-in, with
+ * accounts). Choices start from the stored [prefs] and the visible directions; each step's values are stored when the
+ * user leaves it with Continue, and Skip stores what the remaining steps show. Storing the dictionary step runs the
+ * pack switch through [switcher] and checks that [databases] then has that pack active (the switcher also ends idle
+ * when it rejects a request or is cancelled); a switch that did not take is recorded through [errors], and the user
+ * stays on the step, so Continue never moves on, and Skip never finishes, without the chosen dictionary. The last step
+ * also stores onboarding as done and sends [OnboardingEffect.Finished], once. [uiState] is null until prefs and
+ * capabilities load. A preferences write that fails (DataStore's IOException) is recorded through [errors] and
+ * onboarding carries on: the choices still apply for this session, and the user is not stuck on the first-run
+ * screens. The step and the choices not yet stored live in [savedState], so a process death mid-setup comes back to
+ * the same step.
  */
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val prefs: UserPreferencesRepository,
     dictionary: DictionaryRepository,
+    private val switcher: DictionarySwitcher,
+    private val databases: DictionaryDatabases,
     private val errors: ErrorReporter,
 ) : ViewModel() {
 
     /** Where the user is and what they changed; null choices still show the stored value. */
     private data class Draft(
-        val step: Int = OnboardingStep.DIRECTION,
+        val step: Int = OnboardingStep.DICTIONARY,
+        val packId: String? = null,
         val directionId: String? = null,
         val textSize: AppTextSize? = null,
         val lineSpacing: Float? = null,
@@ -52,15 +63,18 @@ class OnboardingViewModel @Inject constructor(
 
     private val draft = MutableStateFlow(restoredDraft())
 
-    /** Set by the first finish, so a double tap or a late Skip cannot finish twice. */
+    /** Set by the first finish, so a double tap or a late Skip cannot finish twice; reset if its switch fails. */
     private var finished = false
+
+    /** True while Continue stores a step. A second Continue, a Skip or a Back in that time is ignored. */
+    private var advancing = false
 
     private val effectChannel = Channel<OnboardingEffect>(Channel.BUFFERED)
     val effects: Flow<OnboardingEffect> = effectChannel.receiveAsFlow()
 
     val uiState: StateFlow<OnboardingUiState?> =
-        combine(prefs.prefs, dictionary.capabilities, draft) { prefs, capabilities, draft ->
-            state(prefs, capabilities, draft)
+        combine(prefs.prefs, dictionary.capabilities, draft, switcher.state) { prefs, capabilities, draft, switch ->
+            state(prefs, capabilities, draft, switching = switch !is SwitchState.Idle)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun onEvent(event: OnboardingEvent) {
@@ -70,7 +84,15 @@ class OnboardingViewModel @Inject constructor(
             is OnboardingEvent.Next -> next(state, event.fromStep)
             is OnboardingEvent.ContinueWithoutAccount -> next(state, event.fromStep)
             OnboardingEvent.Skip -> finish(state)
-            OnboardingEvent.Back -> updateDraft { it.copy(step = (it.step - 1).coerceAtLeast(OnboardingStep.DIRECTION)) }
+            OnboardingEvent.Back -> if (!advancing) {
+                updateDraft { it.copy(step = (it.step - 1).coerceAtLeast(OnboardingStep.DICTIONARY)) }
+            }
+            // A different pack makes the direction picked for the old one meaningless.
+            is OnboardingEvent.SelectDictionary -> if (!advancing && event.pack in state.packs) {
+                updateDraft {
+                    if (event.pack == state.selectedPack) it else it.copy(packId = event.pack.id, directionId = null)
+                }
+            }
             is OnboardingEvent.SelectDirection -> if (state.directions.any { it.id == event.id }) {
                 updateDraft { it.copy(directionId = event.id) }
             }
@@ -87,16 +109,41 @@ class OnboardingViewModel @Inject constructor(
         if (state.isLastStep) {
             finish(state)
         } else {
-            viewModelScope.launch { recorded { prefs.store(state.step, state) } }
-            updateDraft { it.copy(step = state.step + 1) }
+            viewModelScope.launch {
+                if (advancing) return@launch
+                advancing = true
+                try {
+                    // A failed preferences write is only recorded (the choice still applies this session); a dictionary
+                    // switch that did not take keeps the user on the step.
+                    val stored = recordedOk { store(state.step, state) }
+                    if (stored || state.step != OnboardingStep.DICTIONARY) updateDraft { it.copy(step = state.step + 1) }
+                } finally {
+                    advancing = false
+                }
+            }
         }
     }
 
-    /** Stores the current and later steps' values and onboarding as done, then sends [OnboardingEffect.Finished]. */
+    /**
+     * Stores the current and later steps' values and onboarding as done, then sends [OnboardingEffect.Finished].
+     * Ignored while a Continue is storing (its switch is the one running; a Skip tapped meanwhile must not start
+     * another, and the user can tap again). If the dictionary step's switch does not take, nothing else is stored,
+     * onboarding is not finished and Skip can be tapped again.
+     */
     private fun finish(state: OnboardingUiState) {
+        if (advancing) return
         finished = true
         viewModelScope.launch {
-            for (step in state.step..state.stepCount) recorded { prefs.store(step, state) }
+            for (step in state.step..state.stepCount) {
+                if (step == OnboardingStep.DICTIONARY) {
+                    if (!recordedOk { store(step, state) }) {
+                        finished = false
+                        return@launch
+                    }
+                } else {
+                    recorded { store(step, state) }
+                }
+            }
             recorded { prefs.setOnboarded(true) }
             effectChannel.send(OnboardingEffect.Finished)
         }
@@ -106,6 +153,7 @@ class OnboardingViewModel @Inject constructor(
     private fun updateDraft(transform: (Draft) -> Draft) {
         val updated = draft.updateAndGet(transform)
         savedState[KEY_STEP] = updated.step
+        savedState[KEY_PACK] = updated.packId
         savedState[KEY_DIRECTION] = updated.directionId
         savedState[KEY_TEXT_SIZE] = updated.textSize?.name
         savedState[KEY_LINE_SPACING] = updated.lineSpacing
@@ -113,7 +161,9 @@ class OnboardingViewModel @Inject constructor(
 
     /** The draft kept in [savedState] by a view model the system killed, or a fresh one. */
     private fun restoredDraft() = Draft(
-        step = (savedState.get<Int>(KEY_STEP) ?: OnboardingStep.DIRECTION).coerceIn(OnboardingStep.DIRECTION, STEP_COUNT),
+        step = (savedState.get<Int>(KEY_STEP) ?: OnboardingStep.DICTIONARY)
+            .coerceIn(OnboardingStep.DICTIONARY, STEP_COUNT),
+        packId = savedState.get<String>(KEY_PACK),
         directionId = savedState.get<String>(KEY_DIRECTION),
         textSize = savedState.get<String>(KEY_TEXT_SIZE)?.let { name -> AppTextSize.entries.firstOrNull { it.name == name } },
         lineSpacing = savedState.get<Float>(KEY_LINE_SPACING),
@@ -121,16 +171,42 @@ class OnboardingViewModel @Inject constructor(
 
     /** Runs [block]; a failure is recorded and swallowed, so onboarding continues. Cancellation still propagates. */
     private suspend fun recorded(block: suspend () -> Unit) {
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (t: Throwable) {
-            errors.record(t)
+        recordedOk(block)
+    }
+
+    /** Like [recorded], but returns whether [block] ran without failing. */
+    private suspend fun recordedOk(block: suspend () -> Unit): Boolean = try {
+        block()
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (t: Throwable) {
+        errors.record(t)
+        false
+    }
+
+    /**
+     * Stores what [step] of [state] sets; the account step stores nothing. The dictionary step switches the pack and
+     * throws unless that pack is active afterwards, because a rejected or cancelled switch also ends idle.
+     */
+    private suspend fun store(step: Int, state: OnboardingUiState) {
+        when (step) {
+            OnboardingStep.DICTIONARY -> {
+                switcher.switchTo(state.selectedPack).join()
+                check(databases.active.value == state.selectedPack) {
+                    "Switching to ${state.selectedPack.id} did not take; active is ${databases.active.value?.id}"
+                }
+            }
+            else -> prefs.store(step, state)
         }
     }
 
-    private fun state(prefs: UserPrefs, capabilities: DictionaryCapabilities, draft: Draft): OnboardingUiState {
+    private fun state(
+        prefs: UserPrefs,
+        capabilities: DictionaryCapabilities,
+        draft: Draft,
+        switching: Boolean,
+    ): OnboardingUiState {
         val visible = capabilities.directions.filter { it.entryCount > 0 }.sortedBy(Direction::position)
         val selectedId = draft.directionId ?: prefs.defaultDirectionId
         return OnboardingUiState(
@@ -141,6 +217,8 @@ class OnboardingViewModel @Inject constructor(
             selectedDirection = visible.firstOrNull { it.id == selectedId } ?: visible.firstOrNull(),
             textSize = draft.textSize ?: prefs.textSize,
             lineSpacing = draft.lineSpacing ?: prefs.lineSpacing,
+            selectedPack = DictionaryPack.fromId(draft.packId) ?: prefs.dictionaryPack,
+            switching = switching,
         )
     }
 
@@ -149,11 +227,12 @@ class OnboardingViewModel @Inject constructor(
 
         /** [savedState] keys of the draft. */
         const val KEY_STEP = "onboarding_step"
+        const val KEY_PACK = "onboarding_pack"
         const val KEY_DIRECTION = "onboarding_direction"
         const val KEY_TEXT_SIZE = "onboarding_text_size"
         const val KEY_LINE_SPACING = "onboarding_line_spacing"
 
-        /** Stores what [step] of [state] sets; the account step stores nothing. */
+        /** Stores what [step] of [state] sets in preferences; the dictionary and account steps store nothing here. */
         suspend fun UserPreferencesRepository.store(step: Int, state: OnboardingUiState) {
             when (step) {
                 OnboardingStep.DIRECTION -> state.selectedDirection?.let { setDefaultDirectionId(it.id) }

@@ -6,15 +6,24 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
+import com.kharagedition.tibetandictionary.data.install.SwitchState
+import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -34,12 +43,26 @@ class OnboardingViewModelTest {
 
     private val errors = RecordingErrorReporter()
 
+    /** The pack the app reads from; the switcher fake activates into it, as the real switcher does. */
+    private val databases = DictionaryDatabases { error("no database is opened in these tests") }.apply {
+        activate(DictionaryPack.TIBETAN)
+    }
+
+    /** A switch that succeeds: activates the pack, stores the choice and swaps the capabilities. */
+    private val switcher = FakeDictionarySwitcher { pack -> succeed(pack) }
+
+    private fun succeed(pack: DictionaryPack) {
+        databases.activate(pack)
+        runBlocking { prefs.setDictionaryPack(pack) }
+    }
+
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(
         prefs: UserPreferencesRepository = this@OnboardingViewModelTest.prefs,
         savedState: SavedStateHandle = SavedStateHandle(),
+        switcher: DictionarySwitcher = this@OnboardingViewModelTest.switcher,
     ): OnboardingViewModel {
-        val vm = OnboardingViewModel(savedState, prefs, dictionary, errors)
+        val vm = OnboardingViewModel(savedState, prefs, dictionary, switcher, databases, errors)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -48,6 +71,194 @@ class OnboardingViewModelTest {
 
     /** Continue on the step shown now. */
     private fun OnboardingViewModel.next() = onEvent(OnboardingEvent.Next(state().step))
+
+    /** Continue past the dictionary step, keeping the stored pack. */
+    private fun OnboardingViewModel.pastDictionary() = next()
+
+    /** A switcher whose switch ends in [SwitchState.Failed] without activating anything. */
+    private fun failingSwitcher() = FakeDictionarySwitcher().also { fake ->
+        fake.onSwitch = { pack -> fake.state.value = SwitchState.Failed(pack, IllegalStateException("no space")) }
+    }
+
+    // Dictionary step
+
+    @Test
+    fun `starts on the dictionary step with the stored pack selected`() = runTest {
+        prefs.prefs.value = UserPrefs(dictionaryPack = DictionaryPack.DZONGKHA)
+
+        val state = viewModel().state()
+
+        assertThat(state.step).isEqualTo(OnboardingStep.DICTIONARY)
+        assertThat(state.packs).containsExactly(DictionaryPack.TIBETAN, DictionaryPack.DZONGKHA).inOrder()
+        assertThat(state.selectedPack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(state.switching).isFalse()
+    }
+
+    @Test
+    fun `Continue on the dictionary step switches, then advances`() = runTest {
+        val vm = viewModel()
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+        assertThat(switcher.requests).isEmpty()
+
+        vm.next()
+
+        assertThat(switcher.requests).containsExactly(DictionaryPack.DZONGKHA)
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+    }
+
+    @Test
+    fun `Continue with the pack already stored still persists the choice`() = runTest {
+        val vm = viewModel()
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isFalse()
+
+        vm.next()
+
+        assertThat(switcher.requests).containsExactly(DictionaryPack.TIBETAN)
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isTrue()
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+    }
+
+    @Test
+    fun `a switch that fails keeps the step on the dictionary and onboarding unfinished`() = runTest {
+        val failing = failingSwitcher()
+        val vm = viewModel(switcher = failing)
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.effects.test {
+            vm.next()
+
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.DICTIONARY)
+            assertThat(errors.recorded).hasSize(1)
+            expectNoEvents()
+        }
+        assertThat(prefs.prefs.value.onboarded).isFalse()
+        assertThat(prefs.prefs.value.dictionaryPackChosen).isFalse()
+    }
+
+    @Test
+    fun `a switch that is rejected and ends idle without activating also keeps the dictionary step`() = runTest {
+        val rejecting = FakeDictionarySwitcher { /* ends Idle, nothing activated */ }
+        val vm = viewModel(switcher = rejecting)
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.next()
+
+        assertThat(rejecting.requests).containsExactly(DictionaryPack.DZONGKHA)
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DICTIONARY)
+        assertThat(errors.recorded).hasSize(1)
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.TIBETAN)
+    }
+
+    @Test
+    fun `Skip after a failed switch records it, does not finish and can be tapped again`() = runTest {
+        val failing = failingSwitcher()
+        val vm = viewModel(switcher = failing)
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.effects.test {
+            vm.onEvent(OnboardingEvent.Skip)
+            expectNoEvents()
+            assertThat(prefs.prefs.value.onboarded).isFalse()
+            assertThat(errors.recorded).hasSize(1)
+
+            // The user retries after the failure is dismissed; this time the switch works.
+            failing.onSwitch = { succeed(it) }
+            vm.onEvent(OnboardingEvent.Skip)
+
+            assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
+        }
+        assertThat(failing.requests).containsExactly(DictionaryPack.DZONGKHA, DictionaryPack.DZONGKHA)
+        assertThat(prefs.prefs.value.onboarded).isTrue()
+    }
+
+    @Test
+    fun `Skip on the dictionary step switches before onboarding is marked done and finished is sent`() = runTest {
+        val order = mutableListOf<String>()
+        val real = prefs
+        val recording = object : UserPreferencesRepository by real {
+            override suspend fun setOnboarded(value: Boolean) {
+                order += "onboarded"
+                real.setOnboarded(value)
+            }
+        }
+        switcher.onSwitch = { pack ->
+            order += "switch ${pack.id}"
+            succeed(pack)
+        }
+        val vm = viewModel(recording)
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.effects.test {
+            vm.onEvent(OnboardingEvent.Skip)
+            order += "effect"
+            assertThat(awaitItem()).isEqualTo(OnboardingEffect.Finished)
+        }
+
+        assertThat(order).containsExactly("switch dz", "onboarded", "effect").inOrder()
+        assertThat(prefs.prefs.value.dictionaryPack).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `Skip while Continue's switch is running does not start a second switch`() = runTest {
+        val running = Job()
+        val slow = object : DictionarySwitcher {
+            val requests = mutableListOf<DictionaryPack>()
+            override val state: StateFlow<SwitchState> = MutableStateFlow(SwitchState.Idle)
+            override fun switchTo(pack: DictionaryPack): Job {
+                requests += pack
+                return running
+            }
+            override fun retry() = Unit
+            override fun dismiss() = Unit
+        }
+        val vm = viewModel(switcher = slow)
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.effects.test {
+            vm.next()
+            vm.onEvent(OnboardingEvent.Skip)
+            vm.next()
+
+            assertThat(slow.requests).containsExactly(DictionaryPack.DZONGKHA)
+            expectNoEvents()
+
+            succeed(DictionaryPack.DZONGKHA)
+            running.complete()
+
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+            expectNoEvents()
+        }
+        assertThat(prefs.prefs.value.onboarded).isFalse()
+    }
+
+    @Test
+    fun `the selected pack survives process death`() = runTest {
+        val savedState = SavedStateHandle()
+        viewModel(savedState = savedState).onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState.get<Any?>(it) }))
+
+        assertThat(restored.state().selectedPack).isEqualTo(DictionaryPack.DZONGKHA)
+    }
+
+    @Test
+    fun `the direction step shows the new pack's directions`() = runTest {
+        val dzEn = SampleData.boEn.copy(id = "dz-en", position = 0)
+        val enDz = SampleData.enBo.copy(id = "en-dz", position = 1)
+        switcher.onSwitch = { pack ->
+            succeed(pack)
+            dictionary.capabilities.value = SampleData.capabilities.copy(directions = listOf(dzEn, enDz))
+        }
+        val vm = viewModel()
+        vm.onEvent(OnboardingEvent.SelectDictionary(DictionaryPack.DZONGKHA))
+
+        vm.next()
+
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+        assertThat(vm.state().directions).containsExactly(dzEn, enDz).inOrder()
+        assertThat(vm.state().selectedDirection).isEqualTo(dzEn)
+    }
 
     // Failures
 
@@ -60,6 +271,7 @@ class OnboardingViewModelTest {
         val vm = viewModel(failing)
 
         vm.effects.test {
+            vm.pastDictionary()
             vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
             vm.next()
             assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
@@ -78,6 +290,7 @@ class OnboardingViewModelTest {
     fun `the step and the choices not yet stored survive process death`() = runTest {
         val savedState = SavedStateHandle()
         val vm = viewModel(savedState = savedState)
+        vm.pastDictionary()
         vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
         vm.next()
         vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.LARGE))
@@ -99,13 +312,13 @@ class OnboardingViewModelTest {
     // Steps
 
     @Test
-    fun `two steps while accounts are off, starting on the direction step`() = runTest {
+    fun `three steps while accounts are off, starting on the dictionary step`() = runTest {
         assumeFalse(Features.ACCOUNTS)
 
         val state = viewModel().state()
 
-        assertThat(state.stepCount).isEqualTo(2)
-        assertThat(state.step).isEqualTo(OnboardingStep.DIRECTION)
+        assertThat(state.stepCount).isEqualTo(3)
+        assertThat(state.step).isEqualTo(OnboardingStep.DICTIONARY)
     }
 
     @Test
@@ -123,6 +336,7 @@ class OnboardingViewModelTest {
     @Test
     fun `Back returns to the previous step and keeps what was chosen there`() = runTest {
         val vm = viewModel()
+        vm.pastDictionary()
         vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
         vm.next()
         vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.LARGE))
@@ -140,7 +354,7 @@ class OnboardingViewModelTest {
 
         vm.onEvent(OnboardingEvent.Back)
 
-        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DICTIONARY)
     }
 
     // Initial values
@@ -185,7 +399,9 @@ class OnboardingViewModelTest {
                 directions = listOf(SampleData.boEn.copy(entryCount = 0)),
             )
             prefs.prefs.value = UserPrefs(defaultDirectionId = "zh-bo")
+            prefs.setDefaultDirectionId("zh-bo") // the fake restores a pack's own direction on every pack switch
             val vm = viewModel()
+            vm.pastDictionary()
 
             assertThat(vm.state().directions).isEmpty()
             assertThat(vm.state().selectedDirection).isNull()
@@ -226,6 +442,7 @@ class OnboardingViewModelTest {
         val vm = viewModel()
 
         vm.effects.test {
+            vm.pastDictionary()
             vm.onEvent(OnboardingEvent.SelectDirection(SampleData.enBo.id))
             vm.next()
 
@@ -251,6 +468,7 @@ class OnboardingViewModelTest {
     fun `Skip stores the selection and reading settings shown, marks onboarding done and finishes`() = runTest {
         // The stored direction is gone, so the first visible one is shown selected and is what Skip stores.
         prefs.prefs.value = UserPrefs(defaultDirectionId = "zh-bo", textSize = AppTextSize.LARGE, lineSpacing = 2.1f)
+        prefs.setDefaultDirectionId("zh-bo") // the fake restores a pack's own direction on every pack switch
         val vm = viewModel()
 
         vm.effects.test {
@@ -261,6 +479,7 @@ class OnboardingViewModelTest {
         assertThat(prefs.prefs.value).isEqualTo(
             UserPrefs(
                 onboarded = true,
+                dictionaryPackChosen = true,
                 defaultDirectionId = SampleData.boEn.id,
                 textSize = AppTextSize.LARGE,
                 lineSpacing = 2.1f,
@@ -271,6 +490,7 @@ class OnboardingViewModelTest {
     @Test
     fun `Skip also stores what was chosen on a later step before going back`() = runTest {
         val vm = viewModel()
+        vm.next()
         vm.next()
         vm.onEvent(OnboardingEvent.SetTextSize(AppTextSize.SMALL))
         vm.onEvent(OnboardingEvent.SetLineSpacing(LineSpacing.MIN))
@@ -299,15 +519,16 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `a double tap on step 1's Continue moves on one step and does not finish`() = runTest {
+    fun `a double tap on the dictionary step's Continue moves on one step and does not finish`() = runTest {
         val vm = viewModel()
 
         vm.effects.test {
             // Both taps were made on step 1's button; the second lands after the step moved on.
-            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DIRECTION))
-            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DIRECTION))
+            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DICTIONARY))
+            vm.onEvent(OnboardingEvent.Next(OnboardingStep.DICTIONARY))
 
-            assertThat(vm.state().step).isEqualTo(OnboardingStep.READING)
+            assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+            assertThat(switcher.requests).hasSize(1)
             expectNoEvents()
         }
         assertThat(prefs.prefs.value.onboarded).isFalse()
@@ -339,7 +560,7 @@ class OnboardingViewModelTest {
 
             expectNoEvents()
         }
-        assertThat(vm.state().step).isEqualTo(OnboardingStep.DIRECTION)
+        assertThat(vm.state().step).isEqualTo(OnboardingStep.DICTIONARY)
         assertThat(prefs.prefs.value.onboarded).isFalse()
     }
 

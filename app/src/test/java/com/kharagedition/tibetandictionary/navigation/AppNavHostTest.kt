@@ -181,6 +181,7 @@ class AppNavHostTest {
 
         tap("onboarding_continue")
         tap("onboarding_continue")
+        tap("onboarding_continue")
         assertOnTabs()
 
         pressBack()

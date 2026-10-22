@@ -3,38 +3,50 @@ package com.kharagedition.tibetandictionary.ui.onboarding
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
+import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 
 /** The onboarding steps, numbered from 1 in the order they are shown. */
 object OnboardingStep {
+    /** 2a: which dictionary pack the app opens with. */
+    const val DICTIONARY = 1
+
     /** 2b: the default direction. */
-    const val DIRECTION = 1
+    const val DIRECTION = 2
 
     /** 2c: text size and line spacing. */
-    const val READING = 2
+    const val READING = 3
 
     /** 2d: optional sign-in; only while `Features.ACCOUNTS`. */
-    const val ACCOUNT = 3
+    const val ACCOUNT = 4
 }
 
-/** How many steps onboarding has: direction and reading, plus sign-in while `Features.ACCOUNTS`. */
-internal val STEP_COUNT: Int = if (Features.ACCOUNTS) 3 else 2
+/** The step count with accounts on; the account step is the fourth. */
+internal const val STEP_COUNT_WITH_ACCOUNTS = 4
+
+/** How many steps onboarding has: dictionary, direction and reading, plus sign-in while `Features.ACCOUNTS`. */
+internal val STEP_COUNT: Int = if (Features.ACCOUNTS) STEP_COUNT_WITH_ACCOUNTS else 3
 
 /**
- * First-run setup (2b/2c/2d). [step] runs from 1 to [stepCount] (see [OnboardingStep]). [directions] are the
+ * First-run setup (2a/2b/2c/2d). [step] runs from 1 to [stepCount] (see [OnboardingStep]). [packs] are the
+ * dictionaries on offer and [selectedPack] the user's pick, else the stored pack; [switching] is true while a pack
+ * switch runs (the shell covers the screen then). [directions] are the
  * visible ones in switcher order; [selectedDirection] is the user's pick, else the stored default when visible,
  * else the first visible direction (null only when no direction has entries). [textSize] and [lineSpacing] start
  * from the stored settings. Nothing is stored until the user leaves a step with Continue or Skip.
  */
 @Immutable
 data class OnboardingUiState(
-    val step: Int = OnboardingStep.DIRECTION,
+    val step: Int = OnboardingStep.DICTIONARY,
     val stepCount: Int = STEP_COUNT,
     val directions: List<Direction> = emptyList(),
     val selectedDirection: Direction? = null,
     val textSize: AppTextSize = AppTextSize.DEFAULT,
     val lineSpacing: Float = LineSpacing.DEFAULT,
+    val packs: List<DictionaryPack> = DictionaryPack.entries,
+    val selectedPack: DictionaryPack = DictionaryPack.TIBETAN,
+    val switching: Boolean = false,
 ) {
     val isLastStep: Boolean get() = step >= stepCount
 
@@ -57,6 +69,7 @@ sealed interface OnboardingEvent {
     /** System back on a later step: return to the previous one. */
     data object Back : OnboardingEvent
 
+    data class SelectDictionary(val pack: DictionaryPack) : OnboardingEvent
     data class SelectDirection(val id: String) : OnboardingEvent
     data class SetTextSize(val size: AppTextSize) : OnboardingEvent
     data class SetLineSpacing(val spacing: Float) : OnboardingEvent
