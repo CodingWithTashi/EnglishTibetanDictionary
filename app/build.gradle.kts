@@ -22,8 +22,8 @@ android {
         applicationId = "com.kharagedition.tibetandictionary"
         minSdk = 24
         targetSdk = 36
-        versionCode = 21
-        versionName = "3.0.0"
+        versionCode = 22
+        versionName = "3.0.1"
 
         testInstrumentationRunner = "com.kharagedition.tibetandictionary.HiltTestRunner"
     }
@@ -161,6 +161,10 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
+
+    // Play Billing: merges the BILLING permission Play Console needs before it lets you create subscriptions.
+    // No purchase flow uses it yet.
+    implementation(libs.billing.ktx)
 
     // Unit tests
     testImplementation(libs.junit)
