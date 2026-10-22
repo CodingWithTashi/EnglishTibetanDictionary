@@ -1,6 +1,6 @@
 """Records the pipeline passes between stages.
 
-`*Row` classes are the rows written to dictionary.db: their field names and order mirror the exported
+`*Row` classes are the rows written to a dictionary database: their field names and order mirror the exported
 Room schema's columns (pinned by tests/test_schema.py), so `row_values(row)` binds straight to
 `Table.insert_sql()`. `Parsed*` classes are table-parser output; `EntryDraft` is one entry after
 grouping (continuous sense numbers, merged related links), before ids are assigned to its rows.

@@ -185,7 +185,7 @@ private fun LicencesPreview() {
     )
     ComponentPreview(edgeToEdge = true) {
         LicencesScreen(
-            listOf(LicenceUi(R.string.licence_data, sample), LicenceUi(R.string.licence_font_noto_sans, sample)),
+            listOf(LicenceUi(R.string.licence_data_bo, sample), LicenceUi(R.string.licence_font_noto_sans, sample)),
             onBack = {},
         )
     }

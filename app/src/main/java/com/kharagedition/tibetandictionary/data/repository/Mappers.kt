@@ -23,7 +23,7 @@ import com.kharagedition.tibetandictionary.data.model.SenseItem
 import java.time.Instant
 import java.time.OffsetDateTime
 
-/** `meta` keys the repositories read (dictionary.db; written by the build pipeline). */
+/** `meta` keys the repositories read (a pack's dictionary database; written by the build pipeline). */
 internal object MetaKeys {
     const val DATA_VERSION = "data_version"
     const val BUILT_AT = "built_at"

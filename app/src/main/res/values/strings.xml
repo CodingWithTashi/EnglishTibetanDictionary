@@ -12,13 +12,7 @@
     <string name="tab_learn_gloss">སྦྱོང་།</string>
     <string name="tab_profile_gloss">སྒེར།</string>
 
-    <!-- Home: the greeting in the active dictionary's language (the Dzongkha ones are the DDC en-dz entries) -->
-    <string name="greeting_morning_bo">Good morning · ཞོགས་པ་བདེ་ལེགས།</string>
-    <string name="greeting_afternoon_bo">Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།</string>
-    <string name="greeting_evening_bo">Good evening · དགོང་དྲོ་བདེ་ལེགས།</string>
-    <string name="greeting_morning_dz">Good morning · དྲོ་པ་བདེ་ལེགས།</string>
-    <string name="greeting_afternoon_dz">Good afternoon · ཉི་མ་བདེ་ལེགས།</string>
-    <string name="greeting_evening_dz">Good evening · ཕྱི་རུ་བདེ་ལེགས།</string>
+    <!-- Home -->
     <!-- %1$s: number of days, already formatted for the app language -->
     <plurals name="streak_days">
         <item quantity="one">%1$s-day streak</item>
@@ -151,32 +145,7 @@
     <string name="close">Close</string>
     <string name="more">More</string>
 
-    <!-- Direction descriptions (onboarding cards, direction picker) -->
-    <string name="direction_desc_bo_en">Tibetan to English</string>
-    <string name="direction_desc_bo_bo">Tibetan definitions</string>
-    <string name="direction_desc_en_bo">English to Tibetan</string>
-    <string name="direction_desc_dz_en">Dzongkha to English</string>
-    <string name="direction_desc_dz_dz">Dzongkha definitions</string>
-    <string name="direction_desc_en_dz">English to Dzongkha</string>
-
-    <!-- Dictionary packs. pack_gloss_* is the name in the other language. pack_desc_*: %1$s is the entry count -->
-    <string name="pack_name_bo">Tibetan Dictionary</string>
-    <string name="pack_name_dz">Dzongkha Dictionary</string>
-    <string name="pack_gloss_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_gloss_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_desc_bo">Monlam · Tibetan ↔ English · %1$s entries</string>
-    <string name="pack_desc_dz">DDC · Dzongkha ↔ English · %1$s entries</string>
-    <!-- The pack's language, in sentences that name it -->
-    <string name="pack_language_bo">Tibetan</string>
-    <string name="pack_language_dz">Dzongkha</string>
-    <!-- The pack's name in Tibetan script and in Latin letters, the same in every UI language (installing screen, About) -->
-    <string name="pack_title_bo" translatable="false">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_title_dz" translatable="false">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_title_latin_bo" translatable="false">Tibetan Dictionary</string>
-    <string name="pack_title_latin_dz" translatable="false">Dzongkha Dictionary</string>
-    <!-- Onboarding greeting in the pack's language: "Tashi delek" and "Kuzu zangpo la" -->
-    <string name="pack_welcome_bo" translatable="false">བཀྲ་ཤིས་བདེ་ལེགས།</string>
-    <string name="pack_welcome_dz" translatable="false">སྐུ་གཟུགས་བཟང་པོ་ལགས།</string>
+    <!-- Dictionary packs; each pack's own strings are in strings_pack_<id>.xml -->
     <string name="dictionary">Dictionary</string>
     <string name="onboarding_dictionary_title">Which dictionary do you want?</string>
     <string name="onboarding_dictionary_body">The app opens with this dictionary. You can switch any time in Profile.</string>
@@ -191,8 +160,6 @@
     <!-- About row and screen title: the full licence texts of the data and fonts -->
     <string name="licences">Licences</string>
     <!-- Licences screen headings; the licence names stay in English -->
-    <string name="licence_data">Dictionary data · GNU General Public License, version 3</string>
-    <string name="licence_data_dz">Dictionary data · Dzongkha Development Commission, used with permission</string>
     <string name="licence_font_jomolhari">Jomolhari font · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">Noto Sans font · SIL Open Font License 1.1</string>
     <!-- %1$s: pack name, %2$s: Play Store link -->

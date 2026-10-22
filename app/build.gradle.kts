@@ -30,8 +30,8 @@ android {
 
     androidResources {
         localeFilters += listOf("en", "bo")
-        // assets/dictionary/dictionary.db ships compressed (about a third of its size). The installer streams it and
-        // takes its length from R.integer.dictionary_asset_bytes, which the data build writes with it.
+        // The pack databases (assets/dictionary/<pack>.db) ship compressed (about a third of their size). The installer
+        // streams them and takes each length from R.integer.dictionary_asset_bytes_<pack>, which the data build writes.
     }
 
     signingConfigs {

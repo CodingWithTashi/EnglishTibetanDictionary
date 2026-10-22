@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.model.Script
@@ -42,7 +43,8 @@ class DirectionSwitcherTest {
     private val boEn = SampleData.boEn
     private val boBo = SampleData.boBo
     private val enBo = SampleData.enBo
-    private val zhBo = enBo.copy(id = "zh-bo", sourceLang = "zh", sourceScript = Script.HAN, position = 3)
+    private val zhBo =
+        enBo.copy(id = "zh-bo", sourceLang = "zh", sourceScript = Script.HAN, shortLabel = "中→བོད", position = 3)
 
     private val three = DirectionSlots(fixed = listOf(boEn, boBo, enBo), overflow = emptyList())
     private val four = DirectionSlots(fixed = listOf(boEn, enBo), overflow = listOf(boBo, zhBo))
@@ -84,12 +86,20 @@ class DirectionSwitcherTest {
     }
 
     @Test
-    fun dzongkhaTokenIsTibetanScript() {
-        val dzEn = boEn.copy(id = "dz-en", sourceLang = "dz", sourceScript = Script.TIBETAN, targetLang = "en")
-        val enDz = enBo.copy(id = "en-dz", targetLang = "dz")
+    fun tokensComeFromTheShortLabelInTheData() {
+        val dzEn = boEn.copy(id = "dz-en", sourceLang = "dz", targetLang = "en", shortLabel = "རྫོང→EN")
+        val enDz = enBo.copy(id = "en-dz", targetLang = "dz", shortLabel = "EN→རྫོང")
 
         assertThat(directionLabelText(dzEn)).isEqualTo("རྫོང→ EN")
         assertThat(directionLabelText(enDz)).isEqualTo("EN →རྫོང")
+        assertThat(directionLabelText(zhBo)).isEqualTo("中→བོད")
+    }
+
+    @Test
+    fun aShortLabelWithoutOneArrowFallsBackToTheLanguageCodes() {
+        for (label in listOf("", "bo-en", "བོད→EN→བོད", "→EN")) {
+            assertWithMessage(label).that(directionLabelText(boEn.copy(shortLabel = label))).isEqualTo("BO → EN")
+        }
     }
 
     @Test

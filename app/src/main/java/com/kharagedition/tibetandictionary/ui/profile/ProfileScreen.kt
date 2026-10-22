@@ -73,7 +73,6 @@ import com.kharagedition.tibetandictionary.ui.components.SignedOutAccountCard
 import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.extendStart
 import com.kharagedition.tibetandictionary.ui.components.lineSpacingLabel
-import com.kharagedition.tibetandictionary.ui.components.sample
 import com.kharagedition.tibetandictionary.ui.components.textSizeLabel
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
@@ -286,7 +285,7 @@ private fun notificationTime(minuteOfDay: Int): String {
 @Composable
 private fun ReadingSample() {
     val colors = DictTheme.colors
-    val sample = LocalActivePack.current.sample
+    val sample = LocalActivePack.current.resources.sample
     Row(
         Modifier
             .fillMaxWidth()

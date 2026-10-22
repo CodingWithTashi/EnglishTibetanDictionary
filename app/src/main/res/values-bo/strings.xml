@@ -19,12 +19,6 @@
     <string name="tab_profile_gloss">Profile</string>
 
     <!-- Home -->
-    <string name="greeting_morning_bo">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
-    <string name="greeting_afternoon_bo">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
-    <string name="greeting_evening_bo">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
-    <string name="greeting_morning_dz">དྲོ་པ་བདེ་ལེགས། · Good morning</string>
-    <string name="greeting_afternoon_dz">ཉི་མ་བདེ་ལེགས། · Good afternoon</string>
-    <string name="greeting_evening_dz">ཕྱི་རུ་བདེ་ལེགས། · Good evening</string>
     <plurals name="streak_days">
         <item quantity="other">ཉིན་ %1$s མཐུད་མར།</item>
     </plurals>
@@ -136,24 +130,7 @@
     <string name="close">སྒོ་རྒྱོབ།</string>
     <string name="more">གཞན།</string>
 
-    <!-- Direction descriptions (onboarding cards, direction picker) -->
-    <string name="direction_desc_bo_en">བོད་ཡིག་ནས་དབྱིན་ཡིག</string>
-    <string name="direction_desc_bo_bo">བོད་ཡིག་ཚིག་འགྲེལ།</string>
-    <string name="direction_desc_en_bo">དབྱིན་ཡིག་ནས་བོད་ཡིག</string>
-    <string name="direction_desc_dz_en">རྫོང་ཁ་ནས་དབྱིན་ཡིག</string>
-    <string name="direction_desc_dz_dz">རྫོང་ཁའི་ཚིག་འགྲེལ།</string>
-    <string name="direction_desc_en_dz">དབྱིན་ཡིག་ནས་རྫོང་ཁ</string>
-
-    <!-- Dictionary packs -->
-    <string name="pack_name_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_name_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_gloss_bo">Tibetan Dictionary</string>
-    <string name="pack_gloss_dz">Dzongkha Dictionary</string>
-    <string name="pack_desc_bo">སྨོན་ལམ། · བོད་ཡིག ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
-    <string name="pack_desc_dz">DDC · རྫོང་ཁ ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
-    <!-- No final tsheg: onboarding_textsize_body adds it -->
-    <string name="pack_language_bo">བོད་ཡིག</string>
-    <string name="pack_language_dz">རྫོང་ཁ</string>
+    <!-- Dictionary packs; each pack's own strings are in strings_pack_<id>.xml -->
     <string name="dictionary">ཚིག་མཛོད།</string>
     <string name="onboarding_dictionary_title">ཚིག་མཛོད་གང་དགོས་སམ།</string>
     <string name="onboarding_dictionary_body">མཉེན་ཆས་འདི་ཚིག་མཛོད་འདིས་འགོ་འཛུགས། སྒེར་གྱི་སྒྲིག་འགོད་ནས་དུས་ནམ་ཡང་བརྗེ་ཆོག</string>
@@ -164,8 +141,6 @@
     <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། %2$s ཀྱིས་བསྒྲིགས་པའི་ %1$s (%3$s)</string>
     <string name="about_fonts">ཡིག་གཟུགས། Jomolhari དང་ Noto Sans (SIL Open Font License)</string>
     <string name="licences">ཆོག་མཆན།</string>
-    <string name="licence_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · GNU General Public License, version 3</string>
-    <string name="licence_data_dz">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · རྫོང་ཁ་གོང་འཕེལ་ལྷན་ཚོགས། ཆོག་མཆན་ཐོབ།</string>
     <string name="licence_font_jomolhari">ཡིག་གཟུགས། Jomolhari · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">ཡིག་གཟུགས། Noto Sans · SIL Open Font License 1.1</string>
     <string name="share_app_text">%1$s ཐོག་དྲ་རྒྱ་མེད་པར་ཚིག་འཚོལ། %2$s</string>

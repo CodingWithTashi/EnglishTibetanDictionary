@@ -7,7 +7,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.EntryEntity
 import com.kharagedition.tibetandictionary.data.local.relation.EntryWithDetails
 import kotlinx.coroutines.flow.Flow
 
-/** Read-only queries over `entries` (dictionary.db). */
+/** Read-only queries over `entries` (a pack's dictionary database). */
 @Dao
 interface EntryDao {
 

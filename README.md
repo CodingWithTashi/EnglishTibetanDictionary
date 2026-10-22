@@ -1,11 +1,12 @@
 # Tibetan Dictionary
 
-An offline Tibetan–English dictionary for Android. It looks words up in three directions (Tibetan → English,
-Tibetan → Tibetan and English → Tibetan), accepts Tibetan script, Wylie or English in one search field, and
-keeps saved words in folders. Everything runs on the device; the dictionary ships inside the app.
+An offline dictionary app for Android with two dictionaries ("packs"): Tibetan (Monlam) and Dzongkha (DDC). Each
+looks words up in three directions (for Tibetan: Tibetan → English, Tibetan → Tibetan and English → Tibetan),
+accepts Tibetan script, Wylie or English in one search field, and keeps saved words in folders. Everything runs on
+the device; both dictionaries ship inside the app, and the user switches between them in Profile.
 
 [Google Play](https://play.google.com/store/apps/details?id=com.kharagedition.tibetandictionary) ·
-version 3.0.0 (versionCode 21) · Android 7.0 (API 24) and newer.
+Android 7.0 (API 24) and newer. The version is in `app/build.gradle.kts`.
 
 | Home | Search | Entry | Saved | Profile |
 | :--: | :--: | :--: | :--: | :--: |
@@ -16,10 +17,13 @@ version 3.0.0 (versionCode 21) · Android 7.0 (API 24) and newer.
 
 - **UI:** Jetpack Compose with Material 3 in a single activity, Navigation Compose with type-safe routes.
 - **MVVM:** one ViewModel per screen exposes a UI state flow and one-off effects; Hilt provides the dependencies.
-- **Two Room databases:** `dictionary.db` is read-only dictionary data with full-text search; `user.db` holds saved
-  words, folders, recent searches and activity days. Settings live in DataStore.
-- **Prebuilt asset:** `app/src/main/assets/dictionary/dictionary.db` is built by `tools/dictionary` and copied to
-  the device on first launch or when its version changes. The Room schemas in `app/schemas` define its tables.
+- **Dictionary packs:** each pack is one read-only Room database with full-text search, `dictionary-<id>.db`,
+  copied from the prebuilt asset `app/src/main/assets/dictionary/<id>.db` the first time the pack is used or when
+  its version changes (`data/install`). `DictionaryPack` lists the packs and `PackResources` (one file per pack)
+  holds what the UI shows for each. [docs/adding-a-dictionary-pack.md](docs/adding-a-dictionary-pack.md) explains
+  how to add one.
+- **User database:** `user.db` holds saved words, folders and recent searches (each kept per pack) and activity
+  days. Settings live in DataStore. The Room schemas in `app/schemas` define both databases' tables.
 - **Capabilities-driven visibility:** the asset's `directions` table carries per-direction counts, and the UI shows
   a data-dependent element only when the data has it. Whole features that are not released yet are switched off
   in `Features.kt`.
@@ -53,28 +57,29 @@ To run that check locally:
 
 It prints nothing and exits 0 when the manifest is clean.
 
-## Rebuilding the dictionary asset
+## Rebuilding the dictionary assets
 
-The asset and `app/src/main/res/values/dictionary_stats.xml` (entry count and asset size) are built together
-from the Monlam source database `MLDic.ml` by the Python pipeline in `tools/dictionary`. Setup, tests, the
-exit codes and the full release checklist are in [tools/dictionary/README.md](tools/dictionary/README.md).
+Each pack's asset and its `app/src/main/res/values/dictionary_stats_<id>.xml` (entry count and asset size) are
+built together by the Python pipeline in `tools/dictionary`: `--pack bo` from the Monlam source database
+`MLDic.ml`, `--pack dz` from the folder of DDC StarDict files. Setup, tests, the exit codes and the full release
+checklist are in [tools/dictionary/README.md](tools/dictionary/README.md).
 
-For a data release, bump `DictionaryDatabase.VERSION` and export the schema first (see that README), then:
+For a data release, bump `DictionaryDatabase.VERSION` and export the schema first (see that README), then build
+every pack (the version is shared, so every asset must carry the new one):
 
 ```sh
 cd tools/dictionary
-.venv/bin/python -I build_db.py --require-wylie \
+.venv/bin/python -I build_db.py --pack bo --require-wylie \
   --source /path/to/MLDic.ml \
   --schema-dir ../../app/schemas/com.kharagedition.tibetandictionary.data.local.DictionaryDatabase \
-  --out ../../app/src/main/assets/dictionary/dictionary.db \
-  --stats-xml ../../app/src/main/res/values/dictionary_stats.xml \
-  --data-version 2026.10.1 --wotd-seed 20261019 --built-at 2026-10-19T00:00:00Z \
-  --report /tmp/dictionary-report.json
+  --out ../../app/src/main/assets/dictionary/bo.db \
+  --stats-xml ../../app/src/main/res/values/dictionary_stats_bo.xml \
+  --data-version 2026.10.1 --wotd-seed 20261019 --built-at 2026-10-19T00:00:00Z
 ```
 
-Use the new data version, seed and release date in place of the ones above. Then run
-`./gradlew :app:testDebugUnitTest`: `DictionaryAssetVersionTest` and `DictionaryAssetOpenTest` check the new
-asset against the app.
+For Dzongkha use `--pack dz`, the DDC folder as `--source`, `dz.db` and `dictionary_stats_dz.xml`. Use the new
+data version, seed and release date in place of the ones above. Then run `./gradlew :app:testDebugUnitTest`:
+`DictionaryAssetVersionTest` and `DictionaryAssetOpenTest` check every asset against the app.
 
 ## Regenerating the app icon
 
@@ -132,10 +137,14 @@ audio or a phonetic spelling, so those two are not visible yet.
 
 ## Credits and licences
 
-- **Dictionary data:** Monlam Tibetan Dictionary by Lobsang Monlam, from the open-source
+- **Tibetan dictionary data:** Monlam Tibetan Dictionary by Lobsang Monlam, from the open-source
   [Monlam Dictionary](https://github.com/iamironrabbit/monlam-dictionary) app, under the GNU General Public
-  License, version 3 (GPL-3.0). The app shows the attribution on its About screen.
+  License, version 3 (GPL-3.0).
+- **Dzongkha dictionary data:** the Dzongkha–English, English–Dzongkha and Dzongkha dictionaries of the Dzongkha
+  Development Commission (2014 digital edition), used with the permission of the DCDD. The permission text in
+  `app/src/main/assets/licenses/DDC-permission.txt` must be the confirmed wording before a release.
+- The app shows the active pack's attribution on its About screen.
 - **Fonts:** Jomolhari (Tibetan, SIL Open Font License 1.0) and Noto Sans (Latin, SIL Open Font License 1.1).
-- The licence texts (`GPL-3.0.txt`, verbatim from gnu.org, and the two OFL files) are in
+- The licence texts (`GPL-3.0.txt`, verbatim from gnu.org, `DDC-permission.txt` and the two OFL files) are in
   `app/src/main/assets/licenses`; About → Licences shows them in the app. The app's own licence is still to be
   settled.

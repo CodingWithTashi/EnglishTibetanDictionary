@@ -43,6 +43,7 @@ import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.PackResources
 import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
@@ -195,18 +196,17 @@ fun OptionCard(
 }
 
 /**
- * What a direction is for: the `direction_desc_*` copy for the three release directions, otherwise the
- * direction's own label in the UI language.
+ * What a direction is for: the description its pack gives it ([PackResources.directionDescriptions]; direction ids
+ * are unique across packs), otherwise the direction's own label in the UI language.
  */
 @Composable
-fun directionDescription(direction: Direction): String = when (direction.id) {
-    "bo-en" -> stringResource(R.string.direction_desc_bo_en)
-    "bo-bo" -> stringResource(R.string.direction_desc_bo_bo)
-    "en-bo" -> stringResource(R.string.direction_desc_en_bo)
-    "dz-en" -> stringResource(R.string.direction_desc_dz_en)
-    "dz-dz" -> stringResource(R.string.direction_desc_dz_dz)
-    "en-dz" -> stringResource(R.string.direction_desc_en_dz)
-    else -> if (DictTheme.language == AppLanguage.BO) direction.labelBo else direction.labelEn
+fun directionDescription(direction: Direction): String {
+    val description = DictionaryPack.entries.firstNotNullOfOrNull { it.resources.directionDescriptions[direction.id] }
+    return when {
+        description != null -> stringResource(description)
+        DictTheme.language == AppLanguage.BO -> direction.labelBo
+        else -> direction.labelEn
+    }
 }
 
 /** Picks the default direction from [directions] (option cards with descriptions). */

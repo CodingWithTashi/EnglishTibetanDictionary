@@ -36,6 +36,8 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import com.kharagedition.tibetandictionary.data.model.PackSample
+import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
@@ -313,7 +315,7 @@ fun PreviewCard(
 ) {
     val colors = DictTheme.colors
     val type = remember(textSize, lineSpacing) { DictTypography(textSize.scale, LineSpacing.clamp(lineSpacing)) }
-    val sample = pack.sample
+    val sample = pack.resources.sample
     val glosses = remember(sample, colors.accent) {
         val number = SpanStyle(color = colors.accent, fontWeight = FontWeight.SemiBold)
         buildAnnotatedString {

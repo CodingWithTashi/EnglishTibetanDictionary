@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Dzongkha pack's strings in the Tibetan UI; see values/strings_pack_dz.xml for what each one is. -->
+<resources>
+    <string name="pack_name_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
+    <string name="pack_gloss_dz">Dzongkha Dictionary</string>
+    <string name="pack_desc_dz">DDC · རྫོང་ཁ ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
+
+    <!-- No final tsheg: onboarding_textsize_body adds it -->
+    <string name="pack_language_dz">རྫོང་ཁ</string>
+
+    <string name="greeting_morning_dz">དྲོ་པ་བདེ་ལེགས། · Good morning</string>
+    <string name="greeting_afternoon_dz">ཉི་མ་བདེ་ལེགས། · Good afternoon</string>
+    <string name="greeting_evening_dz">ཕྱི་རུ་བདེ་ལེགས། · Good evening</string>
+
+    <string name="direction_desc_dz_en">རྫོང་ཁ་ནས་དབྱིན་ཡིག</string>
+    <string name="direction_desc_dz_dz">རྫོང་ཁའི་ཚིག་འགྲེལ།</string>
+    <string name="direction_desc_en_dz">དབྱིན་ཡིག་ནས་རྫོང་ཁ</string>
+
+    <string name="licence_data_dz">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · རྫོང་ཁ་གོང་འཕེལ་ལྷན་ཚོགས། ཆོག་མཆན་ཐོབ།</string>
+</resources>

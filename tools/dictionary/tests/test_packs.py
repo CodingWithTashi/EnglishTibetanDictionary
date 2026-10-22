@@ -123,6 +123,19 @@ def test_packs_have_disjoint_direction_ids_and_id_bases() -> None:
         assert set(pack.direction_by_table.values()) <= {d.id for d in pack.directions}
 
 
+def test_short_labels_are_the_tokens_the_app_shows() -> None:
+    # The app's direction switcher splits `short_label` at its one arrow and shows each side as the
+    # language's token, so a language must have the same token in every direction of every pack.
+    tokens: dict[str, str] = {}
+    for pack in PACKS.values():
+        for d in pack.directions:
+            parts = d.short_label.split("→")
+            assert len(parts) == 2, d.id
+            for lang, token in zip((d.source_lang, d.target_lang), parts):
+                assert token and token == token.strip(), d.id
+                assert tokens.setdefault(lang, token) == token, f"{d.id}: {lang} is {tokens[lang]!r} elsewhere"
+
+
 def test_unknown_direction_raises_key_error() -> None:
     assert MONLAM.direction("bo-en").id_base == 1_000_000
     with pytest.raises(KeyError):

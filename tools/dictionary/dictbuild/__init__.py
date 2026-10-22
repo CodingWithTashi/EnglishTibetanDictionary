@@ -1,3 +1,3 @@
-"""Build pipeline that turns the Monlam source database into the app's prebuilt dictionary.db."""
+"""Build pipeline that turns a pack's source data into the app's prebuilt dictionary database."""
 
 __version__ = "0.1.0"
