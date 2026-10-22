@@ -222,7 +222,10 @@ write everything).
      there, and fails in CI.
 3. **Anonymous sign-in**: Firebase console → Authentication → Sign-in method → Anonymous → Enable.
 4. **Deploy** from `backend/`:
-   `firebase deploy --only functions,firestore:rules,firestore:indexes --project englishtibetandictionary`
+   `firebase deploy --only functions,firestore:rules,firestore:indexes --project englishtibetandictionary`.
+   A first deploy run with `--non-interactive` deploys the functions but exits with an error because it can't
+   set the container-image cleanup policy. Set it once with
+   `firebase functions:artifacts:setpolicy --location asia-south1 --days 1`. This was done 2026-10-22.
 5. **Providers**: `AZURE_TRANSLATOR_KEY=… AZURE_TRANSLATOR_REGION=… npm run check-providers`, then put its
    suggested routes in `config/translation` if they differ from the defaults.
 6. **Smoke test**: register an App Check debug token for the Android app (Firebase console → App Check →
