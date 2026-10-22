@@ -31,10 +31,10 @@ def read_stardict(prefix: Path, *, limit: int | None = None) -> list[SourceRow]:
     wordcount = _int_field(ifo_path, header, "wordcount")
     idxfilesize = _int_field(ifo_path, header, "idxfilesize")
 
-    idx = idx_path.read_bytes()
+    idx = _read_bytes(idx_path)
     if len(idx) != idxfilesize:
         raise StarDictError(f"{idx_path}: {ifo_path.name} says idxfilesize {idxfilesize}, the file has {len(idx)} bytes")
-    data = dict_path.read_bytes()
+    data = _read_bytes(dict_path)
 
     rows: list[SourceRow] = []
     position = 0
@@ -59,7 +59,7 @@ def read_stardict(prefix: Path, *, limit: int | None = None) -> list[SourceRow]:
 
 def _read_header(path: Path) -> dict[str, str]:
     """`key=value` lines of an `.ifo`; a line without `=` continues the previous value."""
-    lines = _decode(path.read_bytes(), path, None).splitlines()
+    lines = _decode(_read_bytes(path), path, None).splitlines()
     if not lines or lines[0].strip() != _MAGIC:
         raise StarDictError(f"{path}: the first line is not the magic line {_MAGIC!r}")
     header: dict[str, str] = {}
@@ -72,6 +72,13 @@ def _read_header(path: Path) -> dict[str, str]:
         elif last_key is not None and line.strip():
             header[last_key] += "\n" + line.strip()
     return header
+
+
+def _read_bytes(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as error:
+        raise StarDictError(f"{path}: cannot be read ({error.strerror or error})") from error
 
 
 def _int_field(path: Path, header: dict[str, str], key: str) -> int:

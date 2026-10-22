@@ -98,6 +98,24 @@ def test_invalid_utf8_raises(tmp_path: Path) -> None:
         read_stardict(prefix)
 
 
+def test_invalid_utf8_in_idx_word_raises(tmp_path: Path) -> None:
+    prefix = write_stardict(tmp_path)
+    idx = prefix.with_suffix(".idx")
+    idx.write_bytes(b"\xff" + idx.read_bytes()[1:])
+
+    with pytest.raises(StarDictError, match=r"t\.idx.*record 1.*UTF-8"):
+        read_stardict(prefix)
+
+
+@pytest.mark.parametrize("suffix", [".ifo", ".idx", ".dict"])
+def test_missing_file_raises(tmp_path: Path, suffix: str) -> None:
+    prefix = write_stardict(tmp_path)
+    prefix.with_suffix(suffix).unlink()
+
+    with pytest.raises(StarDictError, match=rf"t\{suffix}"):
+        read_stardict(prefix)
+
+
 def test_empty_key_is_returned(tmp_path: Path) -> None:
     rows = read_stardict(write_stardict(tmp_path, [("", "orphan"), ("a", "b")]))
 

@@ -176,3 +176,29 @@ def test_split_numbered_tibetan_ten() -> None:
 def test_split_numbered_tibetan_digit_inside_word_or_out_of_order_is_text() -> None:
     assert split_numbered_tibetan("༡ ཀ༢ཁ ༣ ག ༢ ང") == [(1, "ཀ༢ཁ ༣ ག"), (2, "ང")]
     assert split_numbered_tibetan("༡ ཀ ༡༠") == [(1, "ཀ ༡༠")]
+
+
+def test_split_numbered_tibetan_marker_glued_to_shad() -> None:
+    assert split_numbered_tibetan("༡ ག་ར། ཐམས་ཅད།༢ འདྲན་འདྲ། ཤའི་དོན་ལུ་གསད་ནི།༣ འཕྲོ་བརླག་གཏང་ནི།") == [
+        (1, "ག་ར། ཐམས་ཅད།"),
+        (2, "འདྲན་འདྲ། ཤའི་དོན་ལུ་གསད་ནི།"),
+        (3, "འཕྲོ་བརླག་གཏང་ནི།"),
+    ]
+
+
+def test_split_numbered_tibetan_marker_glued_to_letter_before_space() -> None:
+    assert split_numbered_tibetan("༡ རྒྱུན་ཅིག༢ གཡང་ས།") == [(1, "རྒྱུན་ཅིག"), (2, "གཡང་ས།")]
+
+
+def test_split_numbered_tibetan_marker_with_dot_or_underscore() -> None:
+    assert split_numbered_tibetan("༡. ཐོ་གཞུང༌། ༢. རྫས་རླུང་།") == [(1, "ཐོ་གཞུང༌།"), (2, "རྫས་རླུང་།")]
+    assert split_numbered_tibetan("༡_ཡང་དག་པའི་ ༢_ཀ") == [(1, "ཡང་དག་པའི་"), (2, "ཀ")]
+
+
+def test_split_numbered_tibetan_numbers_inside_text_are_not_markers() -> None:
+    assert split_numbered_tibetan("ཨང་༡ པ") is None
+    assert split_numbered_tibetan("ཚེས་༡༥ ལུ") is None
+    assert split_numbered_tibetan("༡.༢.༣.") is None
+    assert split_numbered_tibetan("(༡ ༢ ༣)") is None
+    assert split_numbered_tibetan("༡༠༠༠,༠༠༠") is None
+    assert split_numbered_tibetan("༡ ཨང་༢ པ ཚེས་༡༥ ལུ") == [(1, "ཨང་༢ པ ཚེས་༡༥ ལུ")]
