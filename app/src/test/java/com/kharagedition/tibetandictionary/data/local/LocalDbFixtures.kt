@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.ExampleEntity
 import com.kharagedition.tibetandictionary.data.local.entity.RelatedEntryEntity
 import com.kharagedition.tibetandictionary.data.local.entity.SenseEntity
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
+import java.io.File
 
 /** In-memory dictionary.db with the production schema (Room creates the tables, indices and FTS sync triggers). */
 fun inMemoryDictionaryDb(): DictionaryDatabase =
@@ -118,3 +119,17 @@ fun related(
     relation = relation,
     position = position,
 )
+
+/**
+ * [path] relative to the app module, looked up from the working directory and its parents: Gradle runs unit tests
+ * in the module directory, an IDE run configuration may use the project root. Null when there is no such file.
+ */
+fun findProjectFile(path: String): File? {
+    val workingDir = File("").absoluteFile
+    return generateSequence(workingDir) { it.parentFile }
+        .flatMap { dir -> sequenceOf(File(dir, path), File(dir, "app/$path")) }
+        .firstOrNull { it.exists() }
+}
+
+/** The shipped asset of [pack] in the repository, or null when it is not there. */
+fun DictionaryPack.assetFileOrNull(): File? = findProjectFile("src/main/assets/$assetPath")
