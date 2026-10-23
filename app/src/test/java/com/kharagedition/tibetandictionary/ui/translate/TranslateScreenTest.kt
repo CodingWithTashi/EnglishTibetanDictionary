@@ -8,9 +8,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -99,6 +102,18 @@ class TranslateScreenTest {
         compose.onNodeWithTag("translate_pill").assertTextContains("7 of 10 left")
         compose.onNodeWithText("Tibetan").assertExists()
         compose.onNodeWithText("English").assertExists()
+    }
+
+    @Test
+    fun `Translate takes the focus off the input, which closes the keyboard`() {
+        show(typed)
+        val input = compose.onNodeWithTag("translate_input")
+        input.performClick().assertIsFocused()
+
+        tap("translate_button")
+
+        input.assertIsNotFocused()
+        assertThat(events).contains(TranslateEvent.Translate)
     }
 
     @Test
@@ -222,6 +237,16 @@ class TranslateScreenTest {
         tap("translate_look_up")
         assertThat(signIns).containsExactly(PromptSource.TRANSLATE_LIMIT)
         assertThat(events).containsExactly(TranslateEvent.LookUpWords)
+    }
+
+    @Test
+    fun `the guest card puts Continue with Google on its own line, over Look up words`() {
+        // Side by side, the label wrapped onto two lines.
+        show(typed.copy(block = TranslateBlock.GuestLimit(used = 3, more = 7), canTranslate = false))
+
+        val signIn = compose.onNodeWithTag("translate_sign_in").getUnclippedBoundsInRoot()
+        val lookUp = compose.onNodeWithTag("translate_look_up").getUnclippedBoundsInRoot()
+        assertThat(lookUp.top).isAtLeast(signIn.bottom)
     }
 
     @Test

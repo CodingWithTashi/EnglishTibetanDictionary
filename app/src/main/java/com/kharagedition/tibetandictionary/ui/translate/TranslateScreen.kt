@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
@@ -121,6 +122,7 @@ fun TranslateContent(
     modifier: Modifier = Modifier,
 ) {
     val dimens = DictTheme.dimens
+    val focus = LocalFocusManager.current
     Column(
         modifier
             .fillMaxSize()
@@ -142,7 +144,14 @@ fun TranslateContent(
         if (block != null && block.replacesButton) {
             TranslateBlockCard(block, onEvent, onSignIn)
         } else {
-            TranslateButton(state, onTranslate = { onEvent(TranslateEvent.Translate) })
+            // Off the input, so the keyboard closes and the result has the screen.
+            TranslateButton(
+                state,
+                onTranslate = {
+                    focus.clearFocus()
+                    onEvent(TranslateEvent.Translate)
+                },
+            )
             if (state.showProHint) ProHint(onClick = { onEvent(TranslateEvent.OpenPro(PromptSource.TOO_LONG)) })
             if (block != null) TranslateBlockCard(block, onEvent, onSignIn)
         }

@@ -23,6 +23,7 @@ import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
+import com.kharagedition.tibetandictionary.ui.components.GoogleSignInButton
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
@@ -91,7 +92,7 @@ internal fun TranslateBlockCard(
 
 /**
  * A guest out of translations (no screen in the design; drawn like 1t): how many they used, how many signing in
- * adds today, [Continue with Google] and [Look up words].
+ * adds today, then Google's [Continue with Google] button over [Look up words], each the card's width.
  */
 @Composable
 internal fun SignInCard(
@@ -107,16 +108,14 @@ internal fun SignInCard(
         ?: stringResource(R.string.translate_guest_body_unknown)
     OutlinedCard("translate_block_guest_limit", modifier) {
         CardText(title, body)
-        Row(horizontalArrangement = Arrangement.spacedBy(DictTheme.dimens.chipGap)) {
-            FilledButton(
-                stringResource(R.string.continue_with_google),
-                onSignIn,
-                Modifier
-                    .weight(1f)
-                    .testTag("translate_sign_in"),
-            )
-            LookUpButton(onLookUp, Modifier.weight(1f))
-        }
+        GoogleSignInButton(
+            stringResource(R.string.continue_with_google),
+            onSignIn,
+            Modifier
+                .fillMaxWidth()
+                .testTag("translate_sign_in"),
+        )
+        LookUpButton(onLookUp, Modifier.fillMaxWidth())
     }
 }
 

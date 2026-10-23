@@ -18,7 +18,6 @@ import com.kharagedition.tibetandictionary.data.translation.TranslationAvailabil
 import com.kharagedition.tibetandictionary.data.translation.TranslationRefusal
 import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
 import com.kharagedition.tibetandictionary.data.translation.translationPair
-import com.kharagedition.tibetandictionary.domain.InputScript
 import com.kharagedition.tibetandictionary.domain.OutputWord
 import com.kharagedition.tibetandictionary.domain.PhraseSegmenter
 import com.kharagedition.tibetandictionary.domain.ScriptCheck
@@ -39,13 +38,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * A search the Search route has shown: [query] as typed, searched in [direction] and written in [script];
- * [hasExact] when its first result is an exact match, [noResults] when it found nothing.
+ * A search the Search route has shown: [query] as typed and searched in [direction]; [hasExact] when its first
+ * result is an exact match, [noResults] when it found nothing. The detected script is left out on purpose: an
+ * English phrase can detect as Wylie ("bus station" opens like a syllable), and Wylie in a bo or dz direction fails
+ * the translation's own script check.
  */
 data class Settled(
     val query: String,
     val direction: Direction,
-    val script: InputScript,
     val hasExact: Boolean,
     val noResults: Boolean,
 )
@@ -190,7 +190,6 @@ class SmartTranslateController(
         view(current.value, run.value, translation.quota.value, translation.availability.value)
 
     private fun currentFor(settled: Settled): Current? {
-        if (settled.script == InputScript.WYLIE) return null
         val pair = settled.direction.translationPair() ?: return null
         val source = TranslationText.normalize(settled.query)
         val length = TranslationText.length(source)

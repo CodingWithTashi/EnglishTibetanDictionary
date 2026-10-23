@@ -15,7 +15,6 @@ import com.kharagedition.tibetandictionary.data.translation.TranslateResult
 import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.data.translation.TranslationAvailability
 import com.kharagedition.tibetandictionary.data.translation.TranslationRefusal
-import com.kharagedition.tibetandictionary.domain.InputScript
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeTranslationHistoryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
@@ -52,10 +51,9 @@ class SmartTranslateTest {
     private fun settled(
         query: String,
         direction: Direction = SampleData.boEn,
-        script: InputScript = InputScript.TIBETAN,
         hasExact: Boolean = false,
         noResults: Boolean = false,
-    ) = Settled(query, direction, script, hasExact, noResults)
+    ) = Settled(query, direction, hasExact, noResults)
 
     private fun translated(text: String, cached: Boolean = false) =
         TranslateResult.Translated(TranslatedText(text, cached, Provider.GOOGLE))
@@ -240,14 +238,14 @@ class SmartTranslateTest {
         translation.quota.value = quota()
         val smart = controller()
 
-        smart.onSettled(settled("bkra shis bde legs", script = InputScript.WYLIE))
+        smart.onSettled(settled("bkra shis bde legs"))
         assertThat(state(smart)).isNull()
 
         smart.onSettled(settled(PHRASE, direction = SampleData.boBo))
         assertThat(state(smart)).isNull()
 
         // Latin text in a Tibetan-source direction, and a single letter.
-        smart.onSettled(settled("hello there friend", script = InputScript.LATIN))
+        smart.onSettled(settled("hello there friend"))
         assertThat(state(smart)).isNull()
         smart.onSettled(settled("ཀ"))
         assertThat(state(smart)).isNull()

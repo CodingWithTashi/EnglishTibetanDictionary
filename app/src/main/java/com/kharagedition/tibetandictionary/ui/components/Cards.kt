@@ -263,7 +263,7 @@ fun SignedOutAccountCard(
             MixedText(title, type.bodySmallMedium, type.tibetanInline16, color = colors.ink)
             MixedText(body, type.caption, type.tibetanInline14, color = colors.muted)
         }
-        FilledButton(actionLabel, onSignIn, size = ButtonSize.Xs)
+        GoogleSignInButton(actionLabel, onSignIn, size = ButtonSize.Xs)
     }
 }
 

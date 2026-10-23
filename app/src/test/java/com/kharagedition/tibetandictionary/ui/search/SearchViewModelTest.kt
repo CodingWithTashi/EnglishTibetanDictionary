@@ -960,6 +960,25 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `an English phrase with a word that opens like Wylie is still offered for translation`() = runTest {
+        // "station" opens like a Wylie syllable (st), so the query detects as Wylie; searched from English, it is
+        // English.
+        prefs.setDefaultDirectionId(enBo.id)
+        translation.quota.value = QuotaState(Quota(Plan.GUEST, 1, 3, Instant.parse("2026-10-22T18:15:00Z"), 100), 10)
+        val vm = viewModel()
+
+        vm.type("where is the bus station")
+        advanceUntilIdle()
+
+        with(vm.state) {
+            assertThat(script).isEqualTo(InputScript.WYLIE)
+            assertThat(selectedDirection).isEqualTo(enBo)
+            assertThat(phase).isEqualTo(SearchPhase.NoResults)
+            assertThat((smartTranslate as SmartTranslateUi.Offer).target).isEqualTo(Lang.BO)
+        }
+    }
+
+    @Test
     fun `SmartUpgrade logs pro_interest search_limit and shows the pro sheet`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()

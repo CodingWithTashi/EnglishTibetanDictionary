@@ -367,7 +367,6 @@ class SearchViewModel @AssistedInject constructor(
         return Settled(
             query = typed,
             direction = direction,
-            script = result.script,
             hasExact = result.hits.firstOrNull()?.isExact(result.query) == true,
             noResults = result.hits.isEmpty(),
         )

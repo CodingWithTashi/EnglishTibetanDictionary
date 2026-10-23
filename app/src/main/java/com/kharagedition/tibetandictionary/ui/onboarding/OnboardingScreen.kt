@@ -41,8 +41,8 @@ import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScale
 import com.kharagedition.tibetandictionary.ui.components.ExtremeScalePreview
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
+import com.kharagedition.tibetandictionary.ui.components.GoogleSignInButton
 import com.kharagedition.tibetandictionary.ui.components.MixedText
-import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
 import com.kharagedition.tibetandictionary.ui.components.PageIndicator
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
 import com.kharagedition.tibetandictionary.ui.components.TextButton
@@ -163,7 +163,7 @@ private fun OnboardingTopBar(state: OnboardingUiState, onEvent: (OnboardingEvent
 private fun OnboardingActions(state: OnboardingUiState, onEvent: (OnboardingEvent) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ActionGap)) {
         if (state.step == OnboardingStep.ACCOUNT) {
-            OutlinedButton(
+            GoogleSignInButton(
                 stringResource(R.string.sign_in_google),
                 onClick = { onEvent(OnboardingEvent.SignIn) },
                 modifier = Modifier.fillMaxWidth(),

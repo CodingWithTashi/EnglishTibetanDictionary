@@ -19,6 +19,7 @@ import com.kharagedition.tibetandictionary.ui.components.ButtonSize
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
+import com.kharagedition.tibetandictionary.ui.components.GoogleSignInButton
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.SheetTitle
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -74,15 +75,13 @@ private fun TodaySheetContent(
                 Plan.FREE -> stringResource(R.string.upgrade_to_pro)
                 Plan.PRO, null -> null
             }
-            if (action != null) {
-                FilledButton(
-                    action,
-                    onClick = if (plan == Plan.GUEST) onSignIn else onUpgrade,
-                    modifier = Modifier
-                        .padding(top = ButtonTop)
-                        .fillMaxWidth(),
-                    size = ButtonSize.Cta,
-                )
+            val buttonModifier = Modifier
+                .padding(top = ButtonTop)
+                .fillMaxWidth()
+            when {
+                action == null -> Unit
+                plan == Plan.GUEST -> GoogleSignInButton(action, onSignIn, buttonModifier, size = ButtonSize.Cta)
+                else -> FilledButton(action, onClick = onUpgrade, modifier = buttonModifier, size = ButtonSize.Cta)
             }
         }
     }
