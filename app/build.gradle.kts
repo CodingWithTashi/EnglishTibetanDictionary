@@ -22,8 +22,8 @@ android {
         applicationId = "com.kharagedition.tibetandictionary"
         minSdk = 24
         targetSdk = 36
-        versionCode = 22
-        versionName = "3.0.1"
+        versionCode = 23
+        versionName = "3.0.2"
 
         testInstrumentationRunner = "com.kharagedition.tibetandictionary.HiltTestRunner"
     }
