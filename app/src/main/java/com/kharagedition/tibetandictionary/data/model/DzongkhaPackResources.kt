@@ -31,4 +31,5 @@ internal val DzongkhaPackResources = PackResources(
         definition = "ལེགས་ཤོམ། དགེ་བ་ཕུན་སུམ་ཚོགས་མི་ཅིག་ལུ་སླབཔ་ཨིན།",
         shortGloss = "auspicious",
     ),
+    translateSamples = listOf("སྐུ་གཟུགས་བཟང་པོ།"),
 )

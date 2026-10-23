@@ -110,6 +110,10 @@ Before the first release the owner has to:
    | `ANDROID_KEY_ALIAS` | Upload key alias |
    | `ANDROID_KEY_PASSWORD` | Upload key password |
 
+Before the first release with translation, work through
+[docs/translation-launch-checklist.md](docs/translation-launch-checklist.md): the Firebase and Play console steps,
+the backend deploy, the privacy policy and the Tibetan strings to review.
+
 Bump `versionCode` in `app/build.gradle.kts` before every release; the lane stops if Play already has that
 versionCode or a higher one. To release from a local machine, run `bundle install` once, set
 `PLAY_STORE_JSON_KEY` and the `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS` and

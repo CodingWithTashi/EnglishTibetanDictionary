@@ -156,6 +156,15 @@ fun AppNavHost(
                 voice = route.voice,
                 onBack = { entry.ifResumed { navController.popBackStack() } },
                 onOpenEntry = { id -> entry.ifResumed { navController.navigate(Entry(id)) } },
+                // Select Translate with the text, then pop back to the tabs (or start them, should none be below).
+                onOpenTranslate = { request ->
+                    entry.ifResumed {
+                        mainViewModel.openTranslate(request)
+                        if (!navController.popBackStack<Main>(inclusive = false)) {
+                            navController.navigate(Main) { popUpTo(navController.graph.id) { inclusive = true } }
+                        }
+                    }
+                },
             )
         }
         composable<Entry>(deepLinks = listOf(navDeepLink { uriPattern = DeepLinks.ENTRY_PATTERN })) { entry ->

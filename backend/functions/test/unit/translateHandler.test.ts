@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../../src/config/runtimeConfig.js";
 import { AllProvidersFailedError, type Router } from "../../src/providers/router.js";
-import type { PlanResolver } from "../../src/service/plan.js";
+import { resolvePlan, type PlanResolver } from "../../src/service/plan.js";
 import { createRateLimiter } from "../../src/service/rateLimiter.js";
 import { handleStatus, handleTranslate, type Deps } from "../../src/service/translateHandler.js";
 import { cacheKey } from "../../src/store/cacheKey.js";
@@ -23,7 +23,7 @@ function setup(overrides: { config?: Partial<RuntimeConfig>; router?: Router } =
     budget: memoryBudget(),
     router: overrides.router ?? { translate: translateFn },
     rateLimiter: createRateLimiter({ now: () => NOW.getTime() }),
-    resolvePlan: vi.fn<PlanResolver>(() => Promise.resolve("free")),
+    resolvePlan: vi.fn<PlanResolver>(resolvePlan),
     log: fakeLogger(),
     now: () => NOW,
   } satisfies Deps;
@@ -38,6 +38,15 @@ const request = (data: unknown, uid: string | null = "user-1") => ({
 
 const bo = (text: string, extra: Record<string, unknown> = {}) =>
   request({ text, source: "bo", target: "en", timeZone: "Asia/Thimphu", ...extra });
+
+/** A request from an anonymous (guest) user, as Firebase Auth's ID token describes one. */
+const guestRequest = (data: unknown, uid = "user-1") => ({
+  data,
+  auth: { uid, token: { firebase: { sign_in_provider: "anonymous", identities: {} } } },
+});
+
+const guestBo = (text: string) =>
+  guestRequest({ text, source: "bo", target: "en", timeZone: "Asia/Thimphu" });
 
 describe("handleTranslate: validation", () => {
   test("requires a signed-in user", async () => {
@@ -128,6 +137,35 @@ describe("handleTranslate: validation", () => {
   });
 });
 
+describe("handleTranslate: guest plan", () => {
+  test("a guest gets 3 a day and the 4th is daily_limit with plan and freeLimit", async () => {
+    const { deps } = setup();
+    for (const text of ["ཀ", "ཁ", "ག"]) {
+      const response = await handleTranslate(guestBo(text), deps);
+      expect(response.quota).toMatchObject({ plan: "guest", limit: 3 });
+    }
+    const error = await rejection(handleTranslate(guestBo("ང"), deps));
+    expect(error.code).toBe("resource-exhausted");
+    expect(reasonOf(error)).toBe("daily_limit");
+    expect(error.details).toMatchObject({ limit: 3, plan: "guest", freeLimit: 10 });
+    expect(typeof (error.details as { resetsAt?: unknown }).resetsAt).toBe("string");
+  });
+
+  test("the plan resolver gets the uid and whether the user is a guest", async () => {
+    const { deps } = setup();
+    await handleTranslate(guestBo("ཀ"), deps);
+    expect(deps.resolvePlan).toHaveBeenCalledWith({ uid: "user-1", isGuest: true });
+    await handleTranslate(bo("ཁ"), deps);
+    expect(deps.resolvePlan).toHaveBeenLastCalledWith({ uid: "user-1", isGuest: false });
+  });
+
+  test("a guest's text is checked against the guest maxChars", async () => {
+    const { deps } = setup({ config: { guest: { dailyLimit: 3, maxChars: 5 } } });
+    const error = await rejection(handleTranslate(guestBo("ཀ".repeat(6)), deps));
+    expect(error.details).toEqual({ reason: "text_too_long", maxChars: 5, length: 6 });
+  });
+});
+
 describe("handleTranslate: cache and quota", () => {
   test("a miss translates, caches, counts once and reports the quota", async () => {
     const { deps, translateFn } = setup();
@@ -195,7 +233,13 @@ describe("handleTranslate: cache and quota", () => {
     deps.quota.usage.set("user-1_2026-10-23", { count: 10, chars: 500 });
     const error = await rejection(handleTranslate(bo("བཀྲ་ཤིས"), deps));
     expect(error.code).toBe("resource-exhausted");
-    expect(error.details).toEqual({ reason: "daily_limit", limit: 10, resetsAt: "2026-10-23T18:00:00.000Z" });
+    expect(error.details).toEqual({
+      reason: "daily_limit",
+      limit: 10,
+      resetsAt: "2026-10-23T18:00:00.000Z",
+      plan: "free",
+      freeLimit: 10,
+    });
     expect(translateFn).not.toHaveBeenCalled();
   });
 
@@ -366,6 +410,17 @@ describe("handleStatus", () => {
       resetsAt: "2026-10-23T18:00:00.000Z",
       maxChars: 100,
       pairs: ["bo-en", "en-bo", "dz-en"],
+      freeLimit: 10,
+    });
+  });
+
+  test("a guest's status reports the guest plan and the free limit", async () => {
+    const { deps } = setup();
+    expect(await handleStatus(guestRequest(undefined), deps)).toMatchObject({
+      plan: "guest",
+      limit: 3,
+      remaining: 3,
+      freeLimit: 10,
     });
   });
 

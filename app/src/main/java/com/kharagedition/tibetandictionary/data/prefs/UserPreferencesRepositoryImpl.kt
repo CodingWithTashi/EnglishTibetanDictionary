@@ -63,6 +63,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
     }
     override suspend fun setLegacyCleanupDone(done: Boolean) = put(LEGACY_CLEANUP_DONE, done)
+    override suspend fun setSmartTranslate(enabled: Boolean) = put(SMART_TRANSLATE, enabled)
 
     private suspend fun <T> put(key: Preferences.Key<T>, value: T) {
         store.edit { it[key] = value }
@@ -93,6 +94,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
                 this[WOTD_NOTIFICATION_MINUTE] ?: defaults.wotdNotificationMinute,
             ),
             legacyCleanupDone = this[LEGACY_CLEANUP_DONE] ?: defaults.legacyCleanupDone,
+            smartTranslate = this[SMART_TRANSLATE] ?: defaults.smartTranslate,
         )
     }
 
@@ -110,5 +112,6 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val WOTD_NOTIFICATION_ENABLED = booleanPreferencesKey("wotd_notification_enabled")
         val WOTD_NOTIFICATION_MINUTE = intPreferencesKey("wotd_notification_minute")
         val LEGACY_CLEANUP_DONE = booleanPreferencesKey("legacy_cleanup_done")
+        val SMART_TRANSLATE = booleanPreferencesKey("smart_translate")
     }
 }

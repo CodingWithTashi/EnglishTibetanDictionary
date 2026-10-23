@@ -329,8 +329,8 @@ class OnboardingViewModelTest {
     // Steps
 
     @Test
-    fun `three steps while accounts are off, starting on the dictionary step`() = runTest {
-        assumeFalse(Features.ACCOUNTS)
+    fun `three steps while the onboarding sign-in is off, starting on the dictionary step`() = runTest {
+        assumeFalse(Features.ONBOARDING_SIGN_IN)
 
         val state = viewModel().state()
 

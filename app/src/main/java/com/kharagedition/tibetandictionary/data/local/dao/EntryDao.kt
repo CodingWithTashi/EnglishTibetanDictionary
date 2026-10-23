@@ -26,6 +26,10 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<EntryEntity>
 
+    /** Entries of [dir] whose headword is one of [headwords] (NOCASE), in no particular order. */
+    @Query("SELECT * FROM entries WHERE direction_id = :dir AND headword IN (:headwords)")
+    suspend fun byHeadwords(dir: String, headwords: List<String>): List<EntryEntity>
+
     /**
      * Headwords in `[prefix, upper)` (NOCASE B-tree range scan); [upper] is `PrefixBounds.upper(prefix)`. The headword
      * equal to [exact] or [exactTsheg] (the query with a trailing tsheg) comes first, then Monlam order.

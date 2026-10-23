@@ -161,6 +161,15 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
+    // Translation: anonymous and Google sign-in, the callables, and App Check (the debug provider never ships).
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.functions)
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // Play Billing: merges the BILLING permission Play Console needs before it lets you create subscriptions.
     // No purchase flow uses it yet.

@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +47,7 @@ import com.kharagedition.tibetandictionary.ui.components.EntryRow
 import com.kharagedition.tibetandictionary.ui.components.FullEmptyState
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
+import com.kharagedition.tibetandictionary.ui.components.ProSheet
 import com.kharagedition.tibetandictionary.ui.components.SearchField
 import com.kharagedition.tibetandictionary.ui.components.SearchHeader
 import com.kharagedition.tibetandictionary.ui.components.SkeletonEntryRow
@@ -52,6 +55,7 @@ import com.kharagedition.tibetandictionary.ui.components.SkeletonPreset
 import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.components.TipBox
 import com.kharagedition.tibetandictionary.ui.components.WylieOverlap
+import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
 import com.kharagedition.tibetandictionary.ui.components.bottomDivider
 import com.kharagedition.tibetandictionary.ui.components.directionLabelDrawnText
 import com.kharagedition.tibetandictionary.ui.components.pullUp
@@ -80,16 +84,31 @@ private val SuggestionCardSide = 32.dp
 /** Chevron at the end of a did-you-mean row. */
 private val SuggestionChevron = 20.dp
 
+/** The quick-translate block: 16 from the sides (1m), 4 above and below; "In the dictionary" 10 under it. */
+private val SmartSide = 16.dp
+private val SmartVertical = 4.dp
+private val PhraseHeaderTop = 10.dp
+
+/** Under did-you-mean (1q): a divider 28 below, then the row. */
+private val InsteadTop = 28.dp
+private val InsteadSide = 28.dp
+
 private const val SCREEN_TAG = "search_screen"
 private const val LOAD_MORE_KEY = "load_more"
+private const val SMART_KEY = "smart_translate"
+private const val PHRASE_HEADER_KEY = "phrase_header"
+private const val COUNT_KEY = "results_count"
 
 /**
  * The stateless Search route: the header (back, field, direction switcher), then by [SearchUiState.phase] the
- * recent searches and Wylie tip, the loading skeleton, the results, or the no-results state.
+ * recent searches and Wylie tip, the loading skeleton, the results, or the no-results state. The quick translation
+ * and a phrase's "In the dictionary" rows lead the results; with no results, a tap row sits under did-you-mean and a
+ * running, finished or failed translation takes the place of "No match for …". Plus the Pro sheet.
  *
  * Test tags: `search_screen`, `search_field`, `search_mic`, `direction_segment_{id}`, `search_recent_{id}`,
  * `search_clear_recents`, `search_tip`, `search_loading`, `search_results_count`, `search_results`,
- * `result_row_{id}`, `search_load_more`, `suggestion_row_{id}`, `search_try_alternate`.
+ * `result_row_{id}`, `search_load_more`, `suggestion_row_{id}`, `search_try_alternate`, `search_phrase_row_{id}`,
+ * and the `search_translate_*` tags of [SmartTranslateBlock].
  */
 @Composable
 fun SearchContent(
@@ -137,9 +156,14 @@ fun SearchContent(
             SearchPhase.Suggestions -> SuggestionsBody(state.recents, state.showTip, onEvent, body)
             SearchPhase.Loading -> LoadingBody(body)
             SearchPhase.Results -> ResultsBody(state, onEvent, body)
-            SearchPhase.NoResults -> NoResultsBody(state, onEvent, body)
+            SearchPhase.NoResults -> if (state.smartTranslate?.isCard == true) {
+                ResultsBody(state, onEvent, body)
+            } else {
+                NoResultsBody(state, onEvent, body)
+            }
         }
     }
+    if (state.showProSheet) ProSheet(onDismiss = { onEvent(SearchEvent.DismissProSheet) })
 }
 
 /** Recent searches under a "Recent · Clear" line, then the Wylie tip (3b). */
@@ -240,26 +264,19 @@ private fun LoadingBody(modifier: Modifier = Modifier) {
 
 /**
  * "N results" and the result rows (1g); the next page loads when the end of the list comes into view. Each new
- * settled search starts the list at the top.
+ * settled search starts the list at the top. The quick translation and "In the dictionary" (1m, 1n) scroll with the
+ * list, above the count.
  */
 @Composable
 private fun ResultsBody(state: SearchUiState, onEvent: (SearchEvent) -> Unit, modifier: Modifier = Modifier) {
     val dimens = DictTheme.dimens
     val results = state.results
+    val smart = state.smartTranslate
+    val phraseWords = state.phraseWords
+    val leading = smart != null || phraseWords.isNotEmpty()
     val listState = rememberSaveable(state.searchId, saver = LazyListState.Saver) { LazyListState() }
     Column(modifier.fillMaxWidth()) {
-        if (results.isNotEmpty()) {
-            val count = TibetanNumerals.formatCount(state.resultCount, DictTheme.language)
-            MixedText(
-                pluralStringResource(R.plurals.results_count, state.resultCount, if (state.hasMore) "$count+" else count),
-                DictTheme.type.caption,
-                DictTheme.type.tibetanInline14,
-                Modifier
-                    .padding(start = dimens.screenPadding, end = dimens.screenPadding, bottom = CountBottom)
-                    .testTag("search_results_count"),
-                color = DictTheme.colors.muted,
-            )
-        }
+        if (results.isNotEmpty() && !leading) ResultsCount(state)
         LazyColumn(
             Modifier
                 .fillMaxWidth()
@@ -267,6 +284,19 @@ private fun ResultsBody(state: SearchUiState, onEvent: (SearchEvent) -> Unit, mo
             state = listState,
             contentPadding = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues(),
         ) {
+            if (smart != null) {
+                item(key = SMART_KEY) {
+                    SmartTranslateBlock(
+                        smart,
+                        onEvent,
+                        Modifier.padding(horizontal = SmartSide, vertical = SmartVertical),
+                    )
+                }
+            }
+            phraseWordItems(phraseWords, onEvent)
+            if (results.isNotEmpty() && leading) {
+                item(key = COUNT_KEY) { ResultsCount(state, Modifier.padding(top = dimens.sectionGap)) }
+            }
             itemsIndexed(results, key = { _, result -> result.entryId }) { index, result ->
                 EntryRow(
                     result,
@@ -286,6 +316,44 @@ private fun ResultsBody(state: SearchUiState, onEvent: (SearchEvent) -> Unit, mo
             }
         }
     }
+}
+
+/** "N results" (with "+" while more can load). */
+@Composable
+private fun ResultsCount(state: SearchUiState, modifier: Modifier = Modifier) {
+    val dimens = DictTheme.dimens
+    val count = TibetanNumerals.formatCount(state.resultCount, DictTheme.language)
+    MixedText(
+        pluralStringResource(R.plurals.results_count, state.resultCount, if (state.hasMore) "$count+" else count),
+        DictTheme.type.caption,
+        DictTheme.type.tibetanInline14,
+        modifier
+            .padding(start = dimens.screenPadding, end = dimens.screenPadding, bottom = CountBottom)
+            .testTag("search_results_count"),
+        color = DictTheme.colors.muted,
+    )
+}
+
+/** "In the dictionary" and a phrase's headword rows, as list items. */
+private fun LazyListScope.phraseWordItems(rows: List<SearchResultUi>, onEvent: (SearchEvent) -> Unit) {
+    if (rows.isEmpty()) return
+    item(key = PHRASE_HEADER_KEY) {
+        val padding = DictTheme.dimens.screenPadding
+        PhraseWordsHeader(Modifier.padding(start = padding, top = PhraseHeaderTop, end = padding))
+    }
+    itemsIndexed(rows, key = { _, row -> "phrase_${row.entryId}" }) { index, row ->
+        PhraseWordRow(row, showDivider = index < rows.lastIndex, onEvent)
+    }
+}
+
+@Composable
+private fun PhraseWordRow(row: SearchResultUi, showDivider: Boolean, onEvent: (SearchEvent) -> Unit) {
+    EntryRow(
+        row,
+        onClick = { onEvent(SearchEvent.OpenResult(row.entryId)) },
+        modifier = Modifier.testTag("search_phrase_row_${row.entryId}"),
+        showDivider = showDivider,
+    )
 }
 
 /** "No match for …", the hint, did-you-mean rows and "Try X instead" (1k). */
@@ -328,6 +396,21 @@ private fun NoResultsBody(state: SearchUiState, onEvent: (SearchEvent) -> Unit, 
                     .testTag("search_try_alternate"),
                 size = ButtonSize.Small,
             )
+        }
+        // 1q: "Translate instead" (or the too-long and limit rows) under a divider.
+        state.smartTranslate?.let { smart ->
+            Column(Modifier.padding(start = InsteadSide, top = InsteadTop, end = InsteadSide)) {
+                HorizontalDivider(color = DictTheme.colors.divider)
+                SmartTranslateBlock(smart, onEvent, Modifier.padding(top = SmartVertical))
+            }
+        }
+        if (state.phraseWords.isNotEmpty()) {
+            Column(Modifier.fillMaxWidth()) {
+                PhraseWordsHeader(Modifier.padding(start = dimens.screenPadding, top = PhraseHeaderTop))
+                state.phraseWords.forEachIndexed { index, row ->
+                    PhraseWordRow(row, showDivider = index < state.phraseWords.lastIndex, onEvent)
+                }
+            }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.safeDrawing))
     }

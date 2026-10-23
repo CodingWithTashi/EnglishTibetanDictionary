@@ -21,9 +21,15 @@ import com.kharagedition.tibetandictionary.SampleData.boEn
 import com.kharagedition.tibetandictionary.SampleData.directions
 import com.kharagedition.tibetandictionary.SampleData.enBo
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Provider
+import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
+import com.kharagedition.tibetandictionary.domain.TranslationText
 import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.translate.UsagePillUi
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -306,5 +312,121 @@ class SearchScreenTest {
 
         compose.onNodeWithText("No match for “zzzz”").assertExists()
         compose.onNodeWithText("No match for “zzzzq”").assertDoesNotExist()
+    }
+
+    // Smart translate
+
+    private val sevenLeft = UsagePillUi(remaining = 7, limit = 10, low = false)
+
+    private fun withResults(smart: SmartTranslateUi?, phraseWords: List<SearchResultUi> = emptyList()) = base.copy(
+        query = query("བཀྲ་ཤིས"),
+        phase = SearchPhase.Results,
+        results = listOf(tashi),
+        resultCount = 1,
+        settledQuery = "བཀྲ་ཤིས",
+        smartTranslate = smart,
+        phraseWords = phraseWords,
+    )
+
+    @Test
+    fun `the translate offer shows what is left today and its tap translates`() {
+        show(withResults(SmartTranslateUi.Offer("བཀྲ་ཤིས", Lang.EN, instead = false, sevenLeft, phrase = false)))
+
+        compose.onNodeWithText("Translate “བཀྲ་ཤིས” → English").assertExists()
+        compose.onNodeWithText("7 of 10 left today").assertExists()
+        compose.onNodeWithTag("search_translate_offer").performClick()
+
+        assertThat(events).containsExactly(SearchEvent.TranslateQuery)
+    }
+
+    @Test
+    fun `a phrase offer has a Translate button`() {
+        val low = UsagePillUi(remaining = 2, limit = 10, low = true)
+        show(withResults(SmartTranslateUi.Offer("ཁྱེད་རང་བདེ་པོ་ཡིན།", Lang.EN, instead = false, low, phrase = true)))
+
+        compose.onNodeWithText("Tap to translate → English").assertExists()
+        compose.onNodeWithText("2 of 10 left today").assertExists()
+        compose.onNodeWithTag("search_translate_button").performClick()
+
+        assertThat(events).containsExactly(SearchEvent.TranslateQuery)
+    }
+
+    @Test
+    fun `a cached quick translation says it was not counted and opens in Translate`() {
+        val text = TranslatedText("Good luck", cached = true, provider = Provider.GOOGLE)
+        show(
+            withResults(
+                SmartTranslateUi.Result(text, TranslationText.words("Good luck", Lang.EN), sevenLeft),
+                phraseWords = listOf(tashiDelek),
+            ),
+        )
+
+        compose.onNodeWithTag("search_translate_result").assertExists()
+        compose.onNodeWithText("From cache · not counted").assertExists()
+        compose.onNodeWithText("7 of 10 left today").assertDoesNotExist()
+        compose.onNodeWithText("In the dictionary").assertExists()
+        compose.onNodeWithTag("search_phrase_row_12").performClick()
+        compose.onNodeWithTag("search_translate_open").performClick()
+
+        assertThat(events).containsExactly(SearchEvent.OpenResult(12), SearchEvent.OpenInTranslate).inOrder()
+    }
+
+    @Test
+    fun `a translated result shows the usage line and its words search`() {
+        val text = TranslatedText("Good luck", cached = false, provider = Provider.AZURE)
+        show(withResults(SmartTranslateUi.Result(text, TranslationText.words("Good luck", Lang.EN), sevenLeft)))
+
+        compose.onNodeWithText("7 of 10 left today").assertExists()
+        compose.onNodeWithText("Machine translation · Microsoft").assertExists()
+        compose.onNodeWithTag("search_translate_word_0").performClick()
+
+        assertThat(events).containsExactly(SearchEvent.SmartWordTap(TranslationText.words("Good luck", Lang.EN)[0]))
+    }
+
+    @Test
+    fun `no results puts the instead offer under did-you-mean`() {
+        show(
+            base.copy(
+                query = query("bkra shiz"),
+                phase = SearchPhase.NoResults,
+                settledQuery = "bkra shiz",
+                smartTranslate = SmartTranslateUi.Offer(
+                    "bkra shiz", Lang.BO, instead = true, sevenLeft, phrase = false,
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("Translate instead").assertExists()
+        compose.onNodeWithTag("search_translate_offer").performClick()
+
+        assertThat(events).containsExactly(SearchEvent.TranslateQuery)
+    }
+
+    @Test
+    fun `too long and limit rows open Translate, sign in or Pro`() {
+        show(withResults(SmartTranslateUi.TooLong(length = 132, maxChars = 100, sevenLeft)))
+        compose.onNodeWithText("132 / 100 characters").assertExists()
+        compose.onNodeWithTag("search_translate_too_long").assertExists()
+        compose.onNodeWithTag("search_translate_open").performClick()
+
+        val none = UsagePillUi(remaining = 0, limit = 3, low = true)
+        state = withResults(SmartTranslateUi.Blocked(Plan.GUEST, none))
+        compose.onNodeWithText("Sign in to translate").assertExists()
+        compose.onNodeWithTag("search_translate_blocked").performClick()
+
+        state = withResults(SmartTranslateUi.Blocked(Plan.FREE, none.copy(limit = 10)))
+        compose.onNodeWithText("Daily limit reached").assertExists()
+        compose.onNodeWithTag("search_translate_blocked").performClick()
+
+        assertThat(events)
+            .containsExactly(SearchEvent.OpenInTranslate, SearchEvent.SmartSignIn, SearchEvent.SmartUpgrade)
+            .inOrder()
+    }
+
+    @Test
+    fun `the pro sheet shows when asked`() {
+        show(withResults(null).copy(showProSheet = true))
+
+        compose.onNodeWithTag("pro_sheet").assertExists()
     }
 }

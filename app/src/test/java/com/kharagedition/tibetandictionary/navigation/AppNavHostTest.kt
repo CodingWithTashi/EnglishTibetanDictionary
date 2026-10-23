@@ -11,12 +11,16 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainActivity
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.core.analytics.Analytics
 import com.kharagedition.tibetandictionary.core.di.DatabaseModule
+import com.kharagedition.tibetandictionary.core.di.FirebaseModule
 import com.kharagedition.tibetandictionary.core.di.RepositoryModule
+import com.kharagedition.tibetandictionary.data.auth.AuthRepository
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.install.InstallState
@@ -33,20 +37,40 @@ import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepositoryImpl
+import com.kharagedition.tibetandictionary.data.repository.SavedTranslationsRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationHistoryRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationRecord
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Provider
+import com.kharagedition.tibetandictionary.data.translation.Quota
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.data.translation.TranslationApi
+import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
 import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
+import com.kharagedition.tibetandictionary.fakes.FakeSavedTranslationsRepository
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationApi
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationHistoryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingAnalytics
+import com.kharagedition.tibetandictionary.ui.main.MainViewModel
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -67,7 +91,7 @@ import org.robolectric.annotation.Config
  * DictionaryDatabases.activate] to simulate a finished pack switch; nothing in this graph reads Room through it.
  */
 @HiltAndroidTest
-@UninstallModules(RepositoryModule::class, DatabaseModule::class)
+@UninstallModules(RepositoryModule::class, DatabaseModule::class, FirebaseModule::class)
 @RunWith(AndroidJUnit4::class)
 @Config(application = HiltTestApplication::class)
 class AppNavHostTest {
@@ -112,6 +136,29 @@ class AppNavHostTest {
 
     @BindValue @JvmField
     val wordOfTheDay: WordOfTheDayRepository = FakeWordOfTheDayRepository()
+
+    private val fakeTranslation = FakeTranslationRepository()
+
+    @BindValue @JvmField
+    val translation: TranslationRepository = fakeTranslation
+
+    @BindValue @JvmField
+    val translationHistory: TranslationHistoryRepository = FakeTranslationHistoryRepository()
+
+    private val fakeSavedTranslations = FakeSavedTranslationsRepository()
+
+    @BindValue @JvmField
+    val savedTranslations: SavedTranslationsRepository = fakeSavedTranslations
+
+    // FirebaseModule's bindings other classes consume; its Firebase-only seams have no consumer here.
+    @BindValue @JvmField
+    val auth: AuthRepository = FakeAuthRepository()
+
+    @BindValue @JvmField
+    val translationApi: TranslationApi = FakeTranslationApi()
+
+    @BindValue @JvmField
+    val analytics: Analytics = RecordingAnalytics()
 
     @Inject lateinit var bus: NavigationEventBus
 
@@ -281,6 +328,82 @@ class AppNavHostTest {
 
         pressBack()
         assertOnTabs()
+    }
+
+    @Test
+    fun `the Translate tab shows the translate screen`() {
+        launch(onboarded = true)
+
+        tap("nav_translate")
+
+        compose.onNodeWithTag("translate_screen").assertExists()
+        compose.onNodeWithTag("nav_translate").assertIsSelected()
+    }
+
+    @Test
+    fun `back from Translate returns to Search`() {
+        launch(onboarded = true)
+        tap("nav_translate")
+
+        pressBack()
+
+        assertOnTabs()
+        compose.onNodeWithTag("nav_search").assertIsSelected()
+        assertThat(activity.get().isFinishing).isFalse()
+    }
+
+    @Test
+    fun `a translate request opens the Translate tab with its text`() {
+        launch(onboarded = true)
+        val text = "བཀྲ་ཤིས་བདེ་ལེགས།"
+        val main = ViewModelProvider(activity.get())[MainViewModel::class.java]
+
+        main.openTranslate(TranslateRequest(LangPair(Lang.BO, Lang.EN), text))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("translate_screen").assertExists()
+        compose.onNodeWithTag("translate_input").assertTextContains(text)
+        assertThat(main.translateRequest.value).isNull()
+    }
+
+    @Test
+    fun `Open in Translate from Search pops to the Translate tab with the text`() {
+        // A 3-character limit makes "house" too long for a quick translation, so Search offers Open in Translate.
+        fakeTranslation.quota.value = QuotaState(Quota(Plan.FREE, 0, 10, Instant.EPOCH, maxChars = 3), freeLimit = 10)
+        launch(onboarded = true)
+        openLink("app://search?query=house")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("search_translate_open").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        tap("search_translate_open")
+
+        compose.onNodeWithTag("translate_screen").assertExists()
+        compose.onNodeWithTag("nav_translate").assertIsSelected()
+        compose.onNodeWithTag("translate_input").assertTextContains("house")
+        pressBack()
+        assertOnTabs()
+    }
+
+    @Test
+    fun `a saved translation opens in the Translate tab with its result`() {
+        val pair = LangPair(Lang.BO, Lang.EN)
+        fakeSavedTranslations.records.value =
+            listOf(TranslationRecord(1, pair, "བཀའ་དྲིན་ཆེ།", "Thank you.", Provider.GOOGLE, Instant.EPOCH))
+        launch(onboarded = true)
+        tap("nav_saved")
+        // The switch shows once the saved words are read, off the main thread.
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("saved_tab_translations").fetchSemanticsNodes().isNotEmpty()
+        }
+        tap("saved_tab_translations")
+
+        tap("saved_translation_1")
+
+        compose.onNodeWithTag("translate_screen").assertExists()
+        compose.onNodeWithTag("nav_translate").assertIsSelected()
+        compose.onNodeWithTag("translate_input").assertTextContains("བཀའ་དྲིན་ཆེ།")
+        compose.onNodeWithTag("translate_result").assertExists()
     }
 
     @Test

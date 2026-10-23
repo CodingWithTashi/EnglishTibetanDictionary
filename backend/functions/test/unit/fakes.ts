@@ -116,6 +116,11 @@ export function memoryQuota(): QuotaStore & { usage: Map<string, Usage>; refunds
       usage.set(`${uid}_${day}`, { count: used.count - 1, chars: used.chars - chars });
       return Promise.resolve();
     },
+    deleteAll(uid: string) {
+      const keys = [...usage.keys()].filter((key) => key.startsWith(`${uid}_`));
+      for (const key of keys) usage.delete(key);
+      return Promise.resolve(keys.length);
+    },
   };
   return store;
 }

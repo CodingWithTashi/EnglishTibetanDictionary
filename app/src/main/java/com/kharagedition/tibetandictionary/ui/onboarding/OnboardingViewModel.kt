@@ -98,7 +98,7 @@ class OnboardingViewModel @Inject constructor(
             }
             is OnboardingEvent.SetTextSize -> updateDraft { it.copy(textSize = event.size) }
             is OnboardingEvent.SetLineSpacing -> updateDraft { it.copy(lineSpacing = LineSpacing.clamp(event.spacing)) }
-            // Accounts ship behind Features.ACCOUNTS; there is nothing to sign in to yet.
+            // The sign-in step ships behind Features.ONBOARDING_SIGN_IN; sign-in is offered after translating.
             OnboardingEvent.SignIn -> Unit
         }
     }

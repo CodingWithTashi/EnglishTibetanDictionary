@@ -50,7 +50,8 @@ class DictColorsTest {
         "accent" to accent, "onAccent" to onAccent, "ink" to ink, "muted" to muted, "faint" to faint,
         "outline" to outline, "cardBorder" to cardBorder, "divider" to divider, "scrim" to scrim,
         "inverseSurface" to inverseSurface, "inverseOnSurface" to inverseOnSurface, "inverseAccent" to inverseAccent,
-        "success" to success, "danger" to danger, "flagLine" to flagLine, "flagBlue" to flagBlue,
+        "success" to success, "danger" to danger, "warnContainer" to warnContainer,
+        "onWarnContainer" to onWarnContainer, "warn" to warn, "flagLine" to flagLine, "flagBlue" to flagBlue,
         "flagWhite" to flagWhite, "flagRed" to flagRed, "flagGreen" to flagGreen, "flagYellow" to flagYellow,
     )
 
@@ -76,6 +77,9 @@ class DictColorsTest {
             "inverseAccent" to 0xFFE8A58C,
             "success" to 0xFF3F8F5E,
             "danger" to 0xFFA8322D,
+            "warnContainer" to 0xFFFBE9C8,
+            "onWarnContainer" to 0xFF7A4E00,
+            "warn" to 0xFF8A5A00,
             "flagLine" to 0x99B5A89A,
             "flagBlue" to 0xFF3F6FB5,
             "flagWhite" to 0xFFEDE8DC,
@@ -105,6 +109,10 @@ class DictColorsTest {
             "inverseAccent" to 0xFF8A2E1C,
             "success" to 0xFF3F8F5E,
             "danger" to 0xFFE08A86,
+            // Not in the dark mockups (owner to confirm).
+            "warnContainer" to 0xFF4A3410,
+            "onWarnContainer" to 0xFFF3D08A,
+            "warn" to 0xFFE0B060,
             "flagLine" to 0x80B5A89A,
             "flagBlue" to 0xFF3F6FB5,
             "flagWhite" to 0xFFEDE8DC,

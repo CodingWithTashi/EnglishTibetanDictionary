@@ -65,6 +65,7 @@ internal fun ProfileSheets(state: ProfileUiState, onEvent: (ProfileEvent) -> Uni
             onDismiss = dismiss,
         )
         ProfileSheet.MORE_APPS -> MoreAppsSheet(state.otherApps, onOpen = { onEvent(ProfileEvent.OpenOtherApp(it)) }, dismiss)
+        ProfileSheet.ACCOUNT -> AccountSheet(state.account, onEvent, dismiss)
         null -> Unit
     }
 }

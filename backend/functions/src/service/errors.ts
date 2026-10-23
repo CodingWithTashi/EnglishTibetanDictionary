@@ -15,7 +15,8 @@ export type ErrorReason =
   | "rate_limited"
   | "service_budget"
   | "daily_limit"
-  | "provider_unavailable";
+  | "provider_unavailable"
+  | "guest_account";
 
 /** An expected refusal, returned to the app as an HttpsError with `details.reason`. */
 export class TranslationError extends Error {

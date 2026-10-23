@@ -9,7 +9,10 @@ import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedTranslationsRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationRecord
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.domain.SavedGrouping
 import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
@@ -17,6 +20,7 @@ import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.SavedWordActions.Companion.savedMessage
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -46,7 +50,11 @@ import kotlinx.coroutines.launch
  * it was saved; today's word for the empty state. Rows come from the snapshots in user.db, so a word whose entry a
  * newer dictionary dropped still shows, and opening it explains instead of navigating. Changes go through
  * [SavedWordActions] (one at a time); a failure is recorded through [errors] and shown as a generic error toast.
- * The typed query and the chosen folder live in [savedState], so they survive process death.
+ * The typed query, the chosen folder and the chosen tab live in [savedState], so they survive process death.
+ *
+ * The Translations tab (1y) lists [savedTranslations] in the same sections; opening one hands its saved result to
+ * the Translate tab (no call), and a removal offers Undo. A failure to read them is recorded and shows an empty list,
+ * so the words still work.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -58,6 +66,7 @@ class SavedViewModel @Inject constructor(
     private val wordOfTheDay: WordOfTheDayRepository,
     private val clock: AppClock,
     private val errors: ErrorReporter,
+    private val savedTranslations: SavedTranslationsRepository,
 ) : ViewModel() {
 
     /** The filter in effect: [query] (trimmed) only while the search field shows, [folderId] only while it exists. */
@@ -78,6 +87,7 @@ class SavedViewModel @Inject constructor(
 
     private val query: StateFlow<String> = savedState.getStateFlow(KEY_QUERY, "")
     private val selectedFolderId: StateFlow<Long?> = savedState.getStateFlow(KEY_FOLDER, null)
+    private val tab: StateFlow<SavedTab> = savedState.getStateFlow(KEY_TAB, SavedTab.WORDS)
     private val sheet = MutableStateFlow<Sheet?>(null)
 
     /** Words removed while the tab is open, so Undo can save them again. */
@@ -114,15 +124,24 @@ class SavedViewModel @Inject constructor(
         saved.observeSavedIds(),
     ) { entry, savedIds -> entry?.toWotdUi(clock.today(), isSaved = entry.summary.id in savedIds) }
 
-    private val typedAndSheet = combine(query, sheet) { typed, sheet -> typed to sheet }
+    /** The saved translations, newest first; empty when they cannot be read (recorded). */
+    private val translations: Flow<List<TranslationRecord>> = flow { emitAll(savedTranslations.observe()) }
+        .catch { t ->
+            errors.record(t)
+            emit(emptyList())
+        }
+
+    private val typedSheetAndTab = combine(query, sheet, tab, ::Triple)
+
+    private val wotdAndTranslations = combine(wotd, translations, ::Pair)
 
     val uiState: StateFlow<SavedUiState> = combine(
         saved.observeAll(),
         folders,
         visible,
-        wotd,
-        typedAndSheet,
-    ) { all, folders, (filter, rows), wotd, (typed, sheet) ->
+        wotdAndTranslations,
+        typedSheetAndTab,
+    ) { all, folders, (filter, rows), (wotd, translated), (typed, sheet, tab) ->
         val folderUis = folders.map { FolderUi(it.id, it.name, it.count) }
         SavedUiState(
             loading = false,
@@ -142,6 +161,10 @@ class SavedViewModel @Inject constructor(
                 )
             },
             newFolder = (sheet as? Sheet.NewFolder)?.let { NewFolderUi(it.name, it.error) },
+            tab = tab,
+            translationCount = translated.size,
+            translationGroups = SavedGrouping.groupBy(translated, { it.at }, clock.today(), clock.zone())
+                .map { (period, items) -> SavedTranslationGroupUi(period, items.map { it.toUi() }) },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SavedUiState())
 
@@ -163,6 +186,10 @@ class SavedViewModel @Inject constructor(
             SavedEvent.CancelCreateFolder -> updatePicker { it.copy(creating = false, name = "", error = null) }
             is SavedEvent.CreateFolder -> withPicker { createFolderFor(it.entryId, event.name) }
             SavedEvent.DismissFolderPicker -> sheet.update { if (it is Sheet.Picker) null else it }
+            is SavedEvent.SelectTab -> savedState[KEY_TAB] = event.tab
+            is SavedEvent.OpenTranslation -> launchGuarded { openTranslation(event.id) }
+            is SavedEvent.RemoveTranslation -> launchGuarded { removeTranslation(event.id) }
+            is SavedEvent.UndoRemoveTranslation -> launchGuarded { savedTranslations.restore(event.record) }
         }
     }
 
@@ -172,6 +199,20 @@ class SavedViewModel @Inject constructor(
         }
         filter.folderId != null -> saved.observeFolder(filter.folderId)
         else -> saved.observeAll()
+    }
+
+    /** Hands the saved result to the Translate tab; a row removed meanwhile opens nothing. */
+    private suspend fun openTranslation(id: Long) {
+        val record = savedTranslations.observe().first().firstOrNull { it.id == id } ?: return
+        // Not "from cache": that label is about the server's cache, and no call was made.
+        val result = TranslatedText(record.translation, cached = false, provider = record.provider)
+        effectChannel.send(SavedEffect.OpenTranslate(TranslateRequest(record.pair, record.source, result)))
+    }
+
+    private suspend fun removeTranslation(id: Long) {
+        // Null when it is already gone (a second swipe while the first is still removing it).
+        val record = savedTranslations.remove(id) ?: return
+        effectChannel.send(SavedEffect.TranslationRemoved(record))
     }
 
     private suspend fun addFolder(name: String) {
@@ -282,8 +323,17 @@ class SavedViewModel @Inject constructor(
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
 
-        /** [savedState] keys of the search-within query and the selected folder. */
+        /** [savedState] keys of the search-within query, the selected folder and the tab. */
         const val KEY_QUERY = "saved_query"
         const val KEY_FOLDER = "saved_folder_id"
+        const val KEY_TAB = "saved_tab"
+
+        fun TranslationRecord.toUi() = SavedTranslationUi(
+            id = id,
+            source = source,
+            translation = translation,
+            pair = pair,
+            sourceIsTibetan = pair.source.usesTibetanScript,
+        )
     }
 }

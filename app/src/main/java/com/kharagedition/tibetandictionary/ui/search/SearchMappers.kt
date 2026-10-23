@@ -46,6 +46,19 @@ internal fun SearchHit.toUi(directions: List<Direction>, searchedId: String?): S
     showBadge = entry.directionId != searchedId,
 )
 
+/** An "In the dictionary" row of a phrase, or null when its direction is not among [directions]. */
+internal fun EntrySummary.toPhraseRow(directions: List<Direction>): SearchResultUi? = SearchResultUi(
+    entryId = id,
+    direction = directions.firstOrNull { it.id == directionId } ?: return null,
+    headword = headword,
+    headwordIsTibetan = TibetanScript.hasTibetan(headword),
+    wylie = wylie,
+    matchRange = null,
+    headwordMatchRange = null,
+    gloss = glossPreview,
+    showBadge = false,
+)
+
 /** A did-you-mean row. */
 internal fun Suggestion.toUi(): SuggestionUi = SuggestionUi(
     entryId = hit.entry.id,

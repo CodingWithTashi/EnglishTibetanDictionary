@@ -3,6 +3,7 @@ package com.kharagedition.tibetandictionary.data.prefs
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -88,6 +89,16 @@ class UserPreferencesRepositoryImplTest {
                 legacyCleanupDone = true,
             ),
         )
+    }
+
+    @Test
+    fun smartTranslateDefaultsToTrueAndPersistsFalse() = runTest {
+        assertThat(repo.snapshot().smartTranslate).isTrue()
+
+        repo.setSmartTranslate(false)
+
+        assertThat(repo.snapshot().smartTranslate).isFalse()
+        assertThat(store.data.first()[booleanPreferencesKey("smart_translate")]).isFalse()
     }
 
     @Test

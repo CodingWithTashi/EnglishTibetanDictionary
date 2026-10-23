@@ -4,7 +4,8 @@ import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../../src/config/runtimeConfig.js";
 import { AllProvidersFailedError, type Router } from "../../src/providers/router.js";
 import { createRateLimiter } from "../../src/service/rateLimiter.js";
-import { handleTranslate, type Deps } from "../../src/service/translateHandler.js";
+import { resolvePlan } from "../../src/service/plan.js";
+import { handleStatus, handleTranslate, type Deps } from "../../src/service/translateHandler.js";
 import { createBudgetStore } from "../../src/store/budgetStore.js";
 import { cacheKey } from "../../src/store/cacheKey.js";
 import { createQuotaStore } from "../../src/store/quotaStore.js";
@@ -52,11 +53,37 @@ const bo = (text: string) => ({
   auth: { uid: "user-1" },
 });
 
+/** The same request, signed in as [provider] with [identities] in the ID token, the way Firebase Auth sends it. */
+const signedIn = (data: unknown, signInProvider: string, identities: Record<string, unknown>) => ({
+  data,
+  auth: { uid: "user-1", token: { firebase: { sign_in_provider: signInProvider, identities } } },
+});
+const boText = (text: string) => ({ text, source: "bo", target: "en", timeZone: "Asia/Thimphu" });
+
 async function usageDoc(): Promise<Record<string, unknown> | undefined> {
   return (await db.doc(USAGE_DOC).get()).data();
 }
 
 describe("translate pipeline on Firestore", () => {
+  test("usage carries over when a guest links Google: 3 used of the guest's 3 become 3 of 10", async () => {
+    const { deps } = instance();
+    const real = { ...deps, resolvePlan };
+    const guest = (text: string) => signedIn(boText(text), "anonymous", {});
+    for (const text of ["ཀ", "ཁ", "ག"]) {
+      expect((await handleTranslate(guest(text), real)).quota).toMatchObject({ plan: "guest", limit: 3 });
+    }
+    expect(reasonOf(await rejection(handleTranslate(guest("ང"), real)))).toBe("daily_limit");
+
+    const google = (data: unknown) => signedIn(data, "google.com", { "google.com": ["1"] });
+    expect(await handleStatus(google({ timeZone: "Asia/Thimphu" }), real)).toMatchObject({
+      plan: "free",
+      used: 3,
+      limit: 10,
+      remaining: 7,
+    });
+    expect((await handleTranslate(google(boText("ང")), real)).quota).toMatchObject({ plan: "free", used: 4 });
+  });
+
   test("a miss is translated and counted; the same text on a fresh instance is a free Firestore hit", async () => {
     const first = instance();
     const miss = await handleTranslate(bo("བཀྲ་ཤིས"), first.deps);
@@ -139,6 +166,8 @@ describe("translate pipeline on Firestore", () => {
       reason: "daily_limit",
       limit: 2,
       resetsAt: "2026-10-23T18:00:00.000Z",
+      plan: "free",
+      freeLimit: 2,
     });
 
     const hit = await handleTranslate(bo("ཀ"), instance({ config }).deps);

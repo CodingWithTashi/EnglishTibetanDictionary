@@ -27,6 +27,8 @@ import androidx.annotation.StringRes
  * @property entryCount entry count of the bundled asset, as the data build recorded it.
  * @property assetBytes size in bytes of the bundled asset, as the data build recorded it; 0 means unknown.
  * @property sample the entry the reading previews draw; see [PackSample].
+ * @property translateSamples the Translate tab's "Try" chips when the pack's language is the source, in that
+ *   language in every UI language; [EnglishTranslateSamples] are the chips for English.
  */
 data class PackResources(
     @param:StringRes val name: Int,
@@ -45,7 +47,11 @@ data class PackResources(
     @param:IntegerRes val entryCount: Int,
     @param:IntegerRes val assetBytes: Int,
     val sample: PackSample,
+    val translateSamples: List<String>,
 )
+
+/** The Translate tab's "Try" chips when English is the source, for every pack. */
+val EnglishTranslateSamples = listOf("Where is the monastery?", "May all beings be happy")
 
 /**
  * The entry the reading preview draws for a pack: a headword with its Wylie, numbered English glosses and a line in

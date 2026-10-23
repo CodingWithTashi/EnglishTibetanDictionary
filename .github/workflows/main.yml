@@ -31,6 +31,12 @@ jobs:
             exit 1
           fi
           echo "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
+          # Google sign-in needs the OAuth web client, which the file has only once the Google provider is enabled.
+          # Without it the build passes and sign-in fails at runtime.
+          if ! jq -e '[.client[].oauth_client[]? | select(.client_type == 3)] | length > 0' app/google-services.json > /dev/null; then
+            echo "::error::GOOGLE_SERVICES_JSON has no OAuth web client, so Google sign-in would fail. Enable the Google provider, re-download app/google-services.json and update the secret (docs/translation-launch-checklist.md, step 1)."
+            exit 1
+          fi
 
       - name: Build, unit test and lint (debug)
         run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon --stacktrace

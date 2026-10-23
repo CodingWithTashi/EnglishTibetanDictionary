@@ -24,9 +24,12 @@ export interface QuotaStore {
   reserve(uid: string, dayKey: string, limit: number, chars: number): Promise<Usage>;
   /** Gives back a reservation whose translation failed. */
   refund(uid: string, dayKey: string, chars: number): Promise<void>;
+  /** Deletes every day of the user's usage, for account deletion. Returns how many docs went. */
+  deleteAll(uid: string): Promise<number>;
 }
 
 const USAGE_TTL_DAYS = 7;
+const DELETE_BATCH = 400; // under Firestore's 500 writes per batch
 
 function usageOf(data: FirebaseFirestore.DocumentData | undefined): Usage {
   const count: unknown = data?.count;
@@ -69,6 +72,20 @@ export function createQuotaStore(db: Firestore, options: { now?: () => Date } = 
         chars: FieldValue.increment(-chars),
         updatedAt: Timestamp.fromDate(now()),
       });
+    },
+
+    // By the stored `uid` field, not a doc-id range: an encoded uid can be a prefix of another's.
+    async deleteAll(uid) {
+      const query = db.collection("dailyUsage").where("uid", "==", uid).limit(DELETE_BATCH);
+      let deleted = 0;
+      for (;;) {
+        const snapshot = await query.get();
+        if (snapshot.empty) return deleted;
+        const batch = db.batch();
+        for (const doc of snapshot.docs) batch.delete(doc.ref);
+        await batch.commit();
+        deleted += snapshot.size;
+      }
     },
   };
 }

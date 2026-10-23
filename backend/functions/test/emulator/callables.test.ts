@@ -157,6 +157,7 @@ describe("getTranslationStatus callable", () => {
     const status = await getTranslationStatus.run(callRequest({ timeZone: "Asia/Thimphu" }, newUser()));
     expect(Object.keys(status).sort()).toEqual([
       "enabled",
+      "freeLimit",
       "limit",
       "maxChars",
       "pairs",
@@ -174,6 +175,7 @@ describe("getTranslationStatus callable", () => {
       resetsAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/) as unknown,
       maxChars: 100,
       pairs: ["bo-en", "en-bo", "dz-en", "en-dz"],
+      freeLimit: 10,
     });
     expect(Date.parse(status.resetsAt)).toBeGreaterThan(Date.now());
   });

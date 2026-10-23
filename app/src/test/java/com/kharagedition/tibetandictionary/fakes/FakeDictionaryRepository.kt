@@ -60,6 +60,13 @@ class FakeDictionaryRepository(
 
     override suspend fun summaries(ids: List<Long>): List<EntrySummary> = ids.mapNotNull { entries.value[it]?.summary }
 
+    /** Headwords compared without a trailing tsheg and ignoring case, as the real query does. */
+    override suspend fun exactMatches(headwords: List<String>, directionId: String): Map<String, EntrySummary> {
+        fun key(text: String) = TibetanScript.stripTrailingTsheg(text).lowercase()
+        val byKey = summariesIn(directionId).associateBy { key(it.headword) }
+        return headwords.distinct().mapNotNull { headword -> byKey[key(headword)]?.let { headword to it } }.toMap()
+    }
+
     override suspend fun closest(text: String, directionId: String?, limit: Int): List<Suggestion> =
         closestResults.filter { directionId == null || it.directionId == directionId }.take(limit)
 

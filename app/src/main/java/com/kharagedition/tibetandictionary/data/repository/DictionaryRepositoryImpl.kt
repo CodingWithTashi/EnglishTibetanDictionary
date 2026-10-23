@@ -1,6 +1,7 @@
 package com.kharagedition.tibetandictionary.data.repository
 
 import com.kharagedition.tibetandictionary.core.di.IoDispatcher
+import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.local.DictionaryDatabases
 import com.kharagedition.tibetandictionary.data.local.entity.EntryEntity
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
@@ -111,6 +112,22 @@ class DictionaryRepositoryImpl @Inject constructor(
     }
 
     /**
+     * Each headword is asked as given and with a trailing tsheg (Tibetan headwords end with one), in chunks below
+     * SQLite's bind-variable limit; rows are matched back the way the NOCASE column compares them.
+     */
+    override suspend fun exactMatches(headwords: List<String>, directionId: String): Map<String, EntrySummary> =
+        withContext(io) {
+            val asked = headwords.distinct()
+            val forms = asked.flatMap { listOf(it, TibetanScript.ensureTsheg(it)) }.distinct()
+            if (forms.isEmpty()) return@withContext emptyMap()
+            val entryDao = databases.activeDb.entryDao()
+            val byKey = forms.chunked(MAX_IDS_PER_QUERY)
+                .flatMap { entryDao.byHeadwords(directionId, it) }
+                .associateBy { headwordKey(it.headword) }
+            asked.mapNotNull { headword -> byKey[headwordKey(headword)]?.let { headword to it.toSummary() } }.toMap()
+        }
+
+    /**
      * Search [directionId], or when null the first visible direction whose source script is [text]'s script (else
      * the first visible one): its hits as suggestions in that direction, or when there are none its did-you-mean
      * list; at most [limit].
@@ -138,5 +155,12 @@ class DictionaryRepositoryImpl @Inject constructor(
 
     private companion object {
         const val MAX_IDS_PER_QUERY = 500
+
+        /** A headword as NOCASE compares it (ASCII letters folded), without its trailing tsheg. */
+        fun headwordKey(headword: String): String = buildString(headword.length) {
+            TibetanScript.stripTrailingTsheg(headword).forEach { c ->
+                append(if (c in 'A'..'Z') c + ('a' - 'A') else c)
+            }
+        }
     }
 }

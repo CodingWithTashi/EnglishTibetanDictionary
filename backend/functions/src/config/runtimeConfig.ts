@@ -17,6 +17,8 @@ export interface RuntimeConfig {
   readonly enabled: boolean;
   /** Providers to try, in order, per direction. An empty or missing route means the direction is off. */
   readonly routes: Readonly<Partial<Record<PairKey, readonly ProviderId[]>>>;
+  /** Signed in anonymously: the trial before Google sign-in. */
+  readonly guest: PlanLimits;
   readonly free: PlanLimits;
   readonly pro: PlanLimits;
   readonly cache: {
@@ -38,6 +40,7 @@ export const DEFAULT_CONFIG: RuntimeConfig = {
     "dz-en": ["google"],
     "en-dz": ["google"],
   },
+  guest: { dailyLimit: 3, maxChars: 100 },
   free: { dailyLimit: 10, maxChars: 100 },
   pro: { dailyLimit: 300, maxChars: 500 },
   cache: { generation: 1, ttlDays: 180 },
@@ -125,6 +128,7 @@ export function parseConfig(raw: unknown, log: Logger): RuntimeConfig {
   return {
     enabled,
     routes: mergeRoutes(field(doc, "routes", z.record(z.string(), z.unknown()), log), log),
+    guest: { ...DEFAULT_CONFIG.guest, ...field(doc, "guest", limitsSchema, log) },
     free: { ...DEFAULT_CONFIG.free, ...field(doc, "free", limitsSchema, log) },
     pro: { ...DEFAULT_CONFIG.pro, ...field(doc, "pro", limitsSchema, log) },
     cache: { ...DEFAULT_CONFIG.cache, ...field(doc, "cache", cacheSchema, log) },

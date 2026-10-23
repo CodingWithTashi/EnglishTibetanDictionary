@@ -14,11 +14,18 @@ import com.kharagedition.tibetandictionary.data.model.SavedEntry
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedTranslationsRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationRecord
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Provider
+import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
 import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
+import com.kharagedition.tibetandictionary.fakes.FakeSavedTranslationsRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
@@ -26,6 +33,7 @@ import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.SavedWordActions
 import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
@@ -56,6 +64,7 @@ class SavedViewModelTest {
     private val wordOfTheDay = FakeWordOfTheDayRepository() // today's word is SampleData.tashiEntry
     private val prefs = FakeUserPreferencesRepository()
     private val errors = RecordingErrorReporter()
+    private val translations = FakeSavedTranslationsRepository()
 
     private val tashi = SampleData.tashi
 
@@ -65,8 +74,18 @@ class SavedViewModelTest {
         wordOfTheDay: WordOfTheDayRepository = this@SavedViewModelTest.wordOfTheDay,
         dictionary: DictionaryRepository = this@SavedViewModelTest.dictionary,
         savedState: SavedStateHandle = SavedStateHandle(),
+        savedTranslations: SavedTranslationsRepository = translations,
     ): SavedViewModel {
-        val vm = SavedViewModel(savedState, saved, SavedWordActions(saved, prefs), dictionary, wordOfTheDay, clock, errors)
+        val vm = SavedViewModel(
+            savedState,
+            saved,
+            SavedWordActions(saved, prefs),
+            dictionary,
+            wordOfTheDay,
+            clock,
+            errors,
+            savedTranslations,
+        )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -609,5 +628,128 @@ class SavedViewModelTest {
         vm.onEvent(SavedEvent.ChangeFolder(tashi.id))
         vm.onEvent(SavedEvent.DismissFolderPicker)
         assertThat(vm.uiState.value.folderPicker).isNull()
+    }
+
+    // Translations (1y)
+
+    private val boToEn = LangPair(Lang.BO, Lang.EN)
+    private val enToBo = LangPair(Lang.EN, Lang.BO)
+    private fun record(id: Long, pair: LangPair, source: String, translation: String, provider: Provider, at: String) =
+        TranslationRecord(id, pair, source, translation, provider, Instant.parse(at))
+
+    private val howAreYou =
+        record(1, boToEn, "ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།", "How are you?", Provider.GOOGLE, "2026-10-19T08:00:00Z")
+    private val mayAll = record(
+        2,
+        enToBo,
+        "May all beings be happy",
+        "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་ལྡན་པར་ཤོག",
+        Provider.AZURE,
+        "2026-10-16T08:00:00Z",
+    )
+    private val thankYou = record(3, boToEn, "བཀའ་དྲིན་ཆེ།", "Thank you.", Provider.GOOGLE, "2026-09-01T08:00:00Z")
+
+    private fun ui(record: TranslationRecord) = SavedTranslationUi(
+        id = record.id,
+        source = record.source,
+        translation = record.translation,
+        pair = record.pair,
+        sourceIsTibetan = record.pair.source != Lang.EN,
+    )
+
+    @Test
+    fun `translation count and groups come from the saved translations`() = runTest {
+        translations.records.value = listOf(thankYou, howAreYou, mayAll)
+        val vm = viewModel()
+
+        with(vm.uiState.value) {
+            assertThat(translationCount).isEqualTo(3)
+            assertThat(translationGroups).containsExactly(
+                SavedTranslationGroupUi(SavedPeriod.TODAY, listOf(ui(howAreYou))),
+                SavedTranslationGroupUi(SavedPeriod.THIS_WEEK, listOf(ui(mayAll))),
+                SavedTranslationGroupUi(SavedPeriod.EARLIER, listOf(ui(thankYou))),
+            ).inOrder()
+        }
+    }
+
+    @Test
+    fun `remove then undo restores the row`() = runTest {
+        translations.records.value = listOf(howAreYou, mayAll)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(SavedEvent.RemoveTranslation(howAreYou.id))
+            val removed = awaitItem() as SavedEffect.TranslationRemoved
+            assertThat(removed.record).isEqualTo(howAreYou)
+            assertThat(vm.uiState.value.translationCount).isEqualTo(1)
+
+            vm.onEvent(SavedEvent.UndoRemoveTranslation(removed.record))
+            assertThat(vm.uiState.value.translationCount).isEqualTo(2)
+            assertThat(translations.records.value).contains(howAreYou)
+        }
+    }
+
+    @Test
+    fun `open emits the translate request with the saved result`() = runTest {
+        translations.records.value = listOf(howAreYou, mayAll)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(SavedEvent.OpenTranslation(mayAll.id))
+            assertThat(awaitItem()).isEqualTo(
+                SavedEffect.OpenTranslate(
+                    TranslateRequest(
+                        enToBo,
+                        "May all beings be happy",
+                        TranslatedText("སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་ལྡན་པར་ཤོག", cached = false, provider = Provider.AZURE),
+                    ),
+                ),
+            )
+            // A row removed meanwhile (another screen) opens nothing.
+            vm.onEvent(SavedEvent.OpenTranslation(99))
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `the words tab is unchanged`() = runTest {
+        // Translations alone: the Words tab is still empty, with no search field.
+        translations.records.value = listOf(howAreYou)
+        val vm = viewModel()
+
+        with(vm.uiState.value) {
+            assertThat(tab).isEqualTo(SavedTab.WORDS)
+            assertThat(totalCount).isEqualTo(0)
+            assertThat(isEmpty).isTrue()
+            assertThat(showSearch).isFalse()
+            assertThat(translationCount).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `the chosen tab survives process death`() = runTest {
+        val savedState = SavedStateHandle()
+        val vm = viewModel(savedState = savedState)
+
+        vm.onEvent(SavedEvent.SelectTab(SavedTab.TRANSLATIONS))
+        assertThat(vm.uiState.value.tab).isEqualTo(SavedTab.TRANSLATIONS)
+
+        val restored = viewModel(savedState = SavedStateHandle(savedState.keys().associateWith { savedState[it] }))
+        assertThat(restored.uiState.value.tab).isEqualTo(SavedTab.TRANSLATIONS)
+    }
+
+    @Test
+    fun `a failing translations table is recorded and leaves the words working`() = runTest {
+        saved.save(tashi, folderId = null)
+        val failing = object : SavedTranslationsRepository by translations {
+            override fun observe(): Flow<List<TranslationRecord>> = flow { throw IOException("disk") }
+        }
+        val vm = viewModel(savedTranslations = failing)
+
+        with(vm.uiState.value) {
+            assertThat(totalCount).isEqualTo(1)
+            assertThat(translationCount).isEqualTo(0)
+        }
+        assertThat(errors.recorded).hasSize(1)
     }
 }

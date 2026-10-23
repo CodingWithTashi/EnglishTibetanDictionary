@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.Links
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
@@ -14,10 +15,13 @@ import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 
 /**
- * The Profile tab (2f/3d). [dictionary] is the pack in use. [defaultDirection] is the stored default, or the first
+ * The Profile tab (2f/3d/1z). [dictionary] is the pack in use. [defaultDirection] is the stored default, or the first
  * visible direction when the stored one has no entries (null only when no direction has entries); [directions] are
- * the visible ones in switcher order. [entryCount] is null when unknown (the version line then leaves it out). [account] and [wotdNotification] stay
- * null while their features are off.
+ * the visible ones in switcher order. [entryCount] is null when unknown (the version line then leaves it out).
+ * [account] is the signed-in Google account (null for a guest or no user: the signed-out card shows);
+ * [wotdNotification] stays null while its feature is off. [plan] is the plan card, null while a Google account's usage
+ * is not known yet. [smartTranslate] is the Search group's switch; [confirmDelete] shows the delete dialog,
+ * [deleting] says its delete is running, and [showProSheet] shows the Pro sheet.
  */
 @Immutable
 data class ProfileUiState(
@@ -35,14 +39,32 @@ data class ProfileUiState(
     val links: List<ProfileLink> = emptyList(),
     val otherApps: List<OtherApp> = emptyList(),
     val sheet: ProfileSheet? = null,
+    val plan: PlanCardUi? = PlanCardUi.NoUser,
+    val smartTranslate: Boolean = true,
+    val confirmDelete: Boolean = false,
+    val deleting: Boolean = false,
+    val showProSheet: Boolean = false,
 )
+
+/** The plan card (1z): today's translations for whoever is translating. */
+@Immutable
+sealed interface PlanCardUi {
+    /** No Firebase user yet (nothing translated): the pitch. */
+    data object NoUser : PlanCardUi
+
+    /** A guest: [used] of [limit] today, and the free plan's [freeLimit] (null until known) for "Sign in for 10". */
+    data class Guest(val used: Int, val limit: Int, val freeLimit: Int?) : PlanCardUi
+
+    /** The free plan: [used] of [limit] today, [maxChars] characters each, and Upgrade. */
+    data class Free(val used: Int, val limit: Int, val maxChars: Int) : PlanCardUi
+}
 
 /** The word-of-the-day notification setting; [minuteOfDay] is minutes after local midnight. */
 @Immutable
 data class WotdNotifUi(val enabled: Boolean, val minuteOfDay: Int)
 
-/** The bottom sheet open over Profile. */
-enum class ProfileSheet { TEXT_SIZE, DICTIONARY, DIRECTION, LANGUAGE, MORE_APPS }
+/** The bottom sheet open over Profile; ACCOUNT is the signed-in account's Sign out / Delete account. */
+enum class ProfileSheet { TEXT_SIZE, DICTIONARY, DIRECTION, LANGUAGE, MORE_APPS, ACCOUNT }
 
 /** Footer links, in display order. */
 enum class ProfileLink { ABOUT, RATE, SHARE, MORE_APPS, SUPPORT, PRIVACY }
@@ -86,7 +108,7 @@ data class ProfileLinkTargets(
 sealed interface ProfileEvent {
     /**
      * The screen is showing: re-read the app language, which the system's per-app language setting can change
-     * while the app is in the background.
+     * while the app is in the background, and refresh today's translation count when it is stale.
      */
     data object Shown : ProfileEvent
     data class OpenSheet(val sheet: ProfileSheet) : ProfileEvent
@@ -100,8 +122,23 @@ sealed interface ProfileEvent {
     data object ToggleWotdNotification : ProfileEvent
     data class OpenLink(val link: ProfileLink) : ProfileEvent
     data class OpenOtherApp(val app: OtherApp) : ProfileEvent
-    data object SignIn : ProfileEvent
+
+    /** A sign-in button ([source]: the account card or the plan card); the screen runs it with its activity. */
+    data class SignIn(val source: PromptSource) : ProfileEvent
+
+    /** The signed-in account card: opens the account sheet. */
     data object OpenAccount : ProfileEvent
+    data object SignOut : ProfileEvent
+
+    /** The account sheet's Delete account: asks first. */
+    data object AskDeleteAccount : ProfileEvent
+    data object ConfirmDeleteAccount : ProfileEvent
+    data object DismissDelete : ProfileEvent
+    data object ToggleSmartTranslate : ProfileEvent
+
+    /** The plan card's Upgrade: the Pro sheet (a fake door, logged as pro_interest). */
+    data object OpenPro : ProfileEvent
+    data object DismissProSheet : ProfileEvent
 }
 
 sealed interface ProfileEffect {
@@ -112,6 +149,6 @@ sealed interface ProfileEffect {
 
     data object NavigateAbout : ProfileEffect
 
-    /** A toast, worded by the screen in the UI language (a setting that could not be saved). */
+    /** A toast, worded by the screen in the UI language (a setting that could not be saved, sign-in, sign-out). */
     data class Toast(val message: UiText) : ProfileEffect
 }

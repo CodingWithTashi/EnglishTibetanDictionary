@@ -13,7 +13,7 @@ export default defineConfig({
       reportsDirectory: "coverage/unit",
       reporter: ["text", "html", "json-summary"],
       // What the suite reached on 2026-10-22, rounded down. Raise them as coverage grows; never lower them.
-      thresholds: { lines: 95, branches: 94 },
+      thresholds: { lines: 95, branches: 95 },
     },
   },
 });

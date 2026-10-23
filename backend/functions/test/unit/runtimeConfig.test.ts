@@ -27,6 +27,27 @@ describe("parseConfig", () => {
     expect(DEFAULT_CONFIG.pro).toEqual({ dailyLimit: 300, maxChars: 500 });
   });
 
+  test("guests get 3 a day of 100 characters by default", () => {
+    expect(DEFAULT_CONFIG.guest).toEqual({ dailyLimit: 3, maxChars: 100 });
+  });
+
+  test("a partial guest section keeps the other guest default", () => {
+    const config = parseConfig({ guest: { dailyLimit: 5 } }, fakeLogger());
+    expect(config.guest).toEqual({ dailyLimit: 5, maxChars: 100 });
+    expect(config.free).toEqual(DEFAULT_CONFIG.free);
+  });
+
+  test("an invalid guest section is logged and replaced by the default", () => {
+    const log = fakeLogger();
+    expect(parseConfig({ guest: { dailyLimit: "5" } }, log).guest).toEqual(DEFAULT_CONFIG.guest);
+    expect(log.entries).toContainEqual(
+      expect.objectContaining({
+        level: "error",
+        message: expect.stringContaining('config: invalid "guest"') as unknown,
+      }),
+    );
+  });
+
   test("a partial section keeps the other defaults", () => {
     const config = parseConfig({ free: { dailyLimit: 5 } }, fakeLogger());
     expect(config.free).toEqual({ dailyLimit: 5, maxChars: 100 });

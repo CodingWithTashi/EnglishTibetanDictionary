@@ -54,6 +54,20 @@ describe("quota store", () => {
     expect(await quota.read("user-1", "2026-10-22")).toEqual({ count: 1, chars: 7 });
   });
 
+  test("deleteAll removes only that user's docs, across days", async () => {
+    for (const day of ["2026-10-20", "2026-10-21", "2026-10-22"]) await quota.reserve("user-1", day, 10, 4);
+    await quota.reserve("user-2", "2026-10-22", 10, 6);
+    expect(await quota.deleteAll("user-1")).toBe(3);
+    for (const day of ["2026-10-20", "2026-10-21", "2026-10-22"]) {
+      expect(await quota.read("user-1", day)).toEqual({ count: 0, chars: 0 });
+    }
+    expect(await quota.read("user-2", "2026-10-22")).toEqual({ count: 1, chars: 6 });
+  });
+
+  test("deleteAll with nothing to delete is 0", async () => {
+    expect(await quota.deleteAll("user-1")).toBe(0);
+  });
+
   test("a uid with a slash still maps to one document", async () => {
     await quota.reserve("tenant/abc", "2026-10-22", 10, 3);
     expect(await quota.read("tenant/abc", "2026-10-22")).toEqual({ count: 1, chars: 3 });

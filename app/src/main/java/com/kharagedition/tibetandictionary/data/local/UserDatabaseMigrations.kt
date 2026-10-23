@@ -36,4 +36,43 @@ object UserDatabaseMigrations {
             )
         }
     }
+
+    /**
+     * 2 → 3: adds `recent_translations` and `saved_translations`, both empty, with their unique (pack, direction,
+     * source) and (pack, time) indices, created exactly as in `schemas/…UserDatabase/3.json`.
+     */
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `recent_translations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`pack_id` TEXT NOT NULL, `source_lang` TEXT NOT NULL, `target_lang` TEXT NOT NULL, " +
+                    "`source_text` TEXT NOT NULL, `translation` TEXT NOT NULL, `provider` TEXT NOT NULL, " +
+                    "`used_at` INTEGER NOT NULL)",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "`index_recent_translations_pack_id_source_lang_target_lang_source_text` " +
+                    "ON `recent_translations` (`pack_id`, `source_lang`, `target_lang`, `source_text`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_recent_translations_pack_id_used_at` " +
+                    "ON `recent_translations` (`pack_id`, `used_at`)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `saved_translations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`pack_id` TEXT NOT NULL, `source_lang` TEXT NOT NULL, `target_lang` TEXT NOT NULL, " +
+                    "`source_text` TEXT NOT NULL, `translation` TEXT NOT NULL, `provider` TEXT NOT NULL, " +
+                    "`saved_at` INTEGER NOT NULL)",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "`index_saved_translations_pack_id_source_lang_target_lang_source_text` " +
+                    "ON `saved_translations` (`pack_id`, `source_lang`, `target_lang`, `source_text`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_saved_translations_pack_id_saved_at` " +
+                    "ON `saved_translations` (`pack_id`, `saved_at`)",
+            )
+        }
+    }
 }

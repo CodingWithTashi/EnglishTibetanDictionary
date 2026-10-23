@@ -35,4 +35,6 @@ interface UserPreferencesRepository {
     suspend fun setWotdNotification(enabled: Boolean, minuteOfDay: Int)
 
     suspend fun setLegacyCleanupDone(done: Boolean)
+
+    suspend fun setSmartTranslate(enabled: Boolean)
 }

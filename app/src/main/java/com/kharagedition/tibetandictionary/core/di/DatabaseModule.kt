@@ -15,6 +15,7 @@ import com.kharagedition.tibetandictionary.data.local.dao.ActivityDayDao
 import com.kharagedition.tibetandictionary.data.local.dao.FolderDao
 import com.kharagedition.tibetandictionary.data.local.dao.RecentSearchDao
 import com.kharagedition.tibetandictionary.data.local.dao.SavedEntryDao
+import com.kharagedition.tibetandictionary.data.local.dao.TranslationDao
 import com.kharagedition.tibetandictionary.data.model.resources
 import dagger.Module
 import dagger.Provides
@@ -56,7 +57,7 @@ object DatabaseModule {
     @Singleton
     fun provideUserDatabase(@ApplicationContext context: Context): UserDatabase =
         Room.databaseBuilder(context, UserDatabase::class.java, UserDatabase.DB_NAME)
-            .addMigrations(UserDatabaseMigrations.MIGRATION_1_2)
+            .addMigrations(UserDatabaseMigrations.MIGRATION_1_2, UserDatabaseMigrations.MIGRATION_2_3)
             .build()
 
     @Provides fun provideFolderDao(db: UserDatabase): FolderDao = db.folderDao()
@@ -66,4 +67,6 @@ object DatabaseModule {
     @Provides fun provideRecentSearchDao(db: UserDatabase): RecentSearchDao = db.recentSearchDao()
 
     @Provides fun provideActivityDayDao(db: UserDatabase): ActivityDayDao = db.activityDayDao()
+
+    @Provides fun provideTranslationDao(db: UserDatabase): TranslationDao = db.translationDao()
 }

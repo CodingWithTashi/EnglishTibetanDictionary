@@ -14,8 +14,14 @@ import com.kharagedition.tibetandictionary.data.repository.RecentSearchesReposit
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepositoryImpl
+import com.kharagedition.tibetandictionary.data.repository.SavedTranslationsRepository
+import com.kharagedition.tibetandictionary.data.repository.SavedTranslationsRepositoryImpl
+import com.kharagedition.tibetandictionary.data.repository.TranslationHistoryRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationHistoryRepositoryImpl
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepositoryImpl
+import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
+import com.kharagedition.tibetandictionary.data.translation.TranslationRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,4 +39,9 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindUserPreferencesRepository(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
     @Binds @Singleton abstract fun bindDictionaryInstaller(impl: DictionaryInstallerImpl): DictionaryInstaller
     @Binds @Singleton abstract fun bindDictionarySwitcher(impl: DictionarySwitcherImpl): DictionarySwitcher
+    @Binds @Singleton abstract fun bindTranslationRepository(impl: TranslationRepositoryImpl): TranslationRepository
+    @Binds @Singleton
+    abstract fun bindTranslationHistoryRepository(impl: TranslationHistoryRepositoryImpl): TranslationHistoryRepository
+    @Binds @Singleton
+    abstract fun bindSavedTranslationsRepository(impl: SavedTranslationsRepositoryImpl): SavedTranslationsRepository
 }

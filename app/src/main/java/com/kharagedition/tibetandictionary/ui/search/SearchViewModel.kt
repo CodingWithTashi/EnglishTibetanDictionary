@@ -1,16 +1,21 @@
 package com.kharagedition.tibetandictionary.ui.search
 
+import android.app.Activity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.Features
+import com.kharagedition.tibetandictionary.core.analytics.Analytics
+import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
 import com.kharagedition.tibetandictionary.core.text.TibetanScript
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.EntrySummary
 import com.kharagedition.tibetandictionary.data.model.SearchHit
 import com.kharagedition.tibetandictionary.data.model.SearchResult
 import com.kharagedition.tibetandictionary.data.model.Suggestion
@@ -18,11 +23,14 @@ import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.repository.ActivityRepository
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
+import com.kharagedition.tibetandictionary.data.repository.TranslationHistoryRepository
 import com.kharagedition.tibetandictionary.data.search.QueryNormalizer
+import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
 import com.kharagedition.tibetandictionary.domain.DetectScript
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.InputScript
 import com.kharagedition.tibetandictionary.domain.ResolveDirection
+import com.kharagedition.tibetandictionary.ui.model.SignInAction
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -64,6 +72,8 @@ import kotlinx.coroutines.launch
  * Starts with [initialQuery] and, when [voice] is set and speech recognition is available, with voice input. The
  * typed query and the chosen direction live in [savedState], so a view model recreated after process death shows
  * the same search again (and does not reopen voice input).
+ *
+ * Each shown search also goes to a [SmartTranslateController] (quick translation and "In the dictionary").
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel(assistedFactory = SearchViewModel.Factory::class)
@@ -77,6 +87,10 @@ class SearchViewModel @AssistedInject constructor(
     prefs: UserPreferencesRepository,
     speech: SpeechAvailability,
     private val errors: ErrorReporter,
+    translation: TranslationRepository,
+    translationHistory: TranslationHistoryRepository,
+    private val signInAction: SignInAction,
+    private val analytics: Analytics,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -149,12 +163,17 @@ class SearchViewModel @AssistedInject constructor(
 
     private val recents: Flow<List<RecentRowUi>> = recentSearches.observe().map { rows -> rows.map { it.toRow() } }
 
+    private val smart =
+        SmartTranslateController(viewModelScope, translation, translationHistory, prefs, dictionary, errors)
+    private val proSheet = MutableStateFlow(false)
+
     val uiState: StateFlow<SearchUiState> = combine(
         combine(field, selection, outcome, loading, ::Inputs),
         capabilities.filterNotNull(),
         defaultDirectionId,
         recents,
-    ) { inputs, caps, defaultId, recentRows -> inputs.toUiState(caps, defaultId, recentRows) }
+        combine(smart.state, smart.phraseWords, proSheet, ::SmartInputs),
+    ) { inputs, caps, defaultId, recentRows, smartInputs -> inputs.toUiState(caps, defaultId, recentRows, smartInputs) }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
@@ -180,6 +199,7 @@ class SearchViewModel @AssistedInject constructor(
                 // A search that finishes after the field was emptied has nothing left to show.
                 if (result != null && QueryNormalizer.normalize(field.value.text).isEmpty()) return@onEach
                 outcome.value = result
+                smart.onSettled(result?.let(::settled))
                 if (result != null) countSearch(result)
             }
             .launchIn(viewModelScope)
@@ -211,6 +231,28 @@ class SearchViewModel @AssistedInject constructor(
             }
             SearchEvent.VoiceSearch -> effectChannel.trySend(SearchEffect.StartVoiceSearch)
             SearchEvent.LoadMore -> loadMore()
+            SearchEvent.TranslateQuery -> smart.translateNow()
+            SearchEvent.OpenInTranslate -> smart.requestFor()?.let {
+                effectChannel.trySend(SearchEffect.OpenTranslate(it))
+            }
+            is SearchEvent.SmartWordTap -> event.word.query?.let { query ->
+                changeQuery(TextFieldValue(query, TextRange(query.length)))
+                select(selection.value.copy(pinned = false))
+            }
+            // Handled by the route, which has the activity sign-in needs (see signIn).
+            SearchEvent.SmartSignIn -> Unit
+            SearchEvent.SmartUpgrade -> {
+                analytics.log(AnalyticsEvent.ProInterest(PromptSource.SEARCH_LIMIT))
+                proSheet.value = true
+            }
+            SearchEvent.DismissProSheet -> proSheet.value = false
+        }
+    }
+
+    /** Google sign-in from "Sign in to translate"; the toast says how many are left. */
+    fun signIn(activity: Activity) {
+        launchSafely {
+            signInAction.run(activity, PromptSource.SEARCH_LIMIT)?.let { effectChannel.trySend(SearchEffect.Toast(it)) }
         }
     }
 
@@ -221,6 +263,7 @@ class SearchViewModel @AssistedInject constructor(
         if (QueryNormalizer.normalize(value.text).isEmpty()) {
             select(selection.value.copy(pinned = false))
             outcome.value = null
+            smart.onSettled(null)
         }
     }
 
@@ -314,6 +357,22 @@ class SearchViewModel @AssistedInject constructor(
         }
     }
 
+    /**
+     * [result] as smart translate sees it: the field's text while it is still that query, since normalising drops a
+     * final shad and capitals.
+     */
+    private fun settled(result: Outcome): Settled? {
+        val direction = capabilities.value?.directions?.firstOrNull { it.id == result.directionId } ?: return null
+        val typed = field.value.text.takeIf { QueryNormalizer.normalize(it) == result.query }?.trim() ?: result.query
+        return Settled(
+            query = typed,
+            direction = direction,
+            script = result.script,
+            hasExact = result.hits.firstOrNull()?.isExact(result.query) == true,
+            noResults = result.hits.isEmpty(),
+        )
+    }
+
     /** Counts a query for the streak the first time it finds something. */
     private fun countSearch(result: Outcome) {
         if (result.hits.isEmpty() || result.query == countedQuery) return
@@ -384,10 +443,17 @@ class SearchViewModel @AssistedInject constructor(
         val loading: Boolean,
     )
 
+    private data class SmartInputs(
+        val state: SmartTranslateUi?,
+        val phraseWords: List<EntrySummary>,
+        val proSheet: Boolean,
+    )
+
     private fun Inputs.toUiState(
         caps: DictionaryCapabilities,
         defaultId: String,
         recents: List<RecentRowUi>,
+        smartInputs: SmartInputs,
     ): SearchUiState {
         val directions = caps.directions
         val userSelected = selectedDirection(selection, caps, defaultId)
@@ -425,6 +491,9 @@ class SearchViewModel @AssistedInject constructor(
             settledQuery = shown?.query.orEmpty(),
             searchId = shown?.id ?: 0,
             pagesLoaded = shown?.pages ?: 0,
+            smartTranslate = smartInputs.state.takeUnless { blank },
+            phraseWords = if (blank) emptyList() else smartInputs.phraseWords.mapNotNull { it.toPhraseRow(directions) },
+            showProSheet = smartInputs.proSheet,
         )
     }
 

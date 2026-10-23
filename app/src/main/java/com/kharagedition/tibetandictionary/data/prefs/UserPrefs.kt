@@ -27,4 +27,6 @@ data class UserPrefs(
     /** Local time of the word-of-the-day notification, always within [WotdNotificationMinute] (540 = 09:00). */
     val wotdNotificationMinute: Int = WotdNotificationMinute.DEFAULT,
     val legacyCleanupDone: Boolean = false,
+    /** Search translates phrases with no dictionary match (automatically only while more than 3 are left). */
+    val smartTranslate: Boolean = true,
 )

@@ -16,7 +16,7 @@ class DictIconsTest {
         assertThat(DictIcons.all.keys).containsExactly(
             "Search", "SearchOff", "Mic", "Speaker", "Heart", "HeartFilled", "Share", "Copy", "Learn", "Person",
             "Back", "Close", "ChevronRight", "ChevronDown", "ChevronLeft", "Check", "Plus", "History",
-            "OpenExternal",
+            "OpenExternal", "Translate", "Paste", "WifiOff",
         )
     }
 

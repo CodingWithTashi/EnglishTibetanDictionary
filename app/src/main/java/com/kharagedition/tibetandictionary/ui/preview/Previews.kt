@@ -62,7 +62,8 @@ private fun DictColors.swatches(): List<Pair<String, Color>> = listOf(
     "onAccent" to onAccent, "ink" to ink, "muted" to muted, "faint" to faint, "outline" to outline,
     "cardBorder" to cardBorder, "divider" to divider, "scrim" to scrim, "inverseSurface" to inverseSurface,
     "inverseOnSurface" to inverseOnSurface, "inverseAccent" to inverseAccent, "success" to success,
-    "danger" to danger, "flagLine" to flagLine, "flagBlue" to flagBlue, "flagWhite" to flagWhite,
+    "danger" to danger, "warnContainer" to warnContainer, "onWarnContainer" to onWarnContainer, "warn" to warn,
+    "flagLine" to flagLine, "flagBlue" to flagBlue, "flagWhite" to flagWhite,
     "flagRed" to flagRed, "flagGreen" to flagGreen, "flagYellow" to flagYellow,
 )
 

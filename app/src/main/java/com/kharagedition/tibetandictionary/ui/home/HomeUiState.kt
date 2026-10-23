@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.translation.LangPair
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.LearnStatsUi
@@ -15,10 +16,18 @@ import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 data class RecentChipUi(val query: String)
 
 /**
+ * The "Translate a sentence" card under the word of the day (1h): it opens the Translate tab, whose default direction
+ * is [pair]. [remaining] of [limit] are today's translations left; both are null until there is a user (the count
+ * then is not known), and the card leaves the count out.
+ */
+@Immutable
+data class TranslateCardUi(val pair: LangPair, val remaining: Int?, val limit: Int?)
+
+/**
  * The Home page of the Search tab (1a/2a). [streakDays] is the run of active days, null until the activity log
  * is read (or when it cannot be); [selectedDirection] is the default direction, null until the dictionary's
  * directions are known. [stats] has no source in release 1 (Learn ships behind `Features.LEARN`).
- * [micAvailable] already includes `Features.VOICE_SEARCH`.
+ * [micAvailable] already includes `Features.VOICE_SEARCH`. [translateCard] is null while translation is off.
  */
 @Immutable
 data class HomeUiState(
@@ -30,6 +39,7 @@ data class HomeUiState(
     val recents: List<RecentChipUi> = emptyList(),
     val stats: LearnStatsUi? = null,
     val micAvailable: Boolean = false,
+    val translateCard: TranslateCardUi? = null,
 ) {
     /** The streak pill's count; null hides the pill (no streak known, or a run shorter than two days). */
     val visibleStreak: Int? get() = streakDays?.takeIf { it >= MIN_STREAK_DAYS }
@@ -71,6 +81,9 @@ sealed interface HomeEvent {
 
     data class RecentTap(val query: String) : HomeEvent
 
+    /** The translate card: opens the Translate tab. */
+    data object OpenTranslate : HomeEvent
+
     /** The Learn stats card; nothing to open in release 1. */
     data object StatsTap : HomeEvent
 }
@@ -81,6 +94,9 @@ sealed interface HomeEffect {
     data class NavigateSearch(val query: String?, val voice: Boolean) : HomeEffect
 
     data class NavigateEntry(val entryId: Long) : HomeEffect
+
+    /** Selects the Translate tab. */
+    data object NavigateTranslate : HomeEffect
 
     /** Shares [text] through the system share sheet. */
     data class Share(val text: String) : HomeEffect

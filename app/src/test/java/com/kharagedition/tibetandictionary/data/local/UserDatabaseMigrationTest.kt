@@ -59,6 +59,41 @@ class UserDatabaseMigrationTest {
             .containsExactly(listOf("bo", "Verbs"), listOf("dz", "Verbs")).inOrder()
     }
 
+    @Test
+    fun migrate2To3KeepsSavedWordsAndCreatesTheTranslationTables() {
+        helper.createDatabase(DB_NAME, 2).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO saved_entries (entry_id, pack_id, direction_id, headword, wylie, gloss_preview, folder_id,
+                    note, saved_at, updated_at)
+                VALUES (1000001, 'bo', 'bo-en', 'བཀྲ་ཤིས་', 'bkra shis', 'auspicious', NULL, NULL, 20, 20)
+                """,
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            DB_NAME,
+            3,
+            true,
+            UserDatabaseMigrations.MIGRATION_1_2,
+            UserDatabaseMigrations.MIGRATION_2_3,
+        )
+
+        assertThat(db.rows("SELECT entry_id, pack_id FROM saved_entries")).containsExactly(listOf("1000001", "bo"))
+        db.execSQL(
+            "INSERT INTO recent_translations (pack_id, source_lang, target_lang, source_text, translation, provider, " +
+                "used_at) VALUES ('bo', 'bo', 'en', 'བཀྲ་ཤིས།', 'Tashi Delek', 'azure', 30)",
+        )
+        db.execSQL(
+            "INSERT INTO saved_translations (pack_id, source_lang, target_lang, source_text, translation, provider, " +
+                "saved_at) VALUES ('bo', 'en', 'bo', 'Thank you', 'ཐུགས་རྗེ་ཆེ།', 'google', 40)",
+        )
+        assertThat(db.rows("SELECT source_text, translation, used_at FROM recent_translations"))
+            .containsExactly(listOf("བཀྲ་ཤིས།", "Tashi Delek", "30"))
+        assertThat(db.rows("SELECT source_text, translation, saved_at FROM saved_translations"))
+            .containsExactly(listOf("Thank you", "ཐུགས་རྗེ་ཆེ།", "40"))
+    }
+
     /** Every row of [sql], each column read as text. */
     private fun SupportSQLiteDatabase.rows(sql: String): List<List<String?>> = query(sql).use { cursor ->
         buildList {

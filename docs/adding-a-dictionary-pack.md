@@ -54,6 +54,13 @@ Steps marked **test fails** are checked for every pack by the named test, so a f
    Android's backup rules take no wildcards, and a 37–87 MB database would use up the 25 MB Auto Backup quota.
 6. Optional, `ui/profile/ProfileUiState.kt`: add the pack's entries to `OtherApp` (the developer's other apps,
    listed under "More apps"). A pack without any hides "More apps".
+7. Translation (**build fails**): give the pack's `translateSamples`, one or two short sentences in its language
+   for the Translate tab's "Try" chips, and add it to `DictionaryPack.translationPairs()`
+   (`data/translation/TranslationModels.kt`) as its language ⇄ English, its own language first. A language other
+   than `bo`, `dz` or `en` also needs a `Lang` entry there (check `usesTibetanScript`), and on the backend an entry
+   in `LANG_CODES` (`backend/functions/src/domain/languages.ts`) and a route for each direction in
+   `config/translation` (`backend/README.md`). `npm run check-providers` shows which provider really handles it.
+   Until the backend offers a direction, the Translate tab and the Home card leave it out.
 
 The direction switcher's labels, the direction list and its features (Wylie, examples, word of the day…) all come
 from the asset, so they need no app change.

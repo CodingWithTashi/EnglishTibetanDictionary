@@ -19,13 +19,19 @@ import { DailyLimitError, type QuotaStore, type Usage } from "../store/quotaStor
 import type { CacheHit, TranslationCache } from "../store/translationCache.js";
 import { errorMessage, type Logger } from "../util/logger.js";
 import { toHttpsError, TranslationError } from "./errors.js";
-import type { Plan, PlanResolver } from "./plan.js";
+import { isGuest, type Plan, type PlanResolver, type PlanUser } from "./plan.js";
 import type { RateLimiter } from "./rateLimiter.js";
+
+/** The parts of a callable's auth the handlers use: the uid and the ID token's Firebase claims. */
+export interface CallableAuth {
+  uid: string;
+  token?: { firebase?: { sign_in_provider?: string; identities?: Record<string, unknown> } };
+}
 
 /** The parts of a callable request the handlers use. */
 export interface CallableLike {
   data: unknown;
-  auth?: { uid: string } | undefined;
+  auth?: CallableAuth | undefined;
 }
 
 export interface StatusDeps {
@@ -70,6 +76,8 @@ export interface TranslateResponse {
 export interface StatusResponse extends QuotaInfo {
   enabled: boolean;
   pairs: PairKey[];
+  /** The free plan's daily limit, so a guest can be told how many more signing in gives. */
+  freeLimit: number;
 }
 
 const timeZoneSchema = z.string().max(64).optional();
@@ -83,10 +91,11 @@ const translateRequestSchema = z.object({
 
 const statusRequestSchema = z.object({ timeZone: timeZoneSchema }).optional();
 
-function requireUid(request: CallableLike): string {
-  const uid = request.auth?.uid;
-  if (!uid) throw new TranslationError("unauthenticated", "unauthenticated", "Sign-in required.");
-  return uid;
+/** The signed-in user (anonymous counts); unauthenticated without one. */
+export function requireUser(request: CallableLike): PlanUser {
+  const auth = request.auth;
+  if (!auth?.uid) throw new TranslationError("unauthenticated", "unauthenticated", "Sign-in required.");
+  return { uid: auth.uid, isGuest: isGuest(auth) };
 }
 
 function quotaInfo(plan: Plan, limits: PlanLimits, usage: Usage, day: DayWindow): QuotaInfo {
@@ -101,7 +110,7 @@ function quotaInfo(plan: Plan, limits: PlanLimits, usage: Usage, day: DayWindow)
 }
 
 function limitsFor(config: RuntimeConfig, plan: Plan): PlanLimits {
-  return plan === "pro" ? config.pro : config.free;
+  return config[plan];
 }
 
 /** Validates and normalises the text; returns it with its length in code points. */
@@ -137,7 +146,8 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
   const started = Date.now();
   const event: Record<string, unknown> = { uid: request.auth?.uid };
   try {
-    const uid = requireUid(request);
+    const user = requireUser(request);
+    const { uid } = user;
     const config = await deps.config.get();
     if (!config.enabled) {
       throw new TranslationError("failed-precondition", "translation_disabled", "Translation is turned off.");
@@ -152,7 +162,7 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
       throw new TranslationError("invalid-argument", "unsupported_pair", "This direction is not available.");
     }
 
-    const plan = await deps.resolvePlan(uid);
+    const plan = await deps.resolvePlan(user);
     const limits = limitsFor(config, plan);
     const { text, length } = prepareText(parsed.data.text, source, limits.maxChars);
     event.chars = length;
@@ -207,6 +217,8 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
         throw new TranslationError("resource-exhausted", "daily_limit", "Daily limit reached.", {
           limit: error.limit,
           resetsAt: day.resetsAt.toISOString(),
+          plan,
+          freeLimit: config.free.dailyLimit,
         });
       }
       throw error;
@@ -273,15 +285,20 @@ export async function handleTranslate(request: CallableLike, deps: Deps): Promis
 
 export async function handleStatus(request: CallableLike, deps: StatusDeps): Promise<StatusResponse> {
   try {
-    const uid = requireUid(request);
+    const user = requireUser(request);
     const parsed = statusRequestSchema.safeParse(request.data ?? undefined);
     if (!parsed.success) throw new TranslationError("invalid-argument", "bad_request", "Malformed request.");
     const config = await deps.config.get();
-    const plan = await deps.resolvePlan(uid);
+    const plan = await deps.resolvePlan(user);
     const limits = limitsFor(config, plan);
     const day = dayWindow(parsed.data?.timeZone, deps.now());
-    const usage = await deps.quota.read(uid, day.dayKey);
-    return { enabled: config.enabled, ...quotaInfo(plan, limits, usage, day), pairs: supportedPairs(config) };
+    const usage = await deps.quota.read(user.uid, day.dayKey);
+    return {
+      enabled: config.enabled,
+      ...quotaInfo(plan, limits, usage, day),
+      pairs: supportedPairs(config),
+      freeLimit: config.free.dailyLimit,
+    };
   } catch (error) {
     throw toHttpsError(error, deps.log, { uid: request.auth?.uid });
   }

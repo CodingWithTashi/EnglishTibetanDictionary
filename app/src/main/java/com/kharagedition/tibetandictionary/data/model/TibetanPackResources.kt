@@ -30,4 +30,5 @@ internal val TibetanPackResources = PackResources(
         definition = "བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།",
         shortGloss = "auspicious",
     ),
+    translateSamples = listOf("ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།", "ང་བོད་པ་ཡིན།"),
 )

@@ -53,14 +53,12 @@ private val WotdExtraGap = 6.dp
 /** The action row's 48dp touch targets start 12dp before the text edge, so icons line up with the text. */
 private val WotdActionsInset = 12.dp
 
-/** Account avatar, sync dot and the gaps inside account and stats cards. */
+/** Account avatar and the gaps inside account and stats cards. */
 private val Avatar = 44.dp
-private val SyncDot = 6.dp
 
 /** Avatar initials size (16, fixed). */
 private val AvatarText = 16.dp
 private val CardGap = 14.dp
-private val SmallGap = 6.dp
 
 /** Tip box padding (12×14) and the text-size preview card padding (22×20). */
 private val TipPaddingVertical = 12.dp
@@ -193,7 +191,7 @@ fun StatsCard(
 
 /**
  * The signed-in account on Profile: surface1 card with a 44dp accentContainer avatar showing the initials, the
- * e-mail (14/500), the sync line with a success dot when [AccountUi.syncedText] is set, and a chevron.
+ * name (14/500) over the e-mail (12 muted), or the e-mail alone in 14/500 when there is no name, and a chevron.
  */
 @Composable
 fun AccountCard(account: AccountUi, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -218,12 +216,20 @@ fun AccountCard(account: AccountUi, onClick: () -> Unit, modifier: Modifier = Mo
             )
         }
         Column(Modifier.weight(1f)) {
-            Text(account.email, color = colors.ink, style = type.bodySmallMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (account.syncedText != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SmallGap)) {
-                    Box(Modifier.size(SyncDot).background(colors.success, CircleShape))
-                    MixedText(account.syncedText, type.caption, type.tibetanInline14, color = colors.muted)
-                }
+            val name = account.name
+            val ellipsis = TextOverflow.Ellipsis
+            if (name != null) {
+                MixedText(
+                    name,
+                    type.bodySmallMedium,
+                    type.tibetanInline16,
+                    color = colors.ink,
+                    maxLines = 1,
+                    overflow = ellipsis,
+                )
+                Text(account.email, color = colors.muted, style = type.caption, maxLines = 1, overflow = ellipsis)
+            } else {
+                Text(account.email, color = colors.ink, style = type.bodySmallMedium, maxLines = 1, overflow = ellipsis)
             }
         }
         Icon(DictIcons.ChevronRight, contentDescription = null, Modifier.size(DictTheme.dimens.iconSmall), tint = colors.muted)
@@ -353,7 +359,7 @@ private fun CardsPreview() {
         WordOfTheDayCard(PreviewSamples.wotd.copy(wylie = null, hasAudio = false, isSaved = true), {}, {}, {}, {})
         StatsCard("9 words learned this week", "4 due for review in Learn", listOf(true, true, true, true, true, false, false), {})
         StatsCard("2 words learned this week", null, listOf(true, false, true, false, false, false, false), {})
-        AccountCard(AccountUi("tenzin.dolma@gmail.com", "TD", "Synced 2 min ago · 42 words"), {})
+        AccountCard(AccountUi(name = "Tenzin Dolma", email = "tenzin.dolma@gmail.com", initials = "TD"), {})
         SignedOutAccountCard("Not signed in", "Sync saved words across devices", "Sign in", {})
         TipBox(stringResource(R.string.wylie_tip))
         PreviewCard(AppTextSize.DEFAULT, LineSpacing.DEFAULT)

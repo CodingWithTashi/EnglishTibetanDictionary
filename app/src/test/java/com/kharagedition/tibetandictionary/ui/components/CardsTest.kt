@@ -45,7 +45,7 @@ class CardsTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val account = AccountUi("tenzin.dolma@gmail.com", "TD", "Synced 2 min ago")
+    private val account = AccountUi(name = "Tenzin Dolma", email = "tenzin.dolma@gmail.com", initials = "TD")
 
     private fun setCard(card: @Composable (Modifier) -> Unit) {
         compose.setContent {
@@ -172,6 +172,23 @@ class CardsTest {
 
         assertThat(opened).isEqualTo(1)
         assertThat(signIns).isEqualTo(1)
+    }
+
+    @Test
+    fun `the account card shows the name over the email, or the email alone`() {
+        compose.setContent {
+            DictTheme(darkTheme = false) {
+                Column {
+                    AccountCard(account, onClick = {})
+                    AccountCard(AccountUi(name = null, email = "dolma@example.com", initials = "D"), onClick = {})
+                }
+            }
+        }
+
+        compose.onNodeWithText("Tenzin Dolma").assertExists()
+        compose.onNodeWithText("tenzin.dolma@gmail.com").assertExists()
+        compose.onNodeWithText("dolma@example.com").assertExists()
+        compose.onNodeWithText("Synced", substring = true).assertDoesNotExist()
     }
 
     /** The reading preview and the greeting as a screen under the app root with [active] in use shows them. */
