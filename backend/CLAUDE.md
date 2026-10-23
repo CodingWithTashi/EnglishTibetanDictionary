@@ -2,12 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This folder holds the Firebase Functions translation backend for the Android app: two callables, `translate`
-and `getTranslationStatus`. TypeScript on Node 22, region asia-south1, Firebase project
-`englishtibetandictionary`.
+This folder holds the Firebase Functions backend for the Android app: the callables `translate`,
+`getTranslationStatus`, `deleteAccount` and `syncSubscription`, and the HTTPS `revenuecatWebhook`. TypeScript on
+Node 22, region asia-south1, Firebase project `englishtibetandictionary`.
 - `README.md`: the API contract, error reasons, runtime config and deploy runbook.
 - `functions/architecture.md`: the request flow and how the parts fit.
-- Design and decisions: `docs/superpowers/specs/2026-10-22-translation-backend-design.md`.
+- Design and decisions: `docs/superpowers/specs/2026-10-22-translation-backend-design.md`; Pro subscriptions:
+  `docs/superpowers/specs/2026-10-23-subscriptions-design.md`.
 
 ## Commands
 
@@ -46,6 +47,9 @@ backend job blocks Android releases.
   Store and security-rules behaviour is tested only on the emulator (`test/emulator/`).
 - `src/domain/` is pure: no I/O, no firebase imports. That's why `HttpsError` mapping lives in
   `src/service/errors.ts`.
+- Pro: `src/service/subscriptionRefresh.ts` is the only writer of `subscriptions/{uid}`. The webhook and
+  `syncSubscription` both call it; it re-reads RevenueCat's v1 subscriber and writes only if `fetchedAt` is newer.
+  `createPlanResolver` (`src/service/plan.ts`) reads the record on every translate and status call.
 - `src/providers/router.ts` walks the ordered route for a direction from the Firestore doc
   `config/translation`. Switching provider is a doc edit, not a deploy. Defaults and per-field validation are
   in `src/config/runtimeConfig.ts`. If `enabled` is present but not a boolean, translation turns off.
@@ -67,6 +71,8 @@ backend job blocks Android releases.
   test. Change it only on purpose, together with that test.
 - `test/unit/index.test.ts` pins the deploy options through `__endpoint`: region, memory, cpu, concurrency,
   maxInstances, timeout, service account and secret binding. If you change an option, update that test.
+- The webhook payload is never trusted or applied: an event only causes refreshes. Keep it that way; it is what
+  makes duplicate, late and forged deliveries harmless.
 - `serviceAccount` must be the full email. firebase-tools 15.34 passes the short `translation-fn@` form
   unchanged to Secret Manager when granting access to the secret, and the deploy fails.
 - Parameters and secrets:
@@ -75,6 +81,8 @@ backend job blocks Android releases.
     when non-interactive.
   - The Azure key is the Secret Manager secret `AZURE_TRANSLATOR_KEY`. For the local functions emulator, put
     it in `functions/.secret.local` (git-ignored).
+  - `REVENUECAT_API_KEY` (v1 secret key) and `REVENUECAT_WEBHOOK_AUTH` (the webhook's Authorization value) are
+    Secret Manager secrets set by the owner. Never print, log or commit either.
 - Google Cloud Translation uses the service account through Application Default Credentials, with no API key.
   Its `quotaProject` option (header `x-goog-user-project`) is only for local scripts running on user
   credentials. Never set it in `index.ts`.
@@ -94,5 +102,6 @@ backend job blocks Android releases.
   - `npm run check-providers` (billable). Get the key with
     `AZURE_TRANSLATOR_KEY="$(gcloud secrets versions access latest --secret AZURE_TRANSLATOR_KEY --project englishtibetandictionary)"`.
   - `npm run smoke` (billable). It needs an App Check debug token; delete the token afterwards.
+  - Any edit of `config/translation` in the live project, including `billing.enabled`.
 - A non-interactive first deploy exits 1 after a successful deploy, only because it couldn't set the
   container-image cleanup policy. The policy is already set: 1 day, asia-south1.

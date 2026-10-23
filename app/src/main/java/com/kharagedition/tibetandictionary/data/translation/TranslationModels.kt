@@ -86,7 +86,19 @@ data class TranslatedText(val translation: String, val cached: Boolean, val prov
 /** [quota] is null only on a cached reply whose usage the server could not read. */
 data class TranslateReply(val text: TranslatedText, val quota: Quota?)
 
-data class StatusReply(val enabled: Boolean, val quota: Quota, val freeLimit: Int, val pairs: Set<LangPair>)
+/**
+ * [billingEnabled] is the remote paywall switch; [proLimit] and [proMaxChars] are Pro's daily fair-use limit and
+ * characters. A backend from before billing omits all three: the switch reads off and the limits null.
+ */
+data class StatusReply(
+    val enabled: Boolean,
+    val quota: Quota,
+    val freeLimit: Int,
+    val pairs: Set<LangPair>,
+    val billingEnabled: Boolean = false,
+    val proLimit: Int? = null,
+    val proMaxChars: Int? = null,
+)
 
 /** Why there is no translation; mapped from the callable's code and `details.reason` (backend/README.md). */
 sealed interface TranslationRefusal {
@@ -111,6 +123,9 @@ sealed interface TranslationRefusal {
     /** The user was deleted or disabled elsewhere, so its token can't be refreshed; the app signs out locally. */
     data object AccountGone : TranslationRefusal
     data object GuestAccount : TranslationRefusal
+
+    /** syncSubscription couldn't reach RevenueCat; the webhook still brings the server up to date. */
+    data object BillingUnavailable : TranslationRefusal
     data object Unexpected : TranslationRefusal
 }
 

@@ -189,6 +189,13 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `a Pro user's card says unlimited today`() {
+        show(bare.copy(translateCard = translateCard.copy(remaining = 297, limit = 300, unlimited = true)))
+
+        compose.onNodeWithText("Tibetan ⇄ English · Unlimited today").assertExists()
+    }
+
+    @Test
     fun `without a user the card leaves out the count, and without a card there is none`() {
         show(bare.copy(translateCard = translateCard.copy(remaining = null, limit = null)))
         compose.onNodeWithText("Tibetan ⇄ English").assertExists()

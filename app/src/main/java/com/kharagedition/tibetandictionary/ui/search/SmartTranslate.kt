@@ -256,7 +256,7 @@ class SmartTranslateController(
         availability: TranslationAvailability?,
     ): SmartTranslateUi? {
         if (cur == null || !availability.offers(cur.pair)) return null
-        val pill = quota?.let { UsagePillUi(it.remaining, it.quota.limit, low = it.remaining <= AUTO_MIN_LEFT) }
+        val pill = quota?.let { UsagePillUi.of(it, lowFrom = AUTO_MIN_LEFT) }
         val maxChars = maxChars(quota)
         return when (run) {
             Run.Running -> SmartTranslateUi.Running(pill)

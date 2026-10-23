@@ -10,6 +10,7 @@ import com.kharagedition.tibetandictionary.data.translation.Lang
 import com.kharagedition.tibetandictionary.data.translation.LangPair
 import com.kharagedition.tibetandictionary.data.translation.Plan
 import com.kharagedition.tibetandictionary.data.translation.Provider
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
 import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.domain.OutputWord
 import com.kharagedition.tibetandictionary.ui.model.UiText
@@ -35,14 +36,30 @@ sealed interface TranslateBlock {
     /** A guest out of translations; [more] is how many signing in adds today (null when unknown). */
     data class GuestLimit(val used: Int, val more: Int?) : TranslateBlock
     data object DailyLimit : TranslateBlock
+
+    /** Pro at its fair-use limit: no upgrade, it resets at midnight. */
+    data object FairUseLimit : TranslateBlock
     data object Offline : TranslateBlock
     data object Busy : TranslateBlock
     data object Disabled : TranslateBlock
     data object Unexpected : TranslateBlock
 }
 
-/** "7 of 10 left"; [low] from 3 left. */
-data class UsagePillUi(val remaining: Int, val limit: Int, val low: Boolean)
+/** "7 of 10 left"; [low] from 3 left. Pro is [unlimited]: "Unlimited today", low only at its fair-use limit. */
+data class UsagePillUi(val remaining: Int, val limit: Int, val low: Boolean, val unlimited: Boolean = false) {
+    companion object {
+        /** [quota]'s pill, low from [lowFrom] left (Pro: at 0). */
+        fun of(quota: QuotaState, lowFrom: Int): UsagePillUi {
+            val pro = quota.quota.plan == Plan.PRO
+            return UsagePillUi(
+                remaining = quota.remaining,
+                limit = quota.quota.limit,
+                low = if (pro) quota.remaining == 0 else quota.remaining <= lowFrom,
+                unlimited = pro,
+            )
+        }
+    }
+}
 
 data class TranslationResultUi(
     val text: String,
@@ -78,6 +95,8 @@ data class TranslateUiState(
     val samples: List<String> = emptyList(),
     val recents: List<RecentTranslationUi> = emptyList(),
     val sheet: TranslateSheet? = null,
+    /** Where the Pro sheet was opened from, while [sheet] is PRO. */
+    val proSource: PromptSource? = null,
     /** "Need longer text? Pro allows 500 characters." */
     val showProHint: Boolean = false,
     val canTranslate: Boolean = false,

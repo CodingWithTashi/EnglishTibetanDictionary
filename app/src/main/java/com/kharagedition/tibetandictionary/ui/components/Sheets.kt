@@ -21,9 +21,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,14 +82,16 @@ private val SelectedBorder = 2.dp
 
 /**
  * The app's modal bottom sheet: background container with 28dp top corners, the scrim colour, ink content and
- * a 32×4 outline drag handle; no tonal elevation.
+ * a 32×4 outline drag handle; no tonal elevation. While [dismissible] is false, a swipe, a scrim tap or back leaves it
+ * open.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictModalSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    dismissible: Boolean = true,
+    sheetState: SheetState = rememberDismissibleSheetState(dismissible),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = DictTheme.colors
@@ -101,6 +106,17 @@ fun DictModalSheet(
         scrimColor = colors.scrim,
         dragHandle = { SheetHandle() },
         content = content,
+    )
+}
+
+/** A fully expanded sheet state that refuses to hide (swipe, scrim tap, back) while [dismissible] is false. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun rememberDismissibleSheetState(dismissible: Boolean): SheetState {
+    val canHide by rememberUpdatedState(dismissible)
+    return rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || canHide },
     )
 }
 

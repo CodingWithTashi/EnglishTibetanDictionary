@@ -7,8 +7,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.R
-import com.kharagedition.tibetandictionary.core.analytics.Analytics
-import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.analytics.TranslateSurface
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
@@ -68,7 +66,6 @@ class TranslateViewModel @Inject constructor(
     private val saved: SavedTranslationsRepository,
     prefs: UserPreferencesRepository,
     private val signInAction: SignInAction,
-    private val analytics: Analytics,
     private val errors: ErrorReporter,
 ) : ViewModel() {
 
@@ -85,6 +82,7 @@ class TranslateViewModel @Inject constructor(
         /** The last call's failure, until the input changes. */
         val failure: TranslateBlock? = null,
         val sheet: TranslateSheet? = null,
+        val proSource: PromptSource? = null,
     )
 
     private val local = MutableStateFlow(
@@ -172,11 +170,9 @@ class TranslateViewModel @Inject constructor(
                 .takeIf { it.isNotEmpty() }
                 ?.let { effectChannel.trySend(TranslateEffect.OpenSearch(it)) }
             TranslateEvent.OpenToday -> local.update { it.copy(sheet = TranslateSheet.TODAY) }
-            is TranslateEvent.OpenPro -> {
-                analytics.log(AnalyticsEvent.ProInterest(event.source))
-                local.update { it.copy(sheet = TranslateSheet.PRO) }
-            }
-            TranslateEvent.DismissSheet -> local.update { it.copy(sheet = null) }
+            // The paywall logs its own view (or pro_interest for the fake door).
+            is TranslateEvent.OpenPro -> local.update { it.copy(sheet = TranslateSheet.PRO, proSource = event.source) }
+            TranslateEvent.DismissSheet -> local.update { it.copy(sheet = null, proSource = null) }
             is TranslateEvent.Load -> load(event.request)
         }
     }
@@ -334,10 +330,10 @@ class TranslateViewModel @Inject constructor(
         }
         val disabled = availability?.enabled == false
         val limit = quota?.takeIf { it.remaining == 0 }?.let {
-            if (it.quota.plan == Plan.GUEST) {
-                TranslateBlock.GuestLimit(it.quota.used, it.moreWhenSignedIn)
-            } else {
-                TranslateBlock.DailyLimit
+            when (it.quota.plan) {
+                Plan.GUEST -> TranslateBlock.GuestLimit(it.quota.used, it.moreWhenSignedIn)
+                Plan.FREE -> TranslateBlock.DailyLimit
+                Plan.PRO -> TranslateBlock.FairUseLimit
             }
         }
         val plan = quota?.quota?.plan
@@ -364,12 +360,13 @@ class TranslateViewModel @Inject constructor(
                 )
             },
             block = if (disabled) TranslateBlock.Disabled else limit ?: state.failure,
-            pill = quota?.let { UsagePillUi(it.remaining, it.quota.limit, low = it.remaining <= LOW_REMAINING) },
+            pill = quota?.let { UsagePillUi.of(it, lowFrom = LOW_REMAINING) },
             plan = plan,
             freeLimit = quota?.freeLimit,
             samples = pair?.let { pack.translationSamplesFor(it.source) }.orEmpty(),
             recents = recents,
             sheet = state.sheet,
+            proSource = state.proSource,
             showProHint = plan == Plan.FREE && near,
             canTranslate = pair != null &&
                 normalized.isNotEmpty() &&
@@ -390,7 +387,7 @@ class TranslateViewModel @Inject constructor(
         // The client checks these before calling, so the server refusing them is unexpected too.
         TranslationRefusal.NotTibetanScript, TranslationRefusal.WrongScript, TranslationRefusal.EmptyText,
         TranslationRefusal.Unauthenticated, TranslationRefusal.AccountGone, TranslationRefusal.GuestAccount,
-        TranslationRefusal.Unexpected,
+        TranslationRefusal.BillingUnavailable, TranslationRefusal.Unexpected,
         -> TranslateBlock.Unexpected
         // The repository updates the quota (limit, maxChars) or the directions for these; a rate limit is a toast.
         is TranslationRefusal.DailyLimit, is TranslationRefusal.TooLong, TranslationRefusal.UnsupportedPair,

@@ -110,6 +110,57 @@ class CallableTranslationApiTest {
         }
 
         @Test
+        fun `status without the billing fields leaves the paywall off`() = runTest {
+            invoker.reply = quotaMap() + mapOf("enabled" to true, "pairs" to listOf("bo-en"), "freeLimit" to 10)
+            val status = (api.status("UTC") as ApiResult.Ok).value
+            assertThat(status.billingEnabled).isFalse()
+            assertThat(status.proLimit).isNull()
+            assertThat(status.proMaxChars).isNull()
+        }
+
+        @Test
+        fun `status parses the paywall switch and the Pro limits`() = runTest {
+            invoker.reply = quotaMap() + mapOf(
+                "enabled" to true,
+                "pairs" to listOf("bo-en"),
+                "freeLimit" to 10,
+                "billingEnabled" to true,
+                "proLimit" to 300L,
+                "proMaxChars" to 500.0,
+            )
+            val status = (api.status("UTC") as ApiResult.Ok).value
+            assertThat(status.billingEnabled).isTrue()
+            assertThat(status.proLimit).isEqualTo(300)
+            assertThat(status.proMaxChars).isEqualTo(500)
+        }
+
+        @Test
+        fun `syncSubscription sends no data and parses the plan`() = runTest {
+            invoker.reply = mapOf("plan" to "pro")
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Ok(Plan.PRO))
+            assertThat(invoker.calls).containsExactly("syncSubscription" to null)
+            invoker.reply = mapOf("plan" to "free")
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Ok(Plan.FREE))
+        }
+
+        @Test
+        fun `syncSubscription with an unknown plan is Unexpected`() = runTest {
+            invoker.reply = mapOf("plan" to "gold")
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Refused(TranslationRefusal.Unexpected))
+        }
+
+        @Test
+        fun `syncSubscription refusals map to their reasons`() = runTest {
+            invoker.failure = refusal("UNAVAILABLE", "billing_unavailable")
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Refused(TranslationRefusal.BillingUnavailable))
+            invoker.failure = refusal("FAILED_PRECONDITION", "guest_account")
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Refused(TranslationRefusal.GuestAccount))
+            invoker.failure = refusal("RESOURCE_EXHAUSTED", "rate_limited", "retryAfterSec" to 12)
+            assertThat(api.syncSubscription()).isEqualTo(ApiResult.Refused(TranslationRefusal.RateLimited(12)))
+            assertThat(errors.recorded).isEmpty()
+        }
+
+        @Test
         fun `deleteAccount sends no data`() = runTest {
             invoker.reply = mapOf("deleted" to true)
             assertThat(api.deleteAccount()).isEqualTo(ApiResult.Ok(Unit))
@@ -212,6 +263,11 @@ class CallableTranslationApiTest {
                     TranslationRefusal.Busy,
                 ),
                 arrayOf("UNAVAILABLE with no reason", refusal("UNAVAILABLE", null), TranslationRefusal.Offline),
+                arrayOf(
+                    "billing_unavailable",
+                    refusal("UNAVAILABLE", "billing_unavailable"),
+                    TranslationRefusal.BillingUnavailable,
+                ),
                 arrayOf("IOException", IOException("no network"), TranslationRefusal.Offline),
                 arrayOf(
                     "translation_disabled",

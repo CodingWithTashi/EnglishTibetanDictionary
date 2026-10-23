@@ -78,6 +78,11 @@ export interface StatusResponse extends QuotaInfo {
   pairs: PairKey[];
   /** The free plan's daily limit, so a guest can be told how many more signing in gives. */
   freeLimit: number;
+  /** The remote paywall switch (`config/translation.billing.enabled`). */
+  billingEnabled: boolean;
+  /** Pro's daily fair-use limit and characters per translation, for the paywall's table. */
+  proLimit: number;
+  proMaxChars: number;
 }
 
 const timeZoneSchema = z.string().max(64).optional();
@@ -298,6 +303,9 @@ export async function handleStatus(request: CallableLike, deps: StatusDeps): Pro
       ...quotaInfo(plan, limits, usage, day),
       pairs: supportedPairs(config),
       freeLimit: config.free.dailyLimit,
+      billingEnabled: config.billing.enabled,
+      proLimit: config.pro.dailyLimit,
+      proMaxChars: config.pro.maxChars,
     };
   } catch (error) {
     throw toHttpsError(error, deps.log, { uid: request.auth?.uid });

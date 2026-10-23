@@ -48,7 +48,8 @@ import com.kharagedition.tibetandictionary.domain.TranslationText
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
-import com.kharagedition.tibetandictionary.ui.components.ProSheet
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallSheet
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -69,6 +70,11 @@ fun TranslateScreen(onOpenSearch: (String) -> Unit, viewModel: TranslateViewMode
         state,
         viewModel::onEvent,
         onSignIn = { source -> activity?.let { viewModel.signIn(it, source) } },
+    )
+    PaywallSheet(
+        state.proSource.takeIf { state.sheet == TranslateSheet.PRO },
+        PaywallMode.PURCHASE,
+        onDismiss = { viewModel.onEvent(TranslateEvent.DismissSheet) },
     )
 }
 
@@ -196,7 +202,8 @@ private fun TranslateSheets(
                 onDismiss = dismiss,
             )
         }
-        TranslateSheet.PRO -> ProSheet(onDismiss = dismiss)
+        // TranslateScreen draws the paywall: it has a view model of its own.
+        TranslateSheet.PRO -> Unit
         null -> Unit
     }
 }

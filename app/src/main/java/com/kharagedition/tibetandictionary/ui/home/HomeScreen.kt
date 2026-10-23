@@ -239,13 +239,15 @@ private fun TranslateCard(card: TranslateCardUi, onEvent: (HomeEvent) -> Unit) {
     val type = DictTheme.type
     val packLanguage = if (card.pair.source == Lang.EN) card.pair.target else card.pair.source
     val languages = stringResource(R.string.home_translate_languages, langName(packLanguage), langName(Lang.EN))
-    val line = card.remaining?.let { remaining ->
-        stringResource(
+    val line = when {
+        card.unlimited -> stringResource(R.string.home_translate_unlimited, languages)
+        card.remaining != null -> stringResource(
             R.string.home_translate_left_today,
             languages,
-            TibetanNumerals.formatCount(remaining, DictTheme.language),
+            TibetanNumerals.formatCount(card.remaining, DictTheme.language),
         )
-    } ?: languages
+        else -> languages
+    }
     Row(
         Modifier
             .fillMaxWidth()

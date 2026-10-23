@@ -12,3 +12,9 @@ export const AZURE_TRANSLATOR_ENDPOINT = defineString("AZURE_TRANSLATOR_ENDPOINT
   default: "https://api.cognitive.microsofttranslator.com",
   description: "Azure Translator text endpoint.",
 });
+
+/** RevenueCat REST API v1 secret key, for reading subscribers. Set by the owner with `firebase functions:secrets:set`. */
+export const REVENUECAT_API_KEY = defineSecret("REVENUECAT_API_KEY");
+
+/** The exact `Authorization` value RevenueCat's webhook sends; a random value of at least 32 bytes. */
+export const REVENUECAT_WEBHOOK_AUTH = defineSecret("REVENUECAT_WEBHOOK_AUTH");

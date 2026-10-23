@@ -7,8 +7,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.Features
-import com.kharagedition.tibetandictionary.core.analytics.Analytics
-import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
@@ -90,7 +88,6 @@ class SearchViewModel @AssistedInject constructor(
     translation: TranslationRepository,
     translationHistory: TranslationHistoryRepository,
     private val signInAction: SignInAction,
-    private val analytics: Analytics,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -241,10 +238,8 @@ class SearchViewModel @AssistedInject constructor(
             }
             // Handled by the route, which has the activity sign-in needs (see signIn).
             SearchEvent.SmartSignIn -> Unit
-            SearchEvent.SmartUpgrade -> {
-                analytics.log(AnalyticsEvent.ProInterest(PromptSource.SEARCH_LIMIT))
-                proSheet.value = true
-            }
+            // The paywall logs its own view (or pro_interest for the fake door).
+            SearchEvent.SmartUpgrade -> proSheet.value = true
             SearchEvent.DismissProSheet -> proSheet.value = false
         }
     }

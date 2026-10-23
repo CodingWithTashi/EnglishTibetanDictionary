@@ -334,6 +334,11 @@
     <!-- Today sheet (tap on the usage pill) -->
     <string name="today_used">%1$s of %2$s used today</string>
     <string name="today_resets">Resets at midnight</string>
+    <string name="today_unlimited">Unlimited today</string>
+    <string name="translate_fair_use_title">You\'ve reached today\'s fair-use limit</string>
+    <string name="search_translate_fair_use">Today\'s fair-use limit reached</string>
+    <!-- %1$s is the card's languages, such as "Tibetan ⇄ English". -->
+    <string name="home_translate_unlimited">%1$s · Unlimited today</string>
     <string name="today_sign_in">Sign in to get %1$s a day</string>
     <string name="today_sign_in_unknown">Sign in for more translations</string>
     <!-- Pro sheet (not on sale yet) -->
@@ -348,4 +353,32 @@
     <string name="pro_full">Full</string>
     <string name="pro_coming_soon">Coming soon</string>
     <string name="pro_note">Pro is on its way. You\'ll see it here first.</string>
+    <string name="pro_sign_in_to_continue">Sign in to continue</string>
+    <string name="pro_yearly">Yearly</string>
+    <string name="pro_monthly">Monthly</string>
+    <!-- %1$s is Google Play's formatted price, such as ₹33.25. -->
+    <string name="pro_per_month">%1$s / month</string>
+    <string name="pro_terms">Renews automatically · Cancel any time in Google Play</string>
+    <string name="pro_restore">Restore purchase</string>
+    <string name="pro_fair_use_note">*Fair use: up to %1$s a day</string>
+    <string name="pro_error">Couldn\'t reach Google Play. Check your connection and try again.</string>
+    <string name="pro_pending">Payment pending. Pro starts when Google Play confirms it.</string>
+    <string name="pro_already">Pro is active on this Google Play account</string>
+    <string name="pro_switch_title">Switch to yearly</string>
+    <string name="pro_switch_button">Switch to yearly</string>
+    <string name="pro_switch_note">The time left on your monthly plan is credited to the year.</string>
+    <string name="pro_welcome">Welcome to Pro</string>
+    <!-- %1$s is the plan: Yearly or Monthly. -->
+    <string name="profile_plan_pro">Pro · %1$s</string>
+    <string name="profile_plan_pro_plain">Pro</string>
+    <string name="profile_plan_renews">Renews %1$s</string>
+    <string name="profile_plan_ends">Ends %1$s</string>
+    <string name="profile_plan_pro_usage">Unlimited translations · %1$s characters each</string>
+    <string name="profile_plan_fair_use">Fair use: %1$s of %2$s today</string>
+    <string name="profile_plan_billing_issue">Payment problem · Fix in Google Play</string>
+    <string name="profile_plan_manage">Manage subscription</string>
+    <string name="profile_plan_switch">Switch to yearly</string>
+    <string name="delete_account_pro_note">Your Pro subscription keeps renewing until you cancel it in Google Play.</string>
+    <string name="pro_restored">Pro restored</string>
+    <string name="pro_restore_none">No Pro purchase on this Google Play account</string>
 </resources>

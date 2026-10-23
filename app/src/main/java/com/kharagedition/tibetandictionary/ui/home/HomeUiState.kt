@@ -18,10 +18,10 @@ data class RecentChipUi(val query: String)
 /**
  * The "Translate a sentence" card under the word of the day (1h): it opens the Translate tab, whose default direction
  * is [pair]. [remaining] of [limit] are today's translations left; both are null until there is a user (the count
- * then is not known), and the card leaves the count out.
+ * then is not known), and the card leaves the count out. Pro is [unlimited]: "Unlimited today" instead of a count.
  */
 @Immutable
-data class TranslateCardUi(val pair: LangPair, val remaining: Int?, val limit: Int?)
+data class TranslateCardUi(val pair: LangPair, val remaining: Int?, val limit: Int?, val unlimited: Boolean = false)
 
 /**
  * The Home page of the Search tab (1a/2a). [streakDays] is the run of active days, null until the activity log

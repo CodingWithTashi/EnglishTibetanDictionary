@@ -42,10 +42,17 @@ class CallableTranslationApi @Inject constructor(
                 freeLimit = reply.int("freeLimit"),
                 pairs = (reply["pairs"] as? List<*> ?: malformed("pairs"))
                     .mapNotNullTo(mutableSetOf()) { (it as? String)?.let(LangPair::fromKey) },
+                billingEnabled = reply["billingEnabled"] as? Boolean ?: false,
+                proLimit = reply.optInt("proLimit"),
+                proMaxChars = reply.optInt("proMaxChars"),
             )
         }
 
     override suspend fun deleteAccount(): ApiResult<Unit> = call("deleteAccount", null) {}
+
+    override suspend fun syncSubscription(): ApiResult<Plan> = call("syncSubscription", null) { reply ->
+        Plan.fromCode(reply["plan"] as? String)?.takeIf { it != Plan.GUEST } ?: malformed("plan")
+    }
 
     private suspend fun <T> call(name: String, data: Map<String, Any?>?, parse: (Map<*, *>) -> T): ApiResult<T> {
         val reply = try {
@@ -83,6 +90,7 @@ class CallableTranslationApi @Inject constructor(
             }
             "UNAVAILABLE" -> when (reason) {
                 "provider_unavailable" -> TranslationRefusal.Busy
+                "billing_unavailable" -> TranslationRefusal.BillingUnavailable
                 null -> TranslationRefusal.Offline
                 else -> null
             }

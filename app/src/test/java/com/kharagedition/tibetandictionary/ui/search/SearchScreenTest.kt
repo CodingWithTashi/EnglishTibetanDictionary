@@ -403,6 +403,25 @@ class SearchScreenTest {
     }
 
     @Test
+    fun `Pro's blocked row is the fair-use limit and offers nothing`() {
+        show(withResults(SmartTranslateUi.Blocked(Plan.PRO, UsagePillUi(0, 300, low = true, unlimited = true))))
+
+        compose.onNodeWithText("Today's fair-use limit reached").assertExists()
+        compose.onNodeWithText("Resets at midnight").assertExists()
+        compose.onNodeWithTag("search_translate_blocked").performClick()
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun `Pro's usage line says unlimited today`() {
+        val unlimited = UsagePillUi(remaining = 297, limit = 300, low = false, unlimited = true)
+        show(withResults(SmartTranslateUi.Offer("བཀྲ་ཤིས", Lang.EN, instead = false, unlimited, phrase = false)))
+
+        compose.onNodeWithText("Unlimited today").assertExists()
+    }
+
+    @Test
     fun `too long and limit rows open Translate, sign in or Pro`() {
         show(withResults(SmartTranslateUi.TooLong(length = 132, maxChars = 100, sevenLeft)))
         compose.onNodeWithText("132 / 100 characters").assertExists()
@@ -421,12 +440,5 @@ class SearchScreenTest {
         assertThat(events)
             .containsExactly(SearchEvent.OpenInTranslate, SearchEvent.SmartSignIn, SearchEvent.SmartUpgrade)
             .inOrder()
-    }
-
-    @Test
-    fun `the pro sheet shows when asked`() {
-        show(withResults(null).copy(showProSheet = true))
-
-        compose.onNodeWithTag("pro_sheet").assertExists()
     }
 }

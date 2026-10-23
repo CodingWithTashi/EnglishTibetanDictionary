@@ -243,12 +243,39 @@ private fun TooLongCard(state: SmartTranslateUi.TooLong, onEvent: (SearchEvent) 
     }
 }
 
-/** No translations left: a guest's "Sign in to translate · 0 of 3 left", or "Daily limit reached · Upgrade". */
+/**
+ * No translations left: a guest's "Sign in to translate · 0 of 3 left", "Daily limit reached · Upgrade", or Pro's
+ * fair-use limit, which offers nothing.
+ */
 @Composable
 private fun BlockedRow(state: SmartTranslateUi.Blocked, onEvent: (SearchEvent) -> Unit, modifier: Modifier) {
     if (state.plan == Plan.GUEST) {
         TapRow("search_translate_blocked", stringResource(R.string.search_translate_sign_in), state.pill, modifier) {
             onEvent(SearchEvent.SmartSignIn)
+        }
+    } else if (state.plan == Plan.PRO) {
+        Box(
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = TapRowHeight)
+                .semantics(mergeDescendants = true) {}
+                .testTag("search_translate_blocked"),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Column {
+                MixedText(
+                    stringResource(R.string.search_translate_fair_use),
+                    DictTheme.type.button,
+                    DictTheme.type.tibetanInline16,
+                    color = DictTheme.colors.ink,
+                )
+                MixedText(
+                    stringResource(R.string.today_resets),
+                    DictTheme.type.caption,
+                    DictTheme.type.tibetanInline14,
+                    color = DictTheme.colors.muted,
+                )
+            }
         }
     } else {
         TapRow(
@@ -450,9 +477,10 @@ private fun Note(text: String, color: Color) {
     )
 }
 
-/** "7 of 10 left today", in the app language's numerals. */
+/** "7 of 10 left today", in the app language's numerals; "Unlimited today" on Pro. */
 @Composable
 private fun leftToday(pill: UsagePillUi): String {
+    if (pill.unlimited) return stringResource(R.string.today_unlimited)
     val language = DictTheme.language
     return stringResource(
         R.string.search_translate_left_today,

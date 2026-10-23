@@ -12,8 +12,17 @@ data class QuotaState(val quota: Quota, val freeLimit: Int?) {
         get() = if (quota.plan == Plan.GUEST) freeLimit?.minus(quota.used)?.coerceAtLeast(0) else null
 }
 
-/** Whether translation is on, and which directions the backend offers. */
-data class TranslationAvailability(val enabled: Boolean, val pairs: Set<LangPair>)
+/**
+ * Whether translation is on, which directions the backend offers, and the paywall switch with Pro's limits (null
+ * until a status that has them).
+ */
+data class TranslationAvailability(
+    val enabled: Boolean,
+    val pairs: Set<LangPair>,
+    val billingEnabled: Boolean = false,
+    val proLimit: Int? = null,
+    val proMaxChars: Int? = null,
+)
 
 sealed interface TranslateResult {
     data class Translated(val text: TranslatedText) : TranslateResult
@@ -32,4 +41,10 @@ interface TranslationRepository {
 
     /** [text] raw; normalised here. */
     suspend fun translate(text: String, pair: LangPair, surface: TranslateSurface): TranslateResult
+
+    /**
+     * Asks the server to re-read the user's subscription, then forces a status refresh so the quota shows the new
+     * plan. The server's plan, or null when the call was refused.
+     */
+    suspend fun syncSubscription(): Plan?
 }

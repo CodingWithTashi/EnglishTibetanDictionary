@@ -89,6 +89,24 @@ describe("parseConfig", () => {
     }
   });
 
+  test("the paywall switch is off by default and on only for a boolean true", () => {
+    expect(DEFAULT_CONFIG.billing).toEqual({ enabled: false });
+    expect(parseConfig({}, fakeLogger()).billing).toEqual({ enabled: false });
+    expect(parseConfig({ billing: {} }, fakeLogger()).billing).toEqual({ enabled: false });
+    expect(parseConfig({ billing: { enabled: true } }, fakeLogger()).billing).toEqual({ enabled: true });
+    expect(parseConfig({ billing: { enabled: false } }, fakeLogger()).billing).toEqual({ enabled: false });
+  });
+
+  test("a paywall switch that is not a boolean fails closed with an error", () => {
+    for (const billing of [{ enabled: "true" }, { enabled: 1 }, { enabled: null }, "on", true]) {
+      const log = fakeLogger();
+      const config = parseConfig({ billing }, log);
+      expect(config.billing).toEqual({ enabled: false });
+      expect(config.enabled).toBe(true);
+      expect(log.entries).toContainEqual(expect.objectContaining({ level: "error" }));
+    }
+  });
+
   test("a route that is not a list of providers is ignored with an error", () => {
     const log = fakeLogger();
     const config = parseConfig({ routes: { "bo-en": "azure", "dz-en": [] } }, log);

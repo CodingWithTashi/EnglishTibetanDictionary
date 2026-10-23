@@ -2,6 +2,8 @@ package com.kharagedition.tibetandictionary.ui.profile
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -15,11 +17,13 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.SampleData
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import java.time.LocalDate
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -296,6 +300,92 @@ class ProfileScreenTest {
     }
 
     @Test
+    fun `the delete dialog tells a Pro subscriber the subscription keeps renewing`() {
+        show(shipped.copy(account = tenzin, confirmDelete = true, proNoteOnDelete = true))
+
+        compose.onNodeWithTag("profile_delete_pro_note")
+            .assertTextContains("Your Pro subscription keeps renewing until you cancel it in Google Play.")
+        compose.onNodeWithText("Manage subscription").performClick()
+
+        assertThat(events).containsExactly(ProfileEvent.ManageSubscription)
+    }
+
+    @Test
+    fun `the delete dialog has no Pro note otherwise`() {
+        show(shipped.copy(account = tenzin, confirmDelete = true))
+
+        compose.onNodeWithTag("profile_delete_pro_note").assertDoesNotExist()
+    }
+
+    private val yearlyPro = PlanCardUi.Pro(
+        plan = ProPlan.YEARLY,
+        renewsOn = LocalDate.of(2027, 10, 19),
+        willRenew = true,
+        billingIssue = false,
+        used = 3,
+        limit = 300,
+        maxChars = 500,
+        canSwitch = false,
+    )
+
+    @Test
+    fun `the Pro card names the plan, its renewal and the characters, and manages it`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro))
+
+        compose.onNodeWithText("Pro · Yearly").assertIsDisplayed()
+        compose.onNodeWithTag("profile_plan_renewal")
+            .assertTextContains("Renews", substring = true)
+            .assertTextContains("2027", substring = true)
+        compose.onNodeWithText("Unlimited translations · 500 characters each").assertIsDisplayed()
+        compose.onNodeWithTag("profile_plan_switch").assertDoesNotExist()
+        compose.onNodeWithTag("profile_plan_billing_issue").assertDoesNotExist()
+        tap("profile_plan_manage")
+
+        assertThat(events).containsExactly(ProfileEvent.ManageSubscription)
+    }
+
+    @Test
+    fun `a subscription that won't renew says when it ends`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro.copy(willRenew = false)))
+
+        compose.onNodeWithTag("profile_plan_renewal").assertTextContains("Ends", substring = true)
+    }
+
+    @Test
+    fun `a payment problem is flagged`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro.copy(billingIssue = true)))
+
+        compose.onNodeWithTag("profile_plan_billing_issue").assertTextContains("Payment problem · Fix in Google Play")
+    }
+
+    @Test
+    fun `from 85 percent of the fair-use limit the card counts`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro.copy(used = 255)))
+
+        compose.onNodeWithText("Fair use: 255 of 300 today").assertIsDisplayed()
+        compose.onNodeWithText("Unlimited translations · 500 characters each").assertDoesNotExist()
+    }
+
+    @Test
+    fun `Pro before the store has answered is plain Pro without a date`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro.copy(plan = null, renewsOn = null, willRenew = false)))
+
+        compose.onNodeWithTag("profile_plan_pro").assertTextEquals("Pro")
+        compose.onNodeWithTag("profile_plan_renewal").assertDoesNotExist()
+        compose.onNodeWithTag("profile_plan_manage").assertExists()
+    }
+
+    @Test
+    fun `a monthly subscriber can switch to yearly`() {
+        show(shipped.copy(account = tenzin, plan = yearlyPro.copy(plan = ProPlan.MONTHLY, canSwitch = true)))
+
+        compose.onNodeWithText("Pro · Monthly").assertIsDisplayed()
+        tap("profile_plan_switch")
+
+        assertThat(events).containsExactly(ProfileEvent.SwitchToYearly)
+    }
+
+    @Test
     fun `while deleting, the dialog says so and its buttons do nothing`() {
         show(shipped.copy(account = tenzin, confirmDelete = true, deleting = true))
 
@@ -313,12 +403,5 @@ class ProfileScreenTest {
         tap("profile_row_smart_translate")
 
         assertThat(events).containsExactly(ProfileEvent.ToggleSmartTranslate)
-    }
-
-    @Test
-    fun `the pro sheet shows when asked`() {
-        show(shipped.copy(showProSheet = true))
-
-        compose.onNodeWithTag("pro_sheet").assertExists()
     }
 }

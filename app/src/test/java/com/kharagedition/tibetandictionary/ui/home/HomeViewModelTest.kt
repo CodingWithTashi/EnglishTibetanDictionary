@@ -590,6 +590,18 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `a Pro user's card is unlimited`() = runTest {
+        auth.account.value = Account("u1", isGuest = false, name = "Tashi", email = "t@x.com")
+        translation.quota.value =
+            QuotaState(Quota(Plan.PRO, 3, 300, Instant.parse("2026-10-20T00:00:00Z"), maxChars = 500), freeLimit = 10)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.translateCard)
+            .isEqualTo(TranslateCardUi(boToEn, remaining = 297, limit = 300, unlimited = true))
+    }
+
+    @Test
     fun `no user - card without count`() = runTest {
         // A quota left from a signed-out user is not this install's count.
         translation.quota.value = freeQuota(used = 3)

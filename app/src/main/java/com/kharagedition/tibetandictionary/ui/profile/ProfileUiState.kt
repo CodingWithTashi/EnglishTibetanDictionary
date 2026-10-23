@@ -6,6 +6,7 @@ import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.Links
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
@@ -13,6 +14,8 @@ import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import java.time.LocalDate
 
 /**
  * The Profile tab (2f/3d/1z). [dictionary] is the pack in use. [defaultDirection] is the stored default, or the first
@@ -21,7 +24,8 @@ import com.kharagedition.tibetandictionary.ui.model.UiText
  * [account] is the signed-in Google account (null for a guest or no user: the signed-out card shows);
  * [wotdNotification] stays null while its feature is off. [plan] is the plan card, null while a Google account's usage
  * is not known yet. [smartTranslate] is the Search group's switch; [confirmDelete] shows the delete dialog,
- * [deleting] says its delete is running, and [showProSheet] shows the Pro sheet.
+ * [deleting] says its delete is running, [proNoteOnDelete] adds that a renewing Pro subscription is not cancelled,
+ * and [paywall] opens the Pro sheet in that mode.
  */
 @Immutable
 data class ProfileUiState(
@@ -43,7 +47,8 @@ data class ProfileUiState(
     val smartTranslate: Boolean = true,
     val confirmDelete: Boolean = false,
     val deleting: Boolean = false,
-    val showProSheet: Boolean = false,
+    val proNoteOnDelete: Boolean = false,
+    val paywall: PaywallMode? = null,
 )
 
 /** The plan card (1z): today's translations for whoever is translating. */
@@ -57,6 +62,22 @@ sealed interface PlanCardUi {
 
     /** The free plan: [used] of [limit] today, [maxChars] characters each, and Upgrade. */
     data class Free(val used: Int, val limit: Int, val maxChars: Int) : PlanCardUi
+
+    /**
+     * Pro, as the server says; the store's details ([plan], [renewsOn] and whether it [willRenew], a [billingIssue])
+     * fill in once it has answered. [used] of the fair-use [limit] today, [maxChars] characters each; a monthly
+     * subscriber [canSwitch] to yearly while Pro is on sale.
+     */
+    data class Pro(
+        val plan: ProPlan?,
+        val renewsOn: LocalDate?,
+        val willRenew: Boolean,
+        val billingIssue: Boolean,
+        val used: Int,
+        val limit: Int,
+        val maxChars: Int,
+        val canSwitch: Boolean,
+    ) : PlanCardUi
 }
 
 /** The word-of-the-day notification setting; [minuteOfDay] is minutes after local midnight. */
@@ -139,6 +160,8 @@ sealed interface ProfileEvent {
     /** The plan card's Upgrade: the Pro sheet (a fake door, logged as pro_interest). */
     data object OpenPro : ProfileEvent
     data object DismissProSheet : ProfileEvent
+    data object ManageSubscription : ProfileEvent
+    data object SwitchToYearly : ProfileEvent
 }
 
 sealed interface ProfileEffect {

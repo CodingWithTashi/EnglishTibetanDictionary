@@ -1,20 +1,31 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { onCall, type CallableOptions } from "firebase-functions/v2/https";
+import { onCall, onRequest, type CallableOptions } from "firebase-functions/v2/https";
 import { GoogleAuth } from "google-auth-library";
 
-import { AZURE_TRANSLATOR_ENDPOINT, AZURE_TRANSLATOR_KEY, AZURE_TRANSLATOR_REGION } from "./config/params.js";
+import { createRevenueCatClient } from "./billing/revenueCat.js";
+import {
+  AZURE_TRANSLATOR_ENDPOINT,
+  AZURE_TRANSLATOR_KEY,
+  AZURE_TRANSLATOR_REGION,
+  REVENUECAT_API_KEY,
+  REVENUECAT_WEBHOOK_AUTH,
+} from "./config/params.js";
 import { createConfigSource } from "./config/runtimeConfig.js";
 import { createAzureProvider } from "./providers/azure.js";
 import { createGoogleProvider } from "./providers/google.js";
 import { createRouter } from "./providers/router.js";
 import { handleDeleteAccount, type AccountDeps } from "./service/accountHandler.js";
-import { resolvePlan } from "./service/plan.js";
+import { createPlanResolver } from "./service/plan.js";
 import { createRateLimiter } from "./service/rateLimiter.js";
+import { refreshSubscription, type RefreshDeps } from "./service/subscriptionRefresh.js";
+import { handleSyncSubscription, type SyncDeps } from "./service/syncHandler.js";
 import { handleStatus, handleTranslate, type Deps, type StatusDeps } from "./service/translateHandler.js";
+import { handleWebhook, type WebhookDeps } from "./service/webhookHandler.js";
 import { createBudgetStore } from "./store/budgetStore.js";
 import { createQuotaStore } from "./store/quotaStore.js";
+import { createSubscriptionStore } from "./store/subscriptionStore.js";
 import { createTranslationCache } from "./store/translationCache.js";
 import { createUserDeleter } from "./auth/userDeleter.js";
 import { cloudLogger } from "./util/cloudLogger.js";
@@ -37,6 +48,9 @@ function projectId(): string {
 let statusDeps: StatusDeps | undefined;
 let translateDeps: Deps | undefined;
 let accountDeps: AccountDeps | undefined;
+let refreshDeps: RefreshDeps | undefined;
+let syncDeps: SyncDeps | undefined;
+let webhookDeps: WebhookDeps | undefined;
 
 /** Built on first use: secrets and params can only be read while handling a request. */
 function getStatusDeps(): StatusDeps {
@@ -45,7 +59,7 @@ function getStatusDeps(): StatusDeps {
       log,
     }),
     quota: createQuotaStore(db, { now }),
-    resolvePlan,
+    resolvePlan: createPlanResolver({ subscriptions: createSubscriptionStore(db, { now }), now, log }),
     log,
     now,
   };
@@ -83,8 +97,41 @@ function getTranslateDeps(): Deps {
 }
 
 function getAccountDeps(): AccountDeps {
-  accountDeps ??= { quota: createQuotaStore(db, { now }), users: createUserDeleter(getAuth(app)), log };
+  accountDeps ??= {
+    quota: createQuotaStore(db, { now }),
+    subscriptions: createSubscriptionStore(db, { now }),
+    users: createUserDeleter(getAuth(app)),
+    log,
+  };
   return accountDeps;
+}
+
+function getRefreshDeps(): RefreshDeps {
+  refreshDeps ??= {
+    revenueCat: createRevenueCatClient({ apiKey: REVENUECAT_API_KEY.value() }),
+    subscriptions: createSubscriptionStore(db, { now }),
+    log,
+  };
+  return refreshDeps;
+}
+
+function getSyncDeps(): SyncDeps {
+  syncDeps ??= {
+    refresh: (uid) => refreshSubscription(uid, "sync", getRefreshDeps()),
+    rateLimiter: createRateLimiter(),
+    log,
+    now,
+  };
+  return syncDeps;
+}
+
+function getWebhookDeps(): WebhookDeps {
+  webhookDeps ??= {
+    authSecret: () => REVENUECAT_WEBHOOK_AUTH.value(),
+    refresh: (uid) => refreshSubscription(uid, "webhook", getRefreshDeps()),
+    log,
+  };
+  return webhookDeps;
 }
 
 const REGION = "asia-south1"; // next to the Firestore database
@@ -114,4 +161,35 @@ export const getTranslationStatus = onCall({ ...common, maxInstances: 5 }, (requ
 /** Deletes a signed-in user's account and usage; Play requires it for apps that create accounts. */
 export const deleteAccount = onCall({ ...common, maxInstances: 2 }, (request) =>
   handleDeleteAccount(request, getAccountDeps()),
+);
+
+/** Re-reads the caller's subscription from RevenueCat after a purchase, restore or plan switch; returns the plan. */
+export const syncSubscription = onCall(
+  { ...common, maxInstances: 5, secrets: [REVENUECAT_API_KEY] },
+  (request) => handleSyncSubscription(request, getSyncDeps()),
+);
+
+/**
+ * RevenueCat's webhook: every event re-reads the customers it names into `subscriptions/{uid}`. Public, because
+ * RevenueCat calls it; it checks the shared `Authorization` value instead of App Check.
+ */
+export const revenuecatWebhook = onRequest(
+  {
+    region: REGION,
+    invoker: "public",
+    cpu: 1,
+    memory: "256MiB",
+    concurrency: 80,
+    maxInstances: 5,
+    timeoutSeconds: 30,
+    serviceAccount: common.serviceAccount,
+    secrets: [REVENUECAT_WEBHOOK_AUTH, REVENUECAT_API_KEY],
+  },
+  async (req, res) => {
+    const reply = await handleWebhook(
+      { method: req.method, header: (name) => req.get(name), body: req.body as unknown },
+      getWebhookDeps(),
+    );
+    res.status(reply.status).send(reply.body);
+  },
 );

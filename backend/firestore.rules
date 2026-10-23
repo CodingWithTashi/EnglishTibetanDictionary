@@ -10,7 +10,7 @@ service cloud.firestore {
         && request.resource.data.message.size() <= 5000;
     }
 
-    // Everything else (translations, dailyUsage, budget, config) is server-only: Cloud Functions use the Admin
-    // SDK, which these rules do not apply to. No match means no client access.
+    // Everything else (translations, dailyUsage, budget, config, subscriptions) is server-only: Cloud Functions
+    // use the Admin SDK, which these rules do not apply to. No match means no client access.
   }
 }

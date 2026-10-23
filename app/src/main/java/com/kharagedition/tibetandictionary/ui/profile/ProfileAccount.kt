@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -24,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
 import com.kharagedition.tibetandictionary.ui.components.AccountCard
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ButtonSize
@@ -31,6 +34,7 @@ import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DictModalSheet
 import com.kharagedition.tibetandictionary.ui.components.FilledButton
 import com.kharagedition.tibetandictionary.ui.components.MixedText
+import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
 import com.kharagedition.tibetandictionary.ui.components.SettingsRow
 import com.kharagedition.tibetandictionary.ui.components.SheetTitle
 import com.kharagedition.tibetandictionary.ui.components.SignedOutAccountCard
@@ -38,6 +42,9 @@ import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /** The plan card (1z): 16 inside, 10 between its lines, a 4dp usage bar. */
 private val PlanPadding = 16.dp
@@ -46,6 +53,10 @@ private val UsageBarHeight = 4.dp
 
 /** Space under the account sheet's last row, as on the other Profile sheets. */
 private val SheetBottom = 24.dp
+
+/** From this share of Pro's fair-use limit, the card counts today's translations instead of saying unlimited. */
+private const val FAIR_USE_COUNT_PERCENT = 85
+private const val PERCENT = 100
 
 internal const val ACCOUNT_CARD_TAG = "profile_account_card"
 
@@ -72,7 +83,9 @@ internal fun ProfileAccountCard(account: AccountUi?, onEvent: (ProfileEvent) -> 
 /**
  * Today's translations (1z) on a surface1 card. The free plan: "Free plan" with Upgrade (the Pro sheet), the usage
  * bar and "3 of 10 translations used today · 100 characters each". A guest: "Guest" with "Sign in for 10", the bar and
- * "1 of 3 used today". No user yet: one line of pitch.
+ * "1 of 3 used today". No user yet: one line of pitch. Pro: "Pro · Yearly" (with "Switch to yearly" for a monthly
+ * subscriber while Pro is on sale), when it renews or ends, "Unlimited translations" (counted from 85% of the fair-use
+ * limit), a payment problem in the warn colour, and Manage subscription.
  */
 @Composable
 internal fun PlanCard(plan: PlanCardUi, onEvent: (ProfileEvent) -> Unit) {
@@ -121,19 +134,75 @@ internal fun PlanCard(plan: PlanCardUi, onEvent: (ProfileEvent) -> Unit) {
                     ),
                 )
             }
+            is PlanCardUi.Pro -> ProPlanLines(plan, onEvent, count)
         }
     }
 }
 
-/** The plan's name (15/600) with its [action] at the end. */
 @Composable
-private fun PlanHeader(title: String, action: @Composable () -> Unit) {
+private fun ProPlanLines(plan: PlanCardUi.Pro, onEvent: (ProfileEvent) -> Unit, count: (Int) -> String) {
+    val name = plan.plan?.let {
+        stringResource(
+            R.string.profile_plan_pro,
+            stringResource(if (it == ProPlan.YEARLY) R.string.pro_yearly else R.string.pro_monthly),
+        )
+    } ?: stringResource(R.string.profile_plan_pro_plain)
+    PlanHeader(name, Modifier.testTag("profile_plan_pro")) {
+        if (plan.canSwitch) {
+            TextButton(
+                stringResource(R.string.profile_plan_switch),
+                { onEvent(ProfileEvent.SwitchToYearly) },
+                Modifier.testTag("profile_plan_switch"),
+                size = ButtonSize.Xs,
+            )
+        }
+    }
+    plan.renewsOn?.let { date ->
+        PlanLine(
+            stringResource(if (plan.willRenew) R.string.profile_plan_renews else R.string.profile_plan_ends, planDate(date)),
+            Modifier.testTag("profile_plan_renewal"),
+        )
+    }
+    PlanLine(
+        if (plan.used * PERCENT >= plan.limit * FAIR_USE_COUNT_PERCENT) {
+            stringResource(R.string.profile_plan_fair_use, count(plan.used), count(plan.limit))
+        } else {
+            stringResource(R.string.profile_plan_pro_usage, count(plan.maxChars))
+        },
+    )
+    if (plan.billingIssue) {
+        PlanLine(
+            stringResource(R.string.profile_plan_billing_issue),
+            Modifier.testTag("profile_plan_billing_issue"),
+            color = DictTheme.colors.warn,
+        )
+    }
+    OutlinedButton(
+        stringResource(R.string.profile_plan_manage),
+        { onEvent(ProfileEvent.ManageSubscription) },
+        Modifier.testTag("profile_plan_manage"),
+        size = ButtonSize.Small,
+    )
+}
+
+/** [date] in the UI locale's medium style ("19 Oct 2027"), with Tibetan digits in the Tibetan UI. */
+@Composable
+private fun planDate(date: LocalDate): String {
+    val text = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        .withLocale(LocalLocale.current.platformLocale)
+        .format(date)
+    return if (DictTheme.language.usesTibetanDigits) TibetanNumerals.toTibetan(text) else text
+}
+
+/** The plan's name (15/600), with [modifier] on it, and its [action] at the end. */
+@Composable
+private fun PlanHeader(title: String, modifier: Modifier = Modifier, action: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         MixedText(
             title,
             DictTheme.type.buttonLarge,
             DictTheme.type.tibetanInline16,
-            Modifier.weight(1f),
+            modifier.weight(1f),
             color = DictTheme.colors.ink,
         )
         action()
@@ -141,8 +210,8 @@ private fun PlanHeader(title: String, action: @Composable () -> Unit) {
 }
 
 @Composable
-private fun PlanLine(text: String) {
-    MixedText(text, DictTheme.type.caption, DictTheme.type.tibetanInline14, color = DictTheme.colors.muted)
+private fun PlanLine(text: String, modifier: Modifier = Modifier, color: Color = DictTheme.colors.muted) {
+    MixedText(text, DictTheme.type.caption, DictTheme.type.tibetanInline14, modifier, color = color)
 }
 
 /** [used] of [limit] as an accent bar on a surface2 track; the line under it says the same, so it is decorative. */
@@ -199,9 +268,12 @@ internal fun AccountSheet(account: AccountUi?, onEvent: (ProfileEvent) -> Unit, 
     }
 }
 
-/** "Delete your account?": what goes and what stays, with Delete (danger) and Cancel. */
+/**
+ * "Delete your account?": what goes and what stays, with Delete (danger) and Cancel. With [proNote], it adds that a
+ * renewing Pro subscription is not cancelled, and a link to manage it in Google Play.
+ */
 @Composable
-internal fun DeleteAccountDialog(deleting: Boolean, onEvent: (ProfileEvent) -> Unit) {
+internal fun DeleteAccountDialog(deleting: Boolean, proNote: Boolean, onEvent: (ProfileEvent) -> Unit) {
     val colors = DictTheme.colors
     val type = DictTheme.type
     // While the delete runs the dialog stays, showing progress, and nothing closes it.
@@ -224,8 +296,27 @@ internal fun DeleteAccountDialog(deleting: Boolean, onEvent: (ProfileEvent) -> U
             MixedText(title, type.buttonLarge, type.tibetanGloss, color = colors.ink)
         },
         text = {
-            val body = stringResource(R.string.delete_account_body)
-            MixedText(body, type.bodySmall, type.tibetanInline16, color = colors.muted)
+            Column {
+                val body = stringResource(R.string.delete_account_body)
+                MixedText(body, type.bodySmall, type.tibetanInline16, color = colors.muted)
+                if (proNote) {
+                    MixedText(
+                        stringResource(R.string.delete_account_pro_note),
+                        type.bodySmall,
+                        type.tibetanInline16,
+                        Modifier
+                            .padding(top = PlanGap)
+                            .testTag("profile_delete_pro_note"),
+                        color = colors.ink,
+                    )
+                    TextButton(
+                        stringResource(R.string.profile_plan_manage),
+                        { onEvent(ProfileEvent.ManageSubscription) },
+                        size = ButtonSize.Small,
+                        enabled = !deleting,
+                    )
+                }
+            }
         },
         containerColor = colors.background,
     )
@@ -239,5 +330,18 @@ private fun PlanCardPreview() {
         PlanCard(PlanCardUi.Free(used = 3, limit = 10, maxChars = 100), onEvent = {})
         PlanCard(PlanCardUi.Guest(used = 1, limit = 3, freeLimit = 10), onEvent = {})
         PlanCard(PlanCardUi.NoUser, onEvent = {})
+        PlanCard(
+            PlanCardUi.Pro(
+                ProPlan.MONTHLY,
+                LocalDate.of(2026, 11, 19),
+                willRenew = true,
+                billingIssue = true,
+                used = 3,
+                limit = 300,
+                maxChars = 500,
+                canSwitch = true,
+            ),
+            onEvent = {},
+        )
     }
 }

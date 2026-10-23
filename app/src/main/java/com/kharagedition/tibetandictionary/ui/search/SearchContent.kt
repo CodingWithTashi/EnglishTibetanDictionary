@@ -47,7 +47,6 @@ import com.kharagedition.tibetandictionary.ui.components.EntryRow
 import com.kharagedition.tibetandictionary.ui.components.FullEmptyState
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.OutlinedButton
-import com.kharagedition.tibetandictionary.ui.components.ProSheet
 import com.kharagedition.tibetandictionary.ui.components.SearchField
 import com.kharagedition.tibetandictionary.ui.components.SearchHeader
 import com.kharagedition.tibetandictionary.ui.components.SkeletonEntryRow
@@ -55,10 +54,10 @@ import com.kharagedition.tibetandictionary.ui.components.SkeletonPreset
 import com.kharagedition.tibetandictionary.ui.components.TextButton
 import com.kharagedition.tibetandictionary.ui.components.TipBox
 import com.kharagedition.tibetandictionary.ui.components.WylieOverlap
-import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
 import com.kharagedition.tibetandictionary.ui.components.bottomDivider
 import com.kharagedition.tibetandictionary.ui.components.directionLabelDrawnText
 import com.kharagedition.tibetandictionary.ui.components.pullUp
+import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -163,7 +162,6 @@ fun SearchContent(
             }
         }
     }
-    if (state.showProSheet) ProSheet(onDismiss = { onEvent(SearchEvent.DismissProSheet) })
 }
 
 /** Recent searches under a "Recent · Clear" line, then the Wylie tip (3b). */

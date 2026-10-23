@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,6 +16,17 @@ plugins {
 fun releaseSigning(name: String): String? =
     providers.environmentVariable(name).orElse(providers.gradleProperty(name)).orNull
 
+// RevenueCat's public Android SDK key: REVENUECAT_ANDROID_KEY (CI) or Gradle property, else `revenuecat.androidKey` in
+// local.properties. Without one, billing stays off and the paywall is a fake door.
+val revenueCatKey: String = providers.environmentVariable("REVENUECAT_ANDROID_KEY")
+    .orElse(providers.gradleProperty("REVENUECAT_ANDROID_KEY"))
+    .orElse(
+        providers.fileContents(rootProject.layout.projectDirectory.file("local.properties")).asText.map { text ->
+            Properties().apply { load(text.reader()) }.getProperty("revenuecat.androidKey").orEmpty()
+        },
+    )
+    .getOrElse("")
+
 android {
     namespace = "com.kharagedition.tibetandictionary"
     compileSdk = 36
@@ -26,6 +39,8 @@ android {
         versionName = "3.0.2"
 
         testInstrumentationRunner = "com.kharagedition.tibetandictionary.HiltTestRunner"
+
+        buildConfigField("String", "REVENUECAT_ANDROID_KEY", "\"$revenueCatKey\"")
     }
 
     androidResources {
@@ -171,9 +186,9 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
-    // Play Billing: merges the BILLING permission Play Console needs before it lets you create subscriptions.
-    // No purchase flow uses it yet.
-    implementation(libs.billing.ktx)
+    // Pro subscriptions. RevenueCat brings its own Play Billing Library and the BILLING permission; declaring
+    // billing-ktx as well could put two versions on the classpath.
+    implementation(libs.revenuecat.purchases)
 
     // Unit tests
     testImplementation(libs.junit)

@@ -79,7 +79,6 @@ class TranslateViewModelTest {
             saved,
             prefs,
             SignInAction(auth, translation, analytics),
-            analytics,
             errors,
         )
         val effects = mutableListOf<TranslateEffect>()
@@ -97,6 +96,34 @@ class TranslateViewModelTest {
         assertThat(subject.state.pill).isEqualTo(UsagePillUi(remaining = 7, limit = 10, low = false))
         assertThat(subject.state.plan).isEqualTo(Plan.FREE)
         assertThat(subject.state.freeLimit).isEqualTo(10)
+    }
+
+    @Test
+    fun `the Pro pill is unlimited and low only once the fair-use limit is reached`() = runTest {
+        translation.quota.value = quotaState(plan = Plan.PRO, used = 298, limit = 300, maxChars = 500)
+        val subject = subject()
+        assertThat(subject.state.pill).isEqualTo(UsagePillUi(remaining = 2, limit = 300, low = false, unlimited = true))
+
+        translation.quota.value = quotaState(plan = Plan.PRO, used = 300, limit = 300, maxChars = 500)
+        assertThat(subject.state.pill).isEqualTo(UsagePillUi(remaining = 0, limit = 300, low = true, unlimited = true))
+    }
+
+    @Test
+    fun `Pro at the fair-use limit shows FairUseLimit, not the upgrade card`() = runTest {
+        translation.quota.value = quotaState(plan = Plan.PRO, used = 300, limit = 300, maxChars = 500)
+        val subject = subject()
+        subject.type("བཀྲ་ཤིས།")
+        assertThat(subject.state.block).isEqualTo(TranslateBlock.FairUseLimit)
+        assertThat(subject.state.canTranslate).isFalse()
+    }
+
+    @Test
+    fun `Pro never gets the longer-text hint`() = runTest {
+        translation.quota.value = quotaState(plan = Plan.PRO, maxChars = 500)
+        val subject = subject()
+        subject.type("ཀ".repeat(480))
+        assertThat(subject.state.counter).isNotEqualTo(CounterLevel.NORMAL)
+        assertThat(subject.state.showProHint).isFalse()
     }
 
     @Test
@@ -445,13 +472,16 @@ class TranslateViewModelTest {
     }
 
     @Test
-    fun `OpenPro logs pro_interest with the source`() = runTest {
+    fun `OpenPro opens the paywall with its source and leaves logging to it`() = runTest {
         val subject = subject()
+        analytics.events.clear()
         subject.on(TranslateEvent.OpenPro(PromptSource.TOO_LONG))
-        assertThat(analytics.events).containsExactly(AnalyticsEvent.ProInterest(PromptSource.TOO_LONG))
+        assertThat(analytics.events).isEmpty()
         assertThat(subject.state.sheet).isEqualTo(TranslateSheet.PRO)
+        assertThat(subject.state.proSource).isEqualTo(PromptSource.TOO_LONG)
         subject.on(TranslateEvent.DismissSheet)
         assertThat(subject.state.sheet).isNull()
+        assertThat(subject.state.proSource).isNull()
         subject.on(TranslateEvent.OpenToday)
         assertThat(subject.state.sheet).isEqualTo(TranslateSheet.TODAY)
     }

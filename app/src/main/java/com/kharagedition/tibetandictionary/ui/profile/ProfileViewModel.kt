@@ -6,15 +6,18 @@ import androidx.lifecycle.viewModelScope
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.R
-import com.kharagedition.tibetandictionary.core.analytics.Analytics
-import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
 import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.core.time.AppClock
 import com.kharagedition.tibetandictionary.data.auth.Account
 import com.kharagedition.tibetandictionary.data.auth.AuthRepository
 import com.kharagedition.tibetandictionary.data.auth.DeleteAccount
+import com.kharagedition.tibetandictionary.data.billing.BillingRepository
+import com.kharagedition.tibetandictionary.data.billing.ProEntitlement
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
+import com.kharagedition.tibetandictionary.data.billing.manageSubscriptionUrl
 import com.kharagedition.tibetandictionary.data.install.DictionarySwitcher
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
@@ -24,11 +27,14 @@ import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.translation.Plan
 import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.data.translation.TranslationAvailability
 import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.SignInAction
 import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.ZoneId
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -67,7 +73,8 @@ class ProfileViewModel @Inject constructor(
     private val translation: TranslationRepository,
     private val signInAction: SignInAction,
     private val deleteAccount: DeleteAccount,
-    private val analytics: Analytics,
+    private val billing: BillingRepository,
+    private val clock: AppClock,
 ) : ViewModel() {
 
     /** What Profile shows over itself: a sheet, the delete dialog (and whether it is deleting), the Pro sheet. */
@@ -75,18 +82,26 @@ class ProfileViewModel @Inject constructor(
         val sheet: ProfileSheet?,
         val confirmDelete: Boolean,
         val deleting: Boolean,
-        val proSheet: Boolean,
+        val paywall: PaywallMode?,
     )
 
     private val appLanguage = MutableStateFlow(localeApplier.currentLanguage())
     private val sheet = MutableStateFlow<ProfileSheet?>(null)
     private val confirmDelete = MutableStateFlow(false)
-    private val proSheet = MutableStateFlow(false)
+    private val paywall = MutableStateFlow<PaywallMode?>(null)
 
     /** True while an account deletion runs: the dialog stays open with progress, and a second confirm does nothing. */
     private val deleting = MutableStateFlow(false)
-    private val overlays = combine(sheet, confirmDelete, deleting, proSheet, ::Overlays)
-    private val user = combine(auth.account, translation.quota, ::Pair)
+    private val overlays = combine(sheet, confirmDelete, deleting, paywall, ::Overlays)
+    /** Who is signed in, today's quota, and what the store and the paywall switch say about Pro. */
+    private data class User(
+        val account: Account?,
+        val quota: QuotaState?,
+        val entitlement: ProEntitlement?,
+        val availability: TranslationAvailability?,
+    )
+
+    private val user = combine(auth.account, translation.quota, billing.entitlement, translation.availability, ::User)
 
     private val effectChannel = Channel<ProfileEffect>(Channel.BUFFERED)
     val effects: Flow<ProfileEffect> = effectChannel.receiveAsFlow()
@@ -98,10 +113,18 @@ class ProfileViewModel @Inject constructor(
             appLanguage,
             overlays,
             user,
-        ) { prefs, capabilities, appLanguage, overlays, (account, quota) ->
+        ) { prefs, capabilities, appLanguage, overlays, user ->
+            val entitlement = user.entitlement?.takeIf { it.active }
             state(prefs, capabilities, appLanguage ?: prefs.appLanguage, overlays).copy(
-                account = account?.toUi(),
-                plan = planCard(account, quota),
+                account = user.account?.toUi(),
+                plan = planCard(
+                    user.account,
+                    user.quota,
+                    entitlement,
+                    onSale = user.availability?.billingEnabled == true && billing.available,
+                    zone = clock.zone(),
+                ),
+                proNoteOnDelete = entitlement?.willRenew == true,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
@@ -142,11 +165,13 @@ class ProfileViewModel @Inject constructor(
             ProfileEvent.ConfirmDeleteAccount -> confirmDeleteAccount()
             ProfileEvent.DismissDelete -> if (!deleting.value) confirmDelete.value = false
             ProfileEvent.ToggleSmartTranslate -> persist { setSmartTranslate(!snapshot().smartTranslate) }
-            ProfileEvent.OpenPro -> {
-                analytics.log(AnalyticsEvent.ProInterest(PromptSource.PROFILE_PLAN))
-                proSheet.value = true
-            }
-            ProfileEvent.DismissProSheet -> proSheet.value = false
+            // The paywall logs its own view (or pro_interest for the fake door).
+            ProfileEvent.OpenPro -> paywall.value = PaywallMode.PURCHASE
+            ProfileEvent.DismissProSheet -> paywall.value = null
+            ProfileEvent.SwitchToYearly -> paywall.value = PaywallMode.SWITCH
+            ProfileEvent.ManageSubscription -> send(
+                ProfileEffect.OpenUrl(manageSubscriptionUrl(billing.entitlement.value?.takeIf { it.active }?.plan)),
+            )
         }
     }
 
@@ -246,7 +271,7 @@ class ProfileViewModel @Inject constructor(
             smartTranslate = prefs.smartTranslate,
             confirmDelete = overlays.confirmDelete,
             deleting = overlays.deleting,
-            showProSheet = overlays.proSheet,
+            paywall = overlays.paywall,
         )
     }
 
@@ -308,13 +333,37 @@ class ProfileViewModel @Inject constructor(
          * it is known); a Google account's free plan, or no card until its usage is known. A quota of the other kind
          * (a refresh that has not caught up with a sign-in or sign-out) is not shown.
          */
-        fun planCard(account: Account?, quota: QuotaState?): PlanCardUi? = when {
+        /**
+         * The plan card: Pro whenever the server's quota says so, with the store's active [entitlement] filling in the
+         * plan and dates (in [zone]); switching to yearly needs a monthly subscription while Pro is [onSale].
+         */
+        fun planCard(
+            account: Account?,
+            quota: QuotaState?,
+            entitlement: ProEntitlement?,
+            onSale: Boolean,
+            zone: ZoneId,
+        ): PlanCardUi? = when {
             account == null -> PlanCardUi.NoUser
             account.isGuest -> quota?.takeIf { it.quota.plan == Plan.GUEST }
                 ?.let { PlanCardUi.Guest(it.quota.used, it.quota.limit, it.freeLimit) }
                 ?: PlanCardUi.NoUser
-            else -> quota?.takeIf { it.quota.plan != Plan.GUEST }
-                ?.let { PlanCardUi.Free(it.quota.used, it.quota.limit, it.quota.maxChars) }
+            else -> quota?.quota?.let { q ->
+                when (q.plan) {
+                    Plan.GUEST -> null
+                    Plan.FREE -> PlanCardUi.Free(q.used, q.limit, q.maxChars)
+                    Plan.PRO -> PlanCardUi.Pro(
+                        plan = entitlement?.plan,
+                        renewsOn = entitlement?.expiresAt?.atZone(zone)?.toLocalDate(),
+                        willRenew = entitlement?.willRenew == true,
+                        billingIssue = entitlement?.billingIssue == true,
+                        used = q.used,
+                        limit = q.limit,
+                        maxChars = q.maxChars,
+                        canSwitch = onSale && entitlement?.plan == ProPlan.MONTHLY,
+                    )
+                }
+            }
         }
 
         /**

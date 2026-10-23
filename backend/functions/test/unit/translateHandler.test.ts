@@ -2,11 +2,19 @@ import { describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../../src/config/runtimeConfig.js";
 import { AllProvidersFailedError, type Router } from "../../src/providers/router.js";
-import { resolvePlan, type PlanResolver } from "../../src/service/plan.js";
+import { createPlanResolver, type PlanResolver } from "../../src/service/plan.js";
 import { createRateLimiter } from "../../src/service/rateLimiter.js";
 import { handleStatus, handleTranslate, type Deps } from "../../src/service/translateHandler.js";
 import { cacheKey } from "../../src/store/cacheKey.js";
-import { fakeLogger, memoryBudget, memoryCache, memoryQuota, reasonOf, rejection } from "./fakes.js";
+import {
+  fakeLogger,
+  memoryBudget,
+  memoryCache,
+  memoryQuota,
+  memorySubscriptions,
+  reasonOf,
+  rejection,
+} from "./fakes.js";
 
 const NOW = new Date("2026-10-22T19:00:00Z"); // 2026-10-23 01:00 in Thimphu
 const TIBETAN_100 = "ཀ".repeat(100);
@@ -23,7 +31,9 @@ function setup(overrides: { config?: Partial<RuntimeConfig>; router?: Router } =
     budget: memoryBudget(),
     router: overrides.router ?? { translate: translateFn },
     rateLimiter: createRateLimiter({ now: () => NOW.getTime() }),
-    resolvePlan: vi.fn<PlanResolver>(resolvePlan),
+    resolvePlan: vi.fn<PlanResolver>(
+      createPlanResolver({ subscriptions: memorySubscriptions(), now: () => NOW, log: fakeLogger() }),
+    ),
     log: fakeLogger(),
     now: () => NOW,
   } satisfies Deps;
@@ -411,6 +421,20 @@ describe("handleStatus", () => {
       maxChars: 100,
       pairs: ["bo-en", "en-bo", "dz-en"],
       freeLimit: 10,
+      billingEnabled: false,
+      proLimit: 300,
+      proMaxChars: 500,
+    });
+  });
+
+  test("reports the paywall switch and the Pro limits from config", async () => {
+    const { deps } = setup({
+      config: { billing: { enabled: true }, pro: { dailyLimit: 200, maxChars: 400 } },
+    });
+    expect(await handleStatus(request({ timeZone: "Asia/Thimphu" }), deps)).toMatchObject({
+      billingEnabled: true,
+      proLimit: 200,
+      proMaxChars: 400,
     });
   });
 

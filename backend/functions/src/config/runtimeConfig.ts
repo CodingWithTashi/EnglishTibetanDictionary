@@ -30,6 +30,8 @@ export interface RuntimeConfig {
   readonly globalDailyCharBudget: number;
   /** Requests a minute per user, per function instance. */
   readonly rateLimitPerMinute: number;
+  /** The remote paywall switch: off, the app keeps the "Coming soon" sheet. Subscribers keep Pro either way. */
+  readonly billing: { readonly enabled: boolean };
 }
 
 export const DEFAULT_CONFIG: RuntimeConfig = {
@@ -46,6 +48,7 @@ export const DEFAULT_CONFIG: RuntimeConfig = {
   cache: { generation: 1, ttlDays: 180 },
   globalDailyCharBudget: 300_000,
   rateLimitPerMinute: 20,
+  billing: { enabled: false },
 };
 
 /** The longest text any plan may send; the request schema caps raw input above it. */
@@ -111,6 +114,12 @@ function mergeRoutes(raw: Record<string, unknown> | undefined, log: Logger): Run
   return routes;
 }
 
+/** The paywall switch fails closed: anything but a boolean `enabled` is logged and leaves it off. */
+function parseBilling(doc: Record<string, unknown>, log: Logger): RuntimeConfig["billing"] {
+  const billing = field(doc, "billing", z.object({ enabled: z.boolean() }).partial(), log);
+  return { enabled: billing?.enabled ?? DEFAULT_CONFIG.billing.enabled };
+}
+
 /**
  * Merges the doc onto the defaults field by field; an invalid field is logged and replaced by its default, so
  * translation keeps working. The exception is `enabled`: if it is present but not a boolean, translation is
@@ -136,6 +145,7 @@ export function parseConfig(raw: unknown, log: Logger): RuntimeConfig {
       field(doc, "globalDailyCharBudget", z.int().min(0), log) ?? DEFAULT_CONFIG.globalDailyCharBudget,
     rateLimitPerMinute:
       field(doc, "rateLimitPerMinute", z.int().min(1).max(10_000), log) ?? DEFAULT_CONFIG.rateLimitPerMinute,
+    billing: parseBilling(doc, log),
   };
 }
 

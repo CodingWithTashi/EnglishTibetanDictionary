@@ -218,6 +218,19 @@ class SmartTranslateTest {
     }
 
     @Test
+    fun `Pro at the fair-use limit is Blocked as Pro, with an unlimited pill`() = runTest {
+        translation.quota.value = quota(plan = Plan.PRO, used = 300, limit = 300, maxChars = 500)
+        val smart = controller()
+
+        smart.onSettled(settled(PHRASE))
+        advanceTimeBy(2_000)
+
+        assertThat(translation.calls).isEmpty()
+        assertThat(state(smart))
+            .isEqualTo(SmartTranslateUi.Blocked(Plan.PRO, UsagePillUi(0, 300, low = true, unlimited = true)))
+    }
+
+    @Test
     fun `limit reached is Blocked with the plan`() = runTest {
         translation.quota.value = quota(used = 10)
         val smart = controller()

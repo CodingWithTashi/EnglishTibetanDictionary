@@ -30,8 +30,18 @@ private val GOOGLE = Account("u1", isGuest = false, name = "Tashi", email = "t@x
 private fun quota(plan: Plan = Plan.GUEST, used: Int = 0, limit: Int = 3, maxChars: Int = 100, resetsAt: Instant = RESETS_AT) =
     Quota(plan, used, limit, resetsAt, maxChars)
 
-private fun status(quota: Quota = quota(), enabled: Boolean = true, freeLimit: Int = 10) =
-    ApiResult.Ok(StatusReply(enabled, quota, freeLimit, setOf(BO_EN, BO_EN.swapped())))
+private fun status(quota: Quota = quota(), enabled: Boolean = true, freeLimit: Int = 10, billingEnabled: Boolean = false) =
+    ApiResult.Ok(
+        StatusReply(
+            enabled,
+            quota,
+            freeLimit,
+            setOf(BO_EN, BO_EN.swapped()),
+            billingEnabled = billingEnabled,
+            proLimit = 300,
+            proMaxChars = 500,
+        ),
+    )
 
 private fun translated(quota: Quota? = quota(used = 1), cached: Boolean = false) =
     ApiResult.Ok(TranslateReply(TranslatedText("Tashi Delek", cached, Provider.AZURE), quota))
@@ -144,7 +154,9 @@ class TranslationRepositoryTest {
         assertThat(auth.ensureCalls).isEqualTo(1)
         assertThat(api.statusCalls).hasSize(1)
         assertThat(repository.quota.value).isEqualTo(QuotaState(quota(used = 1), freeLimit = 10))
-        assertThat(repository.availability.value).isEqualTo(TranslationAvailability(true, setOf(BO_EN, BO_EN.swapped())))
+        assertThat(repository.availability.value).isEqualTo(
+            TranslationAvailability(true, setOf(BO_EN, BO_EN.swapped()), billingEnabled = false, proLimit = 300, proMaxChars = 500),
+        )
     }
 
     @Test
@@ -153,6 +165,43 @@ class TranslationRepositoryTest {
         repository.prepare()
         assertThat(api.statusCalls).isEmpty()
         assertThat(errors.recorded).isEmpty()
+    }
+
+    @Test
+    fun `availability carries the paywall switch`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository(FakeAuthRepository(GOOGLE))
+        api.statusResults += status(quota(Plan.FREE, limit = 10), billingEnabled = true)
+        repository.refresh(force = true)
+        assertThat(repository.availability.value!!.billingEnabled).isTrue()
+        assertThat(repository.availability.value!!.proLimit).isEqualTo(300)
+    }
+
+    @Test
+    fun `a sync that says pro forces one status read and returns the plan`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository(FakeAuthRepository(GOOGLE))
+        api.syncResults += ApiResult.Ok(Plan.PRO)
+        api.statusResults += status(quota(Plan.PRO, limit = 300, maxChars = 500))
+        assertThat(repository.syncSubscription()).isEqualTo(Plan.PRO)
+        assertThat(api.syncCalls).isEqualTo(1)
+        assertThat(api.statusCalls).hasSize(1)
+        assertThat(repository.quota.value!!.quota.plan).isEqualTo(Plan.PRO)
+    }
+
+    @Test
+    fun `a refused sync returns null and reads no status`() = runTest(UnconfinedTestDispatcher()) {
+        val repository = repository(FakeAuthRepository(GOOGLE))
+        api.syncResults += ApiResult.Refused(TranslationRefusal.BillingUnavailable)
+        assertThat(repository.syncSubscription()).isNull()
+        assertThat(api.statusCalls).isEmpty()
+    }
+
+    @Test
+    fun `a sync for a deleted account signs out`() = runTest(UnconfinedTestDispatcher()) {
+        val auth = FakeAuthRepository(GOOGLE)
+        val repository = repository(auth)
+        api.syncResults += ApiResult.Refused(TranslationRefusal.AccountGone)
+        assertThat(repository.syncSubscription()).isNull()
+        assertThat(auth.account.value).isNull()
     }
 
     @Test

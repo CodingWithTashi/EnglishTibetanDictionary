@@ -20,7 +20,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallSheet
 import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -69,6 +72,11 @@ fun SearchScreen(
             if (event == SearchEvent.SmartSignIn) activity?.let(viewModel::signIn) else viewModel.onEvent(event)
         },
         focusRequester = focusRequester,
+    )
+    PaywallSheet(
+        PromptSource.SEARCH_LIMIT.takeIf { state.showProSheet },
+        PaywallMode.PURCHASE,
+        onDismiss = { viewModel.onEvent(SearchEvent.DismissProSheet) },
     )
 }
 

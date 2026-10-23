@@ -13,6 +13,9 @@ import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
 import com.kharagedition.tibetandictionary.data.auth.Account
 import com.kharagedition.tibetandictionary.data.auth.DeleteAccount
+import com.kharagedition.tibetandictionary.data.billing.ProEntitlement
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
+import com.kharagedition.tibetandictionary.data.billing.manageSubscriptionUrl
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
@@ -23,8 +26,11 @@ import com.kharagedition.tibetandictionary.data.translation.ApiResult
 import com.kharagedition.tibetandictionary.data.translation.Plan
 import com.kharagedition.tibetandictionary.data.translation.Quota
 import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.data.translation.TranslationAvailability
 import com.kharagedition.tibetandictionary.data.translation.TranslationRefusal
 import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
+import com.kharagedition.tibetandictionary.fakes.FakeBillingRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeTranslationApi
@@ -35,9 +41,11 @@ import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import com.kharagedition.tibetandictionary.ui.model.AccountUi
 import com.kharagedition.tibetandictionary.ui.model.SignInAction
 import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
 import io.mockk.mockk
 import java.io.IOException
 import java.time.Instant
+import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -83,6 +91,8 @@ class ProfileViewModelTest {
     private val translation = FakeTranslationRepository()
     private val api = FakeTranslationApi()
     private val analytics = RecordingAnalytics()
+    private val billing = FakeBillingRepository()
+    private val clock = FakeClock()
 
     private fun newViewModel(prefs: UserPreferencesRepository = this.prefs) =
         ProfileViewModel(
@@ -96,7 +106,8 @@ class ProfileViewModelTest {
             translation,
             SignInAction(auth, translation, analytics),
             DeleteAccount(api, auth, analytics),
-            analytics,
+            billing,
+            clock,
         )
 
     /** A view model whose state is collected for the whole test, as the screen does. */
@@ -619,6 +630,118 @@ class ProfileViewModelTest {
         assertThat(state.plan).isEqualTo(PlanCardUi.Free(used = 3, limit = 10, maxChars = 100))
     }
 
+    private fun entitlement(
+        plan: ProPlan? = ProPlan.YEARLY,
+        active: Boolean = true,
+        willRenew: Boolean = true,
+        billingIssue: Boolean = false,
+    ) = ProEntitlement(active, plan, Instant.parse("2027-10-19T09:00:00Z"), willRenew, billingIssue)
+
+    private fun signedInPro(billingEnabled: Boolean = true) {
+        auth.account.value = tenzin
+        translation.quota.value = quota(Plan.PRO, used = 3, limit = 300, maxChars = 500)
+        translation.availability.value =
+            TranslationAvailability(enabled = true, pairs = emptySet(), billingEnabled = billingEnabled)
+    }
+
+    @Test
+    fun `a Pro user's card has the plan, its renewal and today's use`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(billingIssue = true)
+
+        assertThat(viewModel().state().plan).isEqualTo(
+            PlanCardUi.Pro(
+                plan = ProPlan.YEARLY,
+                renewsOn = LocalDate.of(2027, 10, 19),
+                willRenew = true,
+                billingIssue = true,
+                used = 3,
+                limit = 300,
+                maxChars = 500,
+                canSwitch = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `a monthly subscriber may switch only while Pro is on sale`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+        val vm = viewModel()
+        assertThat((vm.state().plan as PlanCardUi.Pro).canSwitch).isTrue()
+
+        translation.availability.value = translation.availability.value!!.copy(billingEnabled = false)
+        assertThat((vm.state().plan as PlanCardUi.Pro).canSwitch).isFalse()
+    }
+
+    @Test
+    fun `a build that can't sell offers no switch`() = runTest {
+        signedInPro()
+        billing.available = false
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+
+        assertThat((viewModel().state().plan as PlanCardUi.Pro).canSwitch).isFalse()
+    }
+
+    @Test
+    fun `the server says Pro before the store has answered - plain Pro`() = runTest {
+        signedInPro()
+
+        assertThat(viewModel().state().plan).isEqualTo(
+            PlanCardUi.Pro(null, null, willRenew = false, billingIssue = false, 3, 300, 500, canSwitch = false),
+        )
+    }
+
+    @Test
+    fun `an ended entitlement fills in nothing`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(active = false)
+
+        assertThat((viewModel().state().plan as PlanCardUi.Pro).plan).isNull()
+    }
+
+    @Test
+    fun `Manage opens the subscription's page in Google Play`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.ManageSubscription)
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(manageSubscriptionUrl(ProPlan.MONTHLY)))
+
+            billing.entitlement.value = null
+            vm.onEvent(ProfileEvent.ManageSubscription)
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(manageSubscriptionUrl(null)))
+        }
+    }
+
+    @Test
+    fun `SwitchToYearly opens the paywall to switch`() = runTest {
+        signedInPro()
+        val vm = viewModel()
+
+        vm.onEvent(ProfileEvent.SwitchToYearly)
+
+        assertThat(vm.state().paywall).isEqualTo(PaywallMode.SWITCH)
+    }
+
+    @Test
+    fun `the delete dialog notes Pro only for a subscription that renews`() = runTest {
+        signedInPro()
+        val vm = viewModel()
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+
+        billing.entitlement.value = entitlement()
+        assertThat(vm.state().proNoteOnDelete).isTrue()
+
+        billing.entitlement.value = entitlement(willRenew = false)
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+
+        billing.entitlement.value = entitlement(active = false)
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+    }
+
     @Test
     fun `a guest shows the plan card Guest 1 of 3`() = runTest {
         auth.account.value = guest
@@ -758,15 +881,16 @@ class ProfileViewModelTest {
     }
 
     @Test
-    fun `OpenPro logs profile_plan and shows the sheet`() = runTest {
+    fun `OpenPro opens the purchase paywall and leaves logging to it`() = runTest {
         val vm = viewModel()
+        analytics.events.clear()
 
         vm.onEvent(ProfileEvent.OpenPro)
-        assertThat(analytics.events).containsExactly(AnalyticsEvent.ProInterest(PromptSource.PROFILE_PLAN))
-        assertThat(vm.state().showProSheet).isTrue()
+        assertThat(analytics.events).isEmpty()
+        assertThat(vm.state().paywall).isEqualTo(PaywallMode.PURCHASE)
 
         vm.onEvent(ProfileEvent.DismissProSheet)
-        assertThat(vm.state().showProSheet).isFalse()
+        assertThat(vm.state().paywall).isNull()
     }
 
     @Test

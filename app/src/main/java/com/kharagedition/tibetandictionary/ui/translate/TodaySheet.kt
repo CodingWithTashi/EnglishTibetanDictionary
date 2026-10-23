@@ -28,8 +28,8 @@ private val SheetBottom = 24.dp
 private val ButtonTop = 8.dp
 
 /**
- * Today's usage, from the pill: "3 of 10 used today", "Resets at midnight", and the next step up: sign in (a
- * guest, to get [freeLimit] a day) or the Pro fake door (free). Pro has no button. Tag: `today_sheet`.
+ * Today's usage, from the pill: "3 of 10 used today" ("Unlimited today" on Pro), "Resets at midnight", and the next
+ * step up: sign in (a guest, to get [freeLimit] a day) or the Pro sheet (free). Pro has no button. Tag: `today_sheet`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +57,13 @@ private fun TodaySheetContent(
     val language = DictTheme.language
     val used = TibetanNumerals.formatCount(usage.limit - usage.remaining, language)
     Column(Modifier.fillMaxWidth().testTag("today_sheet").padding(bottom = SheetBottom)) {
-        SheetTitle(stringResource(R.string.today_used, used, TibetanNumerals.formatCount(usage.limit, language)))
+        SheetTitle(
+            if (usage.unlimited) {
+                stringResource(R.string.today_unlimited)
+            } else {
+                stringResource(R.string.today_used, used, TibetanNumerals.formatCount(usage.limit, language))
+            },
+        )
         Column(
             Modifier.padding(horizontal = DictTheme.dimens.screenPadding),
             verticalArrangement = Arrangement.spacedBy(DictTheme.dimens.blockGap),

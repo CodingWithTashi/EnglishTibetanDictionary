@@ -69,4 +69,27 @@ class AnalyticsEventTest {
             "translate_limit", "search_limit", "today_sheet", "profile_account", "profile_plan", "too_long",
         )
     }
+
+    @Test
+    fun `billing events have the documented names and params`() {
+        AnalyticsEvent.PaywallView(PromptSource.TRANSLATE_LIMIT, mode = "offers").let {
+            assertThat(it.name).isEqualTo("paywall_view")
+            assertThat(it.params).containsExactly("source", "translate_limit", "mode", "offers")
+        }
+        AnalyticsEvent.PurchaseStart(plan = "yearly", source = PromptSource.PROFILE_PLAN).let {
+            assertThat(it.name).isEqualTo("purchase_start")
+            assertThat(it.params).containsExactly("plan", "yearly", "source", "profile_plan")
+        }
+        AnalyticsEvent.PurchaseResult(plan = "monthly", outcome = "error", code = "network", switch = false).let {
+            assertThat(it.name).isEqualTo("purchase_result")
+            assertThat(it.params).containsExactly("plan", "monthly", "outcome", "error", "code", "network", "switch", "false")
+        }
+        AnalyticsEvent.PurchaseResult(plan = "yearly", outcome = "success", code = null, switch = true).let {
+            assertThat(it.params).containsExactly("plan", "yearly", "outcome", "success", "switch", "true")
+        }
+        AnalyticsEvent.RestoreResult(outcome = "none").let {
+            assertThat(it.name).isEqualTo("restore_result")
+            assertThat(it.params).containsExactly("outcome", "none")
+        }
+    }
 }

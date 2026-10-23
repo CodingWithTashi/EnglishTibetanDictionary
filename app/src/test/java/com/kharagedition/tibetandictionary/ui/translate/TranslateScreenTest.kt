@@ -361,16 +361,34 @@ class TranslateScreenTest {
     }
 
     @Test
+    fun `the fair-use card looks up words and never offers an upgrade`() {
+        show(typed.copy(block = TranslateBlock.FairUseLimit, canTranslate = false))
+        compose.onNodeWithTag("translate_block_fair_use")
+            .assertTextContains("You've reached today's fair-use limit", substring = true)
+            .assertTextContains("Resets at midnight", substring = true)
+        compose.onNodeWithTag("translate_upgrade").assertDoesNotExist()
+        tap("translate_look_up")
+        assertThat(events).containsExactly(TranslateEvent.LookUpWords)
+    }
+
+    @Test
+    fun `the today sheet for Pro says unlimited without a button`() {
+        show(
+            idle.copy(
+                plan = Plan.PRO,
+                pill = UsagePillUi(remaining = 250, limit = 300, low = false, unlimited = true),
+                sheet = TranslateSheet.TODAY,
+            ),
+        )
+        compose.onNodeWithText("Unlimited today").assertExists()
+        compose.onNodeWithText("Upgrade to Pro").assertDoesNotExist()
+    }
+
+    @Test
     fun `the today sheet offers Pro on the free plan`() {
         show(idle.copy(sheet = TranslateSheet.TODAY))
         compose.onNodeWithText("3 of 10 used today").assertExists()
         compose.onNodeWithText("Upgrade to Pro").performClick()
         assertThat(events).containsExactly(TranslateEvent.OpenPro(PromptSource.TODAY_SHEET))
-    }
-
-    @Test
-    fun `the pro sheet shows when asked`() {
-        show(idle.copy(sheet = TranslateSheet.PRO))
-        compose.onNodeWithTag("pro_sheet").assertExists()
     }
 }

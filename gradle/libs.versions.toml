@@ -21,7 +21,8 @@ firebase-bom = "34.19.0"
 google-services = "4.5.0"
 crashlytics-plugin = "3.0.8"
 desugar = "2.1.5"
-billing = "8.0.0"
+# purchases-android 10.26.0 (2026-10-08) bundles Play Billing Library 8.3.0; Play requires Billing ≥ 8 in 2026.
+revenuecat = "10.26.0"
 credentials = "1.6.0"
 # 1.2.x carries Kotlin metadata newer than AGP 8.13's D8 reads: a wall of warnings on every debug build.
 googleid = "1.1.1"
@@ -87,8 +88,8 @@ kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-cor
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
-# Play Billing
-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
+# Pro subscriptions: RevenueCat, which brings Play Billing and the BILLING permission
+revenuecat-purchases = { module = "com.revenuecat.purchases:purchases", version.ref = "revenuecat" }
 # Desugar
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 # Test

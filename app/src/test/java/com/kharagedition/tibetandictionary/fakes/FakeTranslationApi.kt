@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.fakes
 
 import com.kharagedition.tibetandictionary.data.translation.ApiResult
 import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Plan
 import com.kharagedition.tibetandictionary.data.translation.StatusReply
 import com.kharagedition.tibetandictionary.data.translation.TranslateReply
 import com.kharagedition.tibetandictionary.data.translation.TranslationApi
@@ -17,10 +18,12 @@ class FakeTranslationApi : TranslationApi {
     val translateResults = ArrayDeque<ApiResult<TranslateReply>>()
     val statusResults = ArrayDeque<ApiResult<StatusReply>>()
     val deleteResults = ArrayDeque<ApiResult<Unit>>()
+    val syncResults = ArrayDeque<ApiResult<Plan>>()
 
     val translateCalls = mutableListOf<TranslateCall>()
     val statusCalls = mutableListOf<String>()
     var deleteCalls = 0
+    var syncCalls = 0
 
     var translateGate: CompletableDeferred<Unit>? = null
     var statusGate: CompletableDeferred<Unit>? = null
@@ -42,5 +45,10 @@ class FakeTranslationApi : TranslationApi {
         deleteCalls++
         deleteGate?.await()
         return deleteResults.removeFirstOrNull() ?: error("no deleteAccount result queued")
+    }
+
+    override suspend fun syncSubscription(): ApiResult<Plan> {
+        syncCalls++
+        return syncResults.removeFirstOrNull() ?: error("no syncSubscription result queued")
     }
 }

@@ -7,7 +7,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { addDoc, collection, deleteDoc, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { afterAll, beforeAll, describe, test } from "vitest";
 
 import { PROJECT_ID } from "./helpers.js";
@@ -65,10 +65,23 @@ describe("server-only data", () => {
     "dailyUsage/user-1_2026-10-22",
     "budget/2026-10-22/shards/0",
     "config/translation",
+    "subscriptions/user-1",
   ])("%s is closed to every client", async (path) => {
     for (const db of [signedOut(), signedIn()]) {
       await assertFails(getDoc(doc(db, path)));
       await assertFails(setDoc(doc(db, path), { count: 0 }));
     }
+  });
+
+  test("a user can't read, list, change or delete even their own subscription record", async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "subscriptions/user-1"), { active: true });
+    });
+    const own = signedIn();
+    await assertFails(getDoc(doc(own, "subscriptions/user-1")));
+    await assertFails(getDocs(collection(own, "subscriptions")));
+    await assertFails(updateDoc(doc(own, "subscriptions/user-1"), { active: false }));
+    await assertFails(deleteDoc(doc(own, "subscriptions/user-1")));
+    await assertFails(setDoc(doc(own, "subscriptions/user-2"), { active: true }));
   });
 });

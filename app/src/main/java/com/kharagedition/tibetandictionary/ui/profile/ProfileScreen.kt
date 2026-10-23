@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
@@ -64,7 +65,6 @@ import com.kharagedition.tibetandictionary.ui.components.LocalActivePack
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.MixedText
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
-import com.kharagedition.tibetandictionary.ui.components.ProSheet
 import com.kharagedition.tibetandictionary.ui.components.ScreenTitle
 import com.kharagedition.tibetandictionary.ui.components.SegmentedControl3
 import com.kharagedition.tibetandictionary.ui.components.SettingsGroup
@@ -74,6 +74,8 @@ import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.extendStart
 import com.kharagedition.tibetandictionary.ui.components.lineSpacingLabel
 import com.kharagedition.tibetandictionary.ui.components.textSizeLabel
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallSheet
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.time.LocalTime
@@ -125,6 +127,11 @@ fun ProfileScreen(onOpenAbout: () -> Unit) {
                     activity != null -> viewModel.signIn(activity, event.source)
                 }
             },
+        )
+        PaywallSheet(
+            PromptSource.PROFILE_PLAN.takeIf { loaded.paywall != null },
+            loaded.paywall ?: PaywallMode.PURCHASE,
+            onDismiss = { viewModel.onEvent(ProfileEvent.DismissProSheet) },
         )
     } else {
         // Prefs and capabilities arrive within a frame; show the background instead of default values.
@@ -201,8 +208,7 @@ fun ProfileScreen(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit, modifi
         ProfileFooter(state, onEvent)
     }
     ProfileSheets(state, onEvent)
-    if (state.confirmDelete) DeleteAccountDialog(state.deleting, onEvent)
-    if (state.showProSheet) ProSheet(onDismiss = { onEvent(ProfileEvent.DismissProSheet) })
+    if (state.confirmDelete) DeleteAccountDialog(state.deleting, state.proNoteOnDelete, onEvent)
 }
 
 @Composable

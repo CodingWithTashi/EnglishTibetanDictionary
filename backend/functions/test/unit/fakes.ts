@@ -8,6 +8,7 @@ import type {
   TranslationProvider,
 } from "../../src/providers/types.js";
 import type { BudgetStore } from "../../src/store/budgetStore.js";
+import type { PutResult, StoredSubscription, SubscriptionStore } from "../../src/store/subscriptionStore.js";
 import { DailyLimitError, type QuotaStore, type Usage } from "../../src/store/quotaStore.js";
 import type { CacheEntry, TranslationCache } from "../../src/store/translationCache.js";
 import type { Logger, LogLevel } from "../../src/util/logger.js";
@@ -137,4 +138,32 @@ export function memoryBudget(): BudgetStore & { total: number } {
     },
   };
   return budget;
+}
+
+/** The subscription store's contract in memory; `failGet` makes reads reject. */
+export function memorySubscriptions(
+  options: { now?: () => Date } = {},
+): SubscriptionStore & { docs: Map<string, StoredSubscription>; failGet?: Error } {
+  const { now = () => new Date() } = options;
+  const docs = new Map<string, StoredSubscription>();
+  const store: SubscriptionStore & { docs: Map<string, StoredSubscription>; failGet?: Error } = {
+    docs,
+    get(uid) {
+      if (store.failGet) return Promise.reject(store.failGet);
+      const doc = docs.get(uid);
+      return Promise.resolve(doc ? { ...doc } : null);
+    },
+    putIfNewer(uid, record, source, putOptions = {}): Promise<PutResult> {
+      const stored = docs.get(uid);
+      if (!stored && putOptions.onlyIfExists === true) return Promise.resolve("absent");
+      if (stored && stored.fetchedAt.getTime() >= record.fetchedAt.getTime()) return Promise.resolve("stale");
+      docs.set(uid, { ...record, updatedAt: now(), source });
+      return Promise.resolve("written");
+    },
+    delete(uid) {
+      docs.delete(uid);
+      return Promise.resolve();
+    },
+  };
+  return store;
 }

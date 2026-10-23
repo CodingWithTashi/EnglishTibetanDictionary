@@ -65,6 +65,36 @@ sealed interface AnalyticsEvent {
         override val params get() = mapOf("source" to source.value)
     }
 
+    /** The Pro sheet opened; [mode] is offers, switch, fake_door or sign_in. */
+    data class PaywallView(val source: PromptSource, val mode: String) : AnalyticsEvent {
+        override val name get() = "paywall_view"
+        override val params get() = mapOf("source" to source.value, "mode" to mode)
+    }
+
+    data class PurchaseStart(val plan: String, val source: PromptSource) : AnalyticsEvent {
+        override val name get() = "purchase_start"
+        override val params get() = mapOf("plan" to plan, "source" to source.value)
+    }
+
+    /** [outcome] is success, cancelled, pending or error, with the error's [code]; [switch] for monthly → yearly. */
+    data class PurchaseResult(val plan: String, val outcome: String, val code: String?, val switch: Boolean) :
+        AnalyticsEvent {
+        override val name get() = "purchase_result"
+        override val params
+            get() = buildMap {
+                put("plan", plan)
+                put("outcome", outcome)
+                code?.let { put("code", it) }
+                put("switch", switch.toString())
+            }
+    }
+
+    /** [outcome] is restored, none or error. */
+    data class RestoreResult(val outcome: String) : AnalyticsEvent {
+        override val name get() = "restore_result"
+        override val params get() = mapOf("outcome" to outcome)
+    }
+
     data object AccountDeleted : AnalyticsEvent {
         override val name get() = "account_deleted"
         override val params get() = emptyMap<String, String>()

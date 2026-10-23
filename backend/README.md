@@ -1,16 +1,19 @@
 # Translation backend
 
-Three Firebase callable functions behind the app's Translate tab, smart translate in search, and account
-deletion:
+Four Firebase callable functions and one HTTPS webhook behind the app's Translate tab, smart translate in search,
+account deletion and Pro subscriptions:
 
 | Function | Purpose |
 |---|---|
 | `translate` | Translates Tibetan or Dzongkha ⇄ English. Uses the cache first, enforces the daily limit, then calls Azure Translator or Google Cloud Translation. |
 | `getTranslationStatus` | Today's usage, limits and the open directions, for Home ("7 left today") and Settings. |
-| `deleteAccount` | Deletes a signed-in user's usage docs and Firebase Auth account, from Profile › Account. |
+| `deleteAccount` | Deletes a signed-in user's usage docs, subscription record and Firebase Auth account, from Profile › Account. |
+| `syncSubscription` | Re-reads the caller's Pro subscription from RevenueCat after a purchase, restore or plan switch. |
+| `revenuecatWebhook` | HTTPS endpoint RevenueCat calls on every subscription event; re-reads the customers it names. |
 
 All run in **asia-south1** (Mumbai), next to the project's Firestore database. Design and decisions:
-`docs/superpowers/specs/2026-10-22-translation-backend-design.md`.
+`docs/superpowers/specs/2026-10-22-translation-backend-design.md`, and for Pro
+`docs/superpowers/specs/2026-10-23-subscriptions-design.md`.
 
 ```
 app ── callable (Auth + App Check) ──▶ translate
@@ -43,7 +46,7 @@ calling. Without them the call fails with `unauthenticated`.
 |---|---|---|
 | `guest` | Signed in anonymously, with no linked identity (the ID token's `firebase.sign_in_provider` is `anonymous` and `firebase.identities` is empty) | 3 a day, 100 characters (`config/translation.guest`) |
 | `free` | Signed in with Google. Linking Google to the anonymous user keeps the uid, so today's usage carries over. | 10 a day, 100 characters (`free`) |
-| `pro` | Not used until the billing phase | 300 a day, 500 characters (`pro`) |
+| `pro` | Signed in with Google, with an active `subscriptions/{uid}` record (see [Pro subscriptions](#pro-subscriptions-revenuecat)) | 300 a day, 500 characters (`pro`); the app shows it as "Unlimited" with a fair-use note |
 
 ### `translate`
 
@@ -73,14 +76,18 @@ Response:
 ### `getTranslationStatus`
 
 Request: `{ timeZone?: string }` (or no data).
-Response: `{ enabled, plan, used, limit, remaining, resetsAt, maxChars, pairs, freeLimit }`. `pairs` lists the
-open directions, such as `["bo-en", "en-bo", "dz-en", "en-dz"]`. `freeLimit` is the free plan's daily limit, so
-the app can tell a guest how many more translations signing in gives ("Sign in to get 7 more today").
+Response: `{ enabled, plan, used, limit, remaining, resetsAt, maxChars, pairs, freeLimit, billingEnabled, proLimit,
+proMaxChars }`. `pairs` lists the open directions, such as `["bo-en", "en-bo", "dz-en", "en-dz"]`. `freeLimit` is
+the free plan's daily limit, so the app can tell a guest how many more translations signing in gives ("Sign in to
+get 7 more today"). `billingEnabled` is the paywall switch (`config/translation.billing.enabled`); `proLimit` and
+`proMaxChars` are Pro's daily fair-use limit and characters, for the paywall's table.
 
 ### `deleteAccount`
 
 Request: no data. Response: `{ deleted: true }`.
-Deletes every `dailyUsage` doc of the caller, then the caller's Firebase Auth user. A user that is already gone
+Deletes every `dailyUsage` doc of the caller and their `subscriptions/{uid}` record, then the caller's Firebase
+Auth user. It does not cancel a Play subscription (the app tells a Pro user so before they confirm), and the
+RevenueCat customer record stays for financial records. A user that is already gone
 counts as deleted, so a retry after a partial failure succeeds. Guests are refused with `guest_account`: an
 anonymous user has no account to delete, and signing out discards it. Saved words and translations live only on
 the device, so the app keeps them.
@@ -94,7 +101,7 @@ Every refusal is an `HttpsError` with `details.reason`:
 | `unauthenticated` | `unauthenticated` | | sign in anonymously first |
 | `unauthenticated` | *(none)* | | App Check token missing or invalid; the framework rejects it before the handler runs |
 | `failed-precondition` | `translation_disabled` | | translation is switched off; the dictionary still works |
-| `failed-precondition` | `guest_account` | | `deleteAccount` from a guest; there is no account to delete |
+| `failed-precondition` | `guest_account` | | `deleteAccount` or `syncSubscription` from a guest; there is no account to delete or subscribe |
 | `invalid-argument` | `bad_request` | | malformed request (app bug) |
 | `invalid-argument` | `unsupported_pair` | | direction not offered (see `pairs`) |
 | `invalid-argument` | `empty_text` | | nothing to translate |
@@ -102,9 +109,10 @@ Every refusal is an `HttpsError` with `details.reason`:
 | `invalid-argument` | `wrong_script` | | English source contains only Tibetan |
 | `invalid-argument` | `text_too_long` | `maxChars`, `length` | "132 / 100 characters" |
 | `resource-exhausted` | `daily_limit` | `limit`, `resetsAt`, `plan`, `freeLimit` | guest: "Sign in to get 7 more today"; free: "Daily limit reached · Resets at midnight" |
-| `resource-exhausted` | `rate_limited` | `retryAfterSec` | too many requests a minute |
+| `resource-exhausted` | `rate_limited` | `retryAfterSec` | too many requests a minute (`syncSubscription`: 6) |
 | `resource-exhausted` | `service_budget` | | the service-wide daily budget is spent; try later |
 | `unavailable` | `provider_unavailable` | | every provider failed; not counted, offer retry |
+| `unavailable` | `billing_unavailable` | | `syncSubscription` couldn't read RevenueCat; the webhook still catches up |
 | `internal` | *(none)* | | unexpected server error, logged |
 
 ### Character counting
@@ -118,6 +126,63 @@ equals `String.length`.
 **Count after NFC, not before.** NFC can make Tibetan text longer: precomposed letters such as གྷ (U+0F43)
 and ཱི (U+0F73) decompose to two code points. A client counter that skips NFC can show "100 / 100" for text
 the server measures as 104 and rejects with `text_too_long`.
+
+## Pro subscriptions (RevenueCat)
+
+Pro is sold as two Google Play subscriptions through RevenueCat: `dictionary_pro` (base plan `monthly`) and
+`dictionary_pro_annually` (base plan `yearly`). Both unlock the RevenueCat entitlement `pro`. The Firebase uid is
+the RevenueCat App User ID, and only users signed in with Google can buy.
+
+```
+RevenueCat ── webhook (Authorization) ──▶ revenuecatWebhook ─┐
+app ── callable (Auth + App Check) ──▶ syncSubscription ──────┤
+                                                             ▼
+                   refreshSubscription(uid): GET api.revenuecat.com/v1/subscribers/{uid}
+                                             → subscriptions/{uid}, only if newer (fetchedAt)
+translate / getTranslationStatus ──▶ resolvePlan: guest │ pro if active and expiresAt + 15 min > now │ free
+```
+
+- **One write path.** Every webhook event and every sync re-reads the customer from RevenueCat's REST API v1 and
+  stores the result in a transaction, only if RevenueCat's `request_date_ms` is newer than the stored `fetchedAt`.
+  Duplicate, late and out-of-order webhooks are harmless, and a forged webhook can at most cause a refresh. A user
+  with no entitlement and no record gets no doc. An unreadable reply is an error, never "not Pro".
+- **Plan resolution** reads `subscriptions/{uid}` on every call. A failed read is logged at ERROR and counts as
+  free.
+
+### `syncSubscription`
+
+Request: no data. Response: `{ plan: "pro" | "free" }`. The app calls it right after a purchase, restore or plan
+switch, and when its RevenueCat state says Pro but the server says free. Guests get `guest_account`; more than 6 a
+minute per user `rate_limited`; RevenueCat unreachable (after one retry) `billing_unavailable`.
+
+### `revenuecatWebhook`
+
+`POST https://asia-south1-englishtibetandictionary.cloudfunctions.net/revenuecatWebhook`, public (RevenueCat
+calls it, so there is no App Check). RevenueCat retries a non-200 answer 5 times over about 80 minutes.
+
+| Request | Answer |
+|---|---|
+| Not POST | 405 |
+| `Authorization` not exactly `REVENUECAT_WEBHOOK_AUTH` (timing-safe compare) | 401, nothing read |
+| Body not `{ event: { id, type, … } }` | 400 |
+| `type: "TEST"` | 200, logged, nothing read |
+| Any other event | Refreshes every plausible uid in `app_user_id`, `original_app_user_id`, `aliases`, `transferred_from`, `transferred_to` (no `$RCAnonymousID:`, 1–128 characters, no `/`, at most 10): 200 when all succeeded, else 500 |
+
+The log line (`revenuecat webhook`) has the event `id`, `type`, `environment`, the uid count and the `outcome`.
+It never has the header, prices, emails or store tokens.
+
+### `subscriptions/{uid}`
+
+| Field | Meaning |
+|---|---|
+| `active` | the entitlement's expiry was after RevenueCat's request time |
+| `expiresAt` | the later of `expires_date` and `grace_period_expires_date`; null for no expiry (never Pro) |
+| `product` | `monthly` (`dictionary_pro`), `yearly` (`dictionary_pro_annually`) or null, matched on the id before `:` |
+| `willRenew` | no `unsubscribe_detected_at` |
+| `billingIssue` | a `billing_issues_detected_at` |
+| `sandbox`, `store` | as RevenueCat reports them (`store` is `none` once the entitlement is gone) |
+| `fetchedAt` | RevenueCat's `request_date_ms` for the answer this came from |
+| `updatedAt`, `source` | server write time; `webhook` or `sync` |
 
 ## Providers and switching
 
@@ -166,7 +231,8 @@ must be a *boolean*; the numbers must be *number* (whole numbers). If `enabled` 
   "pro": { "dailyLimit": 300, "maxChars": 500 },
   "cache": { "generation": 1, "ttlDays": 180 },
   "globalDailyCharBudget": 300000,
-  "rateLimitPerMinute": 20
+  "rateLimitPerMinute": 20,
+  "billing": { "enabled": false }
 }
 ```
 
@@ -177,9 +243,11 @@ must be a *boolean*; the numbers must be *number* (whole numbers). If `enabled` 
 - `globalDailyCharBudget` caps characters sent to providers per UTC day across all users. 300,000 is about
   $3/day on Azure ($10 per million) or $6/day on Google ($20 per million). `0` blocks every uncached
   translation.
-- `guest` applies to anonymous users and `free` to everyone signed in with Google. `pro` is not used yet: no one
-  is on it until the billing phase verifies Google Play subscriptions server-side (`src/service/plan.ts` is the
-  seam).
+- `guest` applies to anonymous users, `free` to everyone signed in with Google, and `pro` to users with an active
+  subscription record.
+- `billing.enabled` is the paywall switch, off by default. Off, the app keeps the "Coming soon" sheet; on, app
+  builds with a RevenueCat key show the paywall. It never affects existing subscribers. Like `enabled`, a value
+  that is present but not a boolean counts as off.
 
 ## Data, retention and privacy
 
@@ -188,6 +256,7 @@ must be a *boolean*; the numbers must be *number* (whole numbers). If `enabled` 
 | `translations/{sha256}` | normalised source text, translation, provider, generation | TTL on `expireAt`: 180 days, renewed when a hit has under 30 days left |
 | `dailyUsage/{uid}_{day}` | count and characters per user and local day | TTL, 7 days; at once by `deleteAccount` |
 | `budget/{utcDay}/shards/{0-9}` | characters and requests per UTC day | TTL, 7 days |
+| `subscriptions/{uid}` | the user's Pro entitlement as RevenueCat last reported it | at once by `deleteAccount`; no TTL |
 | `config/translation` | runtime config | |
 | `Message/{id}` | feedback from app versions before 3.0 | |
 
@@ -221,7 +290,15 @@ Deliberate behaviour, pinned by tests so that a change is a decision, not an acc
   day. Signed-in usage holds across reinstalls and devices. The global budget bounds both. The old guest stays
   in Firebase Auth, as does a guest whose sign-in switched to an account that already existed. Nothing deletes
   them unless automatic clean-up of anonymous users is on (`docs/translation-launch-checklist.md`, step 1).
-- **Pro is not enforced** until the billing phase (`src/service/plan.ts`).
+- **Pro can last up to 15 minutes past its end**, the leeway for a RENEWAL webhook to arrive
+  (`test/unit/plan.test.ts`).
+- **"Unlimited" has a fair-use cap**: `pro.dailyLimit`, 300 by default.
+- **Deleting an account doesn't cancel the Play subscription**, and the RevenueCat customer stays. Deleting it while
+  a subscription renews would leave renewals with no owner.
+- **A webhook that fails all 5 retries is lost.** The expiry check and the app's `syncSubscription` bound the
+  effect.
+- **`GET /subscribers` creates an empty RevenueCat customer for an unknown uid.** It is only called for uids that
+  bought, restored or that the app thinks are Pro.
 
 ## Development
 
@@ -291,17 +368,31 @@ write everything).
    Expect every line to be PASS. The repeat call must show `cached: true` with `quota.used` unchanged.
 7. **App Check for release**: register the Android app with Play Integrity, using the app-signing SHA-256
    from Play Console.
+8. **RevenueCat secrets** (before the first deploy that contains `syncSubscription` and `revenuecatWebhook`):
+   - `firebase functions:secrets:set REVENUECAT_API_KEY`: a v1 secret key from RevenueCat → Project settings →
+     API keys.
+   - `openssl rand -base64 32`, then `firebase functions:secrets:set REVENUECAT_WEBHOOK_AUTH` with that value.
+   - The deploy's secret binding gives `translation-fn` access to both; no IAM change is needed.
+9. **RevenueCat webhook**: RevenueCat → Integrations → Webhooks → URL
+   `https://asia-south1-englishtibetandictionary.cloudfunctions.net/revenuecatWebhook`, events from production and
+   sandbox, Authorization = the `REVENUECAT_WEBHOOK_AUTH` value. "Send test event" must answer 200.
+10. **Paywall switch**: set `config/translation.billing.enabled` to the boolean `true` (owner's go) once the
+    internal-testing build has a RevenueCat key.
 
 ## Operations
 
 - **Logs** (Cloud Logging, `jsonPayload`): `translate` events with `outcome` = `cached`, `translated` or
   `refused` (+ `reason`). `provider attempt failed` and `provider rejected our credentials` come from the
-  router.
+  router. Billing: `revenuecat webhook` (`outcome` = `refreshed`, `failed` or `test`), `subscription refreshed`,
+  `subscription synced`, `revenuecat read failed` (+ `kind`), `revenuecat webhook: bad authorization`.
 - **Suggested alerts** (log-based metrics):
   - any `provider rejected our credentials`: a bad or expired key;
   - a rising rate of `all providers failed`;
   - any `reason = service_budget`;
-  - any `config: invalid`: a mistyped field in `config/translation` (if it was `enabled`, translation is off).
+  - any `config: invalid`: a mistyped field in `config/translation` (if it was `enabled`, translation is off);
+  - any `revenuecat read failed` with `kind = auth`: the RevenueCat secret key is wrong or revoked;
+  - a rising rate of `revenuecat webhook: bad authorization` or `outcome = failed`;
+  - any `subscription read failed`: Pro users are being treated as free.
 - Add a GCP billing budget alert as well. The in-app budget is approximate: each instance re-reads it every
   30 s.
 - **Runtime**: Node.js 22, which Cloud Functions deprecates on 2027-04-30. Move `firebase.json` `runtime` and

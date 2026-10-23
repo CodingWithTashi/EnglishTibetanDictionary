@@ -4,15 +4,28 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.kharagedition.tibetandictionary.data.auth.Account
+import com.kharagedition.tibetandictionary.data.billing.BillingIdentitySync
+import com.kharagedition.tibetandictionary.data.billing.ProEntitlement
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
+import com.kharagedition.tibetandictionary.data.billing.ProReconciler
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Quota
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
+import com.kharagedition.tibetandictionary.fakes.FakeBillingRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import java.time.Instant
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -24,6 +37,9 @@ class AppInitializerTest {
     private val scope = TestScope(dispatcher)
     private val prefs = FakeUserPreferencesRepository()
     private val errors = RecordingErrorReporter()
+    private val billing = FakeBillingRepository()
+    private val auth = FakeAuthRepository(Account("u1", isGuest = false, name = null, email = null))
+    private val translation = FakeTranslationRepository()
 
     /** Records whether the legacy cleanup had finished when [ensureInstalled] ran; throws [failure] if set. */
     private class ProbeInstaller(
@@ -43,7 +59,16 @@ class AppInitializerTest {
     }
 
     private fun initializer(installer: DictionaryInstaller) =
-        AppInitializer(LegacyCleanup(context, prefs), installer, prefs, errors, scope, dispatcher)
+        AppInitializer(
+            LegacyCleanup(context, prefs),
+            installer,
+            prefs,
+            BillingIdentitySync(billing, auth, scope),
+            ProReconciler(billing, auth, translation, FakeClock(), scope),
+            errors,
+            scope,
+            dispatcher,
+        )
 
     @Test
     fun `cleans up, then installs, then reports ready`() {
@@ -151,5 +176,21 @@ class AppInitializerTest {
         assertThat(errors.recorded).containsExactly(bug)
         assertThat(installer.installedPacks).containsExactly(DictionaryPack.DZONGKHA)
         assertThat(init.ready.value).isTrue()
+    }
+
+    @Test
+    fun `starts the store identity sync and the Pro reconciler`() {
+        billing.entitlement.value = ProEntitlement(true, ProPlan.YEARLY, expiresAt = null, willRenew = true, billingIssue = false)
+        translation.quota.value =
+            QuotaState(Quota(Plan.FREE, used = 0, limit = 10, resetsAt = Instant.EPOCH, maxChars = 100), freeLimit = 10)
+        translation.syncResults.add(Plan.PRO)
+        val init = initializer(ProbeInstaller(prefs))
+
+        init.start()
+        scope.testScheduler.advanceUntilIdle()
+
+        // The identity sync, then the reconciler making sure the store acts for u1 before it syncs.
+        assertThat(billing.identifyCalls).containsExactly("u1", "u1")
+        assertThat(translation.syncCalls).isEqualTo(1)
     }
 }

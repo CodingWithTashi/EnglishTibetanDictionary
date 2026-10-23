@@ -20,6 +20,7 @@ import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.Plan
 import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
 import com.kharagedition.tibetandictionary.data.translation.translationPairs
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
@@ -158,7 +159,14 @@ class HomeViewModel @Inject constructor(
             val pair = pack.translationPairs().firstOrNull { availability == null || it in availability.pairs }
             val counted = quota?.takeIf { account != null }?.quota
             pair?.takeIf { availability?.enabled != false }
-                ?.let { TranslateCardUi(it, remaining = counted?.remaining, limit = counted?.limit) }
+                ?.let {
+                    TranslateCardUi(
+                        it,
+                        remaining = counted?.remaining,
+                        limit = counted?.limit,
+                        unlimited = counted?.plan == Plan.PRO,
+                    )
+                }
         }
     }
 

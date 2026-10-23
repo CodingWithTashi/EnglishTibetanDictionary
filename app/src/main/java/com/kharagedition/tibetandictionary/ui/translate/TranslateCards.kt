@@ -36,9 +36,15 @@ private val NoticeGap = 14.dp
 
 /** Whether [this] block takes the Translate button's place (the limits, paused) or sits under it (failures). */
 internal val TranslateBlock.replacesButton: Boolean
-    get() = this is TranslateBlock.GuestLimit || this == TranslateBlock.DailyLimit || this == TranslateBlock.Disabled
+    get() = this is TranslateBlock.GuestLimit ||
+        this == TranslateBlock.DailyLimit ||
+        this == TranslateBlock.FairUseLimit ||
+        this == TranslateBlock.Disabled
 
-/** The card for [block]: the guest's sign-in card, the daily limit (1t), or a notice with Retry (1u). */
+/**
+ * The card for [block]: the guest's sign-in card, the daily limit (1t), Pro's fair-use limit (no upgrade), or a notice
+ * with Retry (1u).
+ */
 @Composable
 internal fun TranslateBlockCard(
     block: TranslateBlock,
@@ -59,6 +65,10 @@ internal fun TranslateBlockCard(
             onLookUp = { onEvent(TranslateEvent.LookUpWords) },
             modifier = modifier,
         )
+        TranslateBlock.FairUseLimit -> OutlinedCard("translate_block_fair_use", modifier) {
+            CardText(stringResource(R.string.translate_fair_use_title), stringResource(R.string.today_resets))
+            LookUpButton({ onEvent(TranslateEvent.LookUpWords) }, Modifier.fillMaxWidth())
+        }
         TranslateBlock.Offline -> NoticeCard(
             "translate_block_offline",
             stringResource(R.string.translate_offline_title),

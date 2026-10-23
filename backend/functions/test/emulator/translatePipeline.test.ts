@@ -4,11 +4,12 @@ import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_CONFIG, type RuntimeConfig } from "../../src/config/runtimeConfig.js";
 import { AllProvidersFailedError, type Router } from "../../src/providers/router.js";
 import { createRateLimiter } from "../../src/service/rateLimiter.js";
-import { resolvePlan } from "../../src/service/plan.js";
+import { createPlanResolver } from "../../src/service/plan.js";
 import { handleStatus, handleTranslate, type Deps } from "../../src/service/translateHandler.js";
 import { createBudgetStore } from "../../src/store/budgetStore.js";
 import { cacheKey } from "../../src/store/cacheKey.js";
 import { createQuotaStore } from "../../src/store/quotaStore.js";
+import { createSubscriptionStore } from "../../src/store/subscriptionStore.js";
 import { createTranslationCache } from "../../src/store/translationCache.js";
 import { fakeLogger, reasonOf, rejection } from "../unit/fakes.js";
 import { testDb } from "./helpers.js";
@@ -48,6 +49,30 @@ function instance(options: { config?: Partial<RuntimeConfig>; router?: Router["t
   return { deps, router, log };
 }
 
+/** [deps] with the real plan resolver over `subscriptions/{uid}`. */
+function withSubscriptions(deps: Deps): Deps {
+  const subscriptions = createSubscriptionStore(db, { now: () => NOW });
+  return { ...deps, resolvePlan: createPlanResolver({ subscriptions, now: () => NOW, log: deps.log }) };
+}
+
+/** Stores a monthly Pro record for user-1 that ends at [expiresAt]. */
+async function storePro(expiresAt: Date): Promise<void> {
+  await createSubscriptionStore(db).putIfNewer(
+    "user-1",
+    {
+      active: true,
+      expiresAt,
+      product: "monthly",
+      willRenew: true,
+      billingIssue: false,
+      sandbox: true,
+      store: "play_store",
+      fetchedAt: new Date(NOW.getTime() - 60_000),
+    },
+    "webhook",
+  );
+}
+
 const bo = (text: string) => ({
   data: { text, source: "bo", target: "en", timeZone: "Asia/Thimphu" },
   auth: { uid: "user-1" },
@@ -67,7 +92,7 @@ async function usageDoc(): Promise<Record<string, unknown> | undefined> {
 describe("translate pipeline on Firestore", () => {
   test("usage carries over when a guest links Google: 3 used of the guest's 3 become 3 of 10", async () => {
     const { deps } = instance();
-    const real = { ...deps, resolvePlan };
+    const real = withSubscriptions(deps);
     const guest = (text: string) => signedIn(boText(text), "anonymous", {});
     for (const text of ["ཀ", "ཁ", "ག"]) {
       expect((await handleTranslate(guest(text), real)).quota).toMatchObject({ plan: "guest", limit: 3 });
@@ -204,5 +229,39 @@ describe("translate pipeline on Firestore", () => {
     expect([a.cached, b.cached]).toEqual([false, false]);
     expect(router).toHaveBeenCalledTimes(2);
     expect(await usageDoc()).toMatchObject({ count: 2, chars: 14 });
+  });
+});
+
+describe("Pro on Firestore", () => {
+  const MONTH_LATER = new Date(NOW.getTime() + 30 * 86_400_000);
+
+  test("a Pro record gives 300 a day and 500 characters", async () => {
+    await storePro(MONTH_LATER);
+    const deps = withSubscriptions(instance().deps);
+    expect(
+      await handleStatus({ data: { timeZone: "Asia/Thimphu" }, auth: { uid: "user-1" } }, deps),
+    ).toMatchObject({
+      plan: "pro",
+      limit: 300,
+      maxChars: 500,
+    });
+    const response = await handleTranslate(bo("ཀ".repeat(450)), deps);
+    expect(response.quota).toMatchObject({ plan: "pro", used: 1, limit: 300, maxChars: 500 });
+  });
+
+  test("an expired Pro record gets the free limits", async () => {
+    await storePro(new Date(NOW.getTime() - 16 * 60_000));
+    const deps = withSubscriptions(instance().deps);
+    const error = await rejection(handleTranslate(bo("ཀ".repeat(450)), deps));
+    expect(reasonOf(error)).toBe("text_too_long");
+    expect((await handleTranslate(bo("བཀྲ་ཤིས"), deps)).quota).toMatchObject({ plan: "free", limit: 10 });
+  });
+
+  test("Pro at its cap is refused with plan pro", async () => {
+    await storePro(MONTH_LATER);
+    await db.doc(USAGE_DOC).set({ uid: "user-1", day: "2026-10-23", count: 300, chars: 3_000 });
+    const error = await rejection(handleTranslate(bo("བཀྲ་ཤིས"), withSubscriptions(instance().deps)));
+    expect(error.code).toBe("resource-exhausted");
+    expect(error.details).toMatchObject({ reason: "daily_limit", plan: "pro", limit: 300 });
   });
 });

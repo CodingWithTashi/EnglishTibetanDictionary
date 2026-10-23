@@ -85,7 +85,7 @@ class SearchViewModelTest {
     ): SearchViewModel {
         val vm = SearchViewModel(
             initialQuery, voice, savedState, repository, recents, activity, prefs, { speechAvailable }, errors,
-            translation, translationHistory, signIn, analytics,
+            translation, translationHistory, signIn,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
@@ -979,14 +979,15 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `SmartUpgrade logs pro_interest search_limit and shows the pro sheet`() = runTest {
+    fun `SmartUpgrade opens the paywall and leaves logging to it`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()
+        analytics.events.clear()
 
         vm.onEvent(SearchEvent.SmartUpgrade)
         advanceUntilIdle()
 
-        assertThat(analytics.events).containsExactly(AnalyticsEvent.ProInterest(PromptSource.SEARCH_LIMIT))
+        assertThat(analytics.events).isEmpty()
         assertThat(vm.state.showProSheet).isTrue()
 
         vm.onEvent(SearchEvent.DismissProSheet)

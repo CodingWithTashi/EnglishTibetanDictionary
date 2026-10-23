@@ -99,7 +99,13 @@ class TranslationRepositoryImpl @Inject constructor(
                 if (result is ApiResult.Ok) {
                     val status = result.value
                     _quota.value = QuotaState(status.quota, status.freeLimit)
-                    _availability.value = TranslationAvailability(status.enabled, status.pairs)
+                    _availability.value = TranslationAvailability(
+                        enabled = status.enabled,
+                        pairs = status.pairs,
+                        billingEnabled = status.billingEnabled,
+                        proLimit = status.proLimit,
+                        proMaxChars = status.proMaxChars,
+                    )
                     lastStatusAt = now
                 }
             }
@@ -111,6 +117,17 @@ class TranslationRepositoryImpl @Inject constructor(
     override suspend fun translate(text: String, pair: LangPair, surface: TranslateSurface): TranslateResult {
         ensureUser()?.let { return finish(ApiResult.Refused(it), pair, surface) }
         return finish(api.translate(TranslationText.normalize(text), pair, clock.zone().id), pair, surface)
+    }
+
+    override suspend fun syncSubscription(): Plan? = when (val result = api.syncSubscription()) {
+        is ApiResult.Ok -> {
+            refresh(force = true)
+            result.value
+        }
+        is ApiResult.Refused -> {
+            if (result.refusal == TranslationRefusal.AccountGone) signOutGoneAccount()
+            null
+        }
     }
 
     /** Null once there is a user; otherwise why there can't be one. */
@@ -229,5 +246,6 @@ private val TranslationRefusal.analyticsName: String
         TranslationRefusal.Unauthenticated -> "unauthenticated"
         TranslationRefusal.AccountGone -> "account_gone"
         TranslationRefusal.GuestAccount -> "guest_account"
+        TranslationRefusal.BillingUnavailable -> "billing_unavailable"
         TranslationRefusal.Unexpected -> "unexpected"
     }
