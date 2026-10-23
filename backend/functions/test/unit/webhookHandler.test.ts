@@ -62,7 +62,8 @@ describe("handleWebhook", () => {
     ["longer", `${SECRET}x`],
     ["shorter", SECRET.slice(0, -1)],
     ["differently cased", SECRET.toUpperCase()],
-    ["as a bearer token", `Bearer ${SECRET}`],
+    ["a bearer token with the wrong value", "Bearer whsec-wrong"],
+    ["a bare Bearer prefix", "Bearer "],
   ])(
     "a %s Authorization header is 401, with no refresh and the header never logged",
     async (_name, header) => {
@@ -74,6 +75,13 @@ describe("handleWebhook", () => {
       if (header) expect(logged).not.toContain(header);
     },
   );
+
+  test("the secret is accepted raw or as a bearer token", async () => {
+    for (const header of [SECRET, `Bearer ${SECRET}`]) {
+      const { deps } = setup();
+      expect((await handleWebhook(post(event({ type: "TEST" }), header), deps)).status).toBe(200);
+    }
+  });
 
   test("an empty configured secret accepts nothing", async () => {
     const { deps, refreshed } = setup({ secret: "" });

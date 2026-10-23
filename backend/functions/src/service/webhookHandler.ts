@@ -37,10 +37,13 @@ const bodySchema = z.looseObject({
 
 const reply = (status: WebhookReply["status"], body: string): WebhookReply => ({ status, body });
 
-/** True only for exactly the configured secret; an empty secret matches nothing. */
+const BEARER_PREFIX = "Bearer ";
+
+/** True only for the configured secret, raw or after a `Bearer ` prefix; an empty secret matches nothing. */
 function authorized(header: string | undefined, secret: string): boolean {
   if (!header || !secret) return false;
-  const given = Buffer.from(header);
+  const value = header.startsWith(BEARER_PREFIX) ? header.slice(BEARER_PREFIX.length) : header;
+  const given = Buffer.from(value);
   const expected = Buffer.from(secret);
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
