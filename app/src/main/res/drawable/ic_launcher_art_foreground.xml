@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: tools/icon/artwork/app-icon-512.png at 76dp in the 108dp canvas (see tools/icon/README.md). -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/ic_launcher_art" />
