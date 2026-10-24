@@ -55,4 +55,5 @@ class FakeUserPreferencesRepository(initial: UserPrefs = UserPrefs()) : UserPref
         it.copy(wotdNotificationEnabled = enabled, wotdNotificationMinute = WotdNotificationMinute.clamp(minuteOfDay))
     }
     override suspend fun setLegacyCleanupDone(done: Boolean) = prefs.update { it.copy(legacyCleanupDone = done) }
+    override suspend fun setSmartTranslate(enabled: Boolean) = prefs.update { it.copy(smartTranslate = enabled) }
 }

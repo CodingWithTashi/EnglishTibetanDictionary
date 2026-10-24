@@ -4,21 +4,17 @@
 
     <!-- Bottom navigation: English label with a Tibetan gloss; values-bo swaps which is primary. -->
     <string name="tab_search">Search</string>
+    <string name="tab_translate">Translate</string>
     <string name="tab_saved">Saved</string>
     <string name="tab_learn">Learn</string>
     <string name="tab_profile">Profile</string>
     <string name="tab_search_gloss">འཚོལ།</string>
+    <string name="tab_translate_gloss">ཡིག་སྒྱུར།</string>
     <string name="tab_saved_gloss">ཉར་ཚགས།</string>
     <string name="tab_learn_gloss">སྦྱོང་།</string>
     <string name="tab_profile_gloss">སྒེར།</string>
 
-    <!-- Home: the greeting in the active dictionary's language (the Dzongkha ones are the DDC en-dz entries) -->
-    <string name="greeting_morning_bo">Good morning · ཞོགས་པ་བདེ་ལེགས།</string>
-    <string name="greeting_afternoon_bo">Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།</string>
-    <string name="greeting_evening_bo">Good evening · དགོང་དྲོ་བདེ་ལེགས།</string>
-    <string name="greeting_morning_dz">Good morning · དྲོ་པ་བདེ་ལེགས།</string>
-    <string name="greeting_afternoon_dz">Good afternoon · ཉི་མ་བདེ་ལེགས།</string>
-    <string name="greeting_evening_dz">Good evening · ཕྱི་རུ་བདེ་ལེགས།</string>
+    <!-- Home -->
     <!-- %1$s: number of days, already formatted for the app language -->
     <plurals name="streak_days">
         <item quantity="one">%1$s-day streak</item>
@@ -30,7 +26,7 @@
     <string name="clear">Clear</string>
 
     <!-- Search -->
-    <string name="search_placeholder">Search a word · ཚིག་འཚོལ།</string>
+    <string name="search_placeholder">Search or translate · ཚིག་འཚོལ།</string>
     <string name="search_placeholder_saved">Search saved words</string>
     <!-- %1$s: number of results, already formatted for the app language -->
     <plurals name="results_count">
@@ -76,6 +72,11 @@
     <string name="new_folder_hint">Folder name</string>
     <string name="saved_empty_title">Nothing saved yet</string>
     <string name="saved_empty_body">Tap the heart on any entry to keep it here.</string>
+    <!-- Saved's Words | Translations switch (1y); %1$s is the count, already in the UI language's digits. -->
+    <string name="saved_tab_words">Words · %1$s</string>
+    <string name="saved_tab_translations">Translations · %1$s</string>
+    <string name="saved_translations_empty_title">Saved translations appear here</string>
+    <string name="saved_translations_empty_body">Tap ♡ on a translation to keep it.</string>
     <string name="saved_empty_body_learn">Saved words become your flashcards in Learn.</string>
     <!-- %1$s: today's headword -->
     <string name="save_todays_word">Save today\'s word %1$s</string>
@@ -151,32 +152,7 @@
     <string name="close">Close</string>
     <string name="more">More</string>
 
-    <!-- Direction descriptions (onboarding cards, direction picker) -->
-    <string name="direction_desc_bo_en">Tibetan to English</string>
-    <string name="direction_desc_bo_bo">Tibetan definitions</string>
-    <string name="direction_desc_en_bo">English to Tibetan</string>
-    <string name="direction_desc_dz_en">Dzongkha to English</string>
-    <string name="direction_desc_dz_dz">Dzongkha definitions</string>
-    <string name="direction_desc_en_dz">English to Dzongkha</string>
-
-    <!-- Dictionary packs. pack_gloss_* is the name in the other language. pack_desc_*: %1$s is the entry count -->
-    <string name="pack_name_bo">Tibetan Dictionary</string>
-    <string name="pack_name_dz">Dzongkha Dictionary</string>
-    <string name="pack_gloss_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_gloss_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_desc_bo">Monlam · Tibetan ↔ English · %1$s entries</string>
-    <string name="pack_desc_dz">DDC · Dzongkha ↔ English · %1$s entries</string>
-    <!-- The pack's language, in sentences that name it -->
-    <string name="pack_language_bo">Tibetan</string>
-    <string name="pack_language_dz">Dzongkha</string>
-    <!-- The pack's name in Tibetan script and in Latin letters, the same in every UI language (installing screen, About) -->
-    <string name="pack_title_bo" translatable="false">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_title_dz" translatable="false">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_title_latin_bo" translatable="false">Tibetan Dictionary</string>
-    <string name="pack_title_latin_dz" translatable="false">Dzongkha Dictionary</string>
-    <!-- Onboarding greeting in the pack's language: "Tashi delek" and "Kuzu zangpo la" -->
-    <string name="pack_welcome_bo" translatable="false">བཀྲ་ཤིས་བདེ་ལེགས།</string>
-    <string name="pack_welcome_dz" translatable="false">སྐུ་གཟུགས་བཟང་པོ་ལགས།</string>
+    <!-- Dictionary packs; each pack's own strings are in strings_pack_<id>.xml -->
     <string name="dictionary">Dictionary</string>
     <string name="onboarding_dictionary_title">Which dictionary do you want?</string>
     <string name="onboarding_dictionary_body">The app opens with this dictionary. You can switch any time in Profile.</string>
@@ -191,8 +167,6 @@
     <!-- About row and screen title: the full licence texts of the data and fonts -->
     <string name="licences">Licences</string>
     <!-- Licences screen headings; the licence names stay in English -->
-    <string name="licence_data">Dictionary data · GNU General Public License, version 3</string>
-    <string name="licence_data_dz">Dictionary data · Dzongkha Development Commission, used with permission</string>
     <string name="licence_font_jomolhari">Jomolhari font · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">Noto Sans font · SIL Open Font License 1.1</string>
     <!-- %1$s: pack name, %2$s: Play Store link -->
@@ -228,7 +202,32 @@
     <!-- Profile (T4.1) -->
     <!-- Signed-out account card on Profile (shown once accounts ship) -->
     <string name="profile_signed_out_title">Not signed in</string>
-    <string name="profile_signed_out_body">Sync saved words across devices</string>
+    <string name="profile_signed_out_body">Sign in to get 10 free translations a day</string>
+    <!-- Profile's plan card (1z); the numbers are already in the UI language's digits. -->
+    <string name="profile_plan_none">Translate sentences free every day. Sign in for more.</string>
+    <string name="profile_plan_guest">Guest</string>
+    <string name="profile_plan_guest_usage">%1$s of %2$s used today</string>
+    <string name="profile_plan_sign_in_for">Sign in for %1$s</string>
+    <string name="profile_plan_sign_in_more">Sign in for more</string>
+    <string name="profile_plan_free">Free plan</string>
+    <string name="profile_plan_upgrade">Upgrade</string>
+    <string name="profile_plan_free_usage">%1$s of %2$s translations used today · %3$s characters each</string>
+    <!-- The account sheet and account deletion (Play's account-deletion rule). -->
+    <string name="account_sheet_title">Account</string>
+    <string name="sign_out">Sign out</string>
+    <string name="signed_out">Signed out</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_title">Delete your account?</string>
+    <string name="delete_account_body">Your usage history is deleted. Saved words and translations stay on this phone.</string>
+    <string name="delete">Delete</string>
+    <string name="deleting">Deleting…</string>
+    <string name="cancel">Cancel</string>
+    <string name="account_deleted">Account deleted</string>
+    <string name="account_delete_failed">Couldn\'t delete your account. Try again.</string>
+    <!-- Profile's Search group: smart translate in search (1z). -->
+    <string name="profile_search">Search</string>
+    <string name="smart_translate">Smart translate in search</string>
+    <string name="smart_translate_body">Auto-translate phrases with no dictionary match</string>
     <string name="sign_in">Sign in</string>
     <!-- The developer's other apps, listed under "More apps" -->
     <string name="other_app_prayer">Tibetan Prayer</string>
@@ -264,4 +263,122 @@
     <string name="usage_label_definition">def.</string>
     <!-- A sense that lists the divisions of the term (Tibetan "dbye ba") -->
     <string name="usage_label_division">div.</string>
+
+    <!-- Translate -->
+    <string name="translation_saved">Saved to Translations</string>
+    <string name="translation_removed">Removed from Saved</string>
+    <string name="translate_rate_limited">Too many at once. Try again in a few seconds.</string>
+    <string name="signed_in">Signed in</string>
+    <!-- Toast after Google sign-in. %1$s: translations left today, already formatted for the app language -->
+    <string name="signed_in_left">Signed in · %1$s translations left today</string>
+    <string name="sign_in_failed">Couldn\'t sign in. Try again.</string>
+    <!-- Numbers in the Translate strings (%1$s, %2$s) are already formatted for the app language -->
+    <string name="translate_title">Translate</string>
+    <string name="translate_gloss">ཡིག་སྒྱུར།</string>
+    <string name="translate_action">Translate</string>
+    <string name="translate_loading">Translating…</string>
+    <!-- Usage pill: translations left of today's limit -->
+    <string name="translate_left">%1$s of %2$s left</string>
+    <string name="translate_limit_reached">Limit reached</string>
+    <string name="translate_pro_pill">Pro</string>
+    <string name="translate_lang_english">English</string>
+    <string name="translate_swap">Swap languages</string>
+    <string name="translate_placeholder_tibetan">ཡི་གེ་འདིར་འབྲི། · Type in Tibetan</string>
+    <string name="translate_placeholder_english">Type English text</string>
+    <string name="translate_paste">Paste</string>
+    <string name="translate_counter" translatable="false">%1$s / %2$s</string>
+    <string name="translate_hint_wylie">Type in Tibetan script — Wylie isn\'t translated</string>
+    <string name="translate_hint_looks_tibetan">This looks like Tibetan</string>
+    <string name="translate_switch">Switch</string>
+    <string name="translate_try">Try</string>
+    <string name="translate_recent">Recent</string>
+    <string name="translate_from_cache">From cache · not counted</string>
+    <string name="translate_by_google">Machine translation · Google</string>
+    <string name="translate_by_microsoft">Machine translation · Microsoft</string>
+    <string name="translate_machine">Machine translation</string>
+    <string name="translate_pro_hint">Need longer text? Pro allows %1$s characters.</string>
+    <string name="translate_guest_title">You\'ve used today\'s %1$s free translations</string>
+    <string name="translate_guest_body">Sign in with Google to get %1$s more today. It\'s free.</string>
+    <string name="translate_guest_body_unknown">Sign in with Google for more translations today. It\'s free.</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="translate_look_up">Look up words</string>
+    <string name="translate_daily_title">Daily limit reached · Resets at midnight</string>
+    <string name="translate_daily_body">The dictionary still works for every word.</string>
+    <string name="upgrade_to_pro">Upgrade to Pro</string>
+    <string name="translate_offline_title">You\'re offline</string>
+    <string name="translate_offline_body">Not counted. Dictionary still works.</string>
+    <string name="translate_busy_title">Translation is busy right now</string>
+    <string name="translate_busy_body">Not counted. Try again in a moment.</string>
+    <string name="translate_disabled_title">Translation is paused</string>
+    <string name="translate_disabled_body">The dictionary still works.</string>
+    <string name="translate_unexpected_title">Something went wrong</string>
+    <string name="translate_unexpected_body">Not counted.</string>
+    <string name="retry">Retry</string>
+    <!-- Quick translate in Search. Numbers (%1$s, %2$s) are already formatted for the app language -->
+    <string name="search_translate_offer">Translate “%1$s” → %2$s</string>
+    <string name="search_translate_tap">Tap to translate → %1$s</string>
+    <string name="search_translate_instead">Translate instead</string>
+    <string name="search_translate_left_today">%1$s of %2$s left today</string>
+    <!-- Home's translate card (1h): "Tibetan ⇄ English", then "… · 7 left today" once there is a user. -->
+    <string name="home_translate_title">Translate a sentence</string>
+    <string name="home_translate_languages">%1$s ⇄ %2$s</string>
+    <string name="home_translate_left_today">%1$s · %2$s left today</string>
+    <string name="search_translate_heading">Translation</string>
+    <string name="search_translate_open">Open in Translate</string>
+    <string name="search_translate_too_long">Too long for quick translate</string>
+    <string name="search_translate_characters">%1$s / %2$s characters</string>
+    <string name="search_translate_sign_in">Sign in to translate</string>
+    <string name="search_translate_limit">Daily limit reached</string>
+    <string name="search_translate_upgrade">Upgrade</string>
+    <string name="search_in_dictionary">In the dictionary</string>
+    <!-- Today sheet (tap on the usage pill) -->
+    <string name="today_used">%1$s of %2$s used today</string>
+    <string name="today_resets">Resets at midnight</string>
+    <string name="today_unlimited">Unlimited today</string>
+    <string name="translate_fair_use_title">You\'ve reached today\'s fair-use limit</string>
+    <string name="search_translate_fair_use">Today\'s fair-use limit reached</string>
+    <!-- %1$s is the card's languages, such as "Tibetan ⇄ English". -->
+    <string name="home_translate_unlimited">%1$s · Unlimited today</string>
+    <string name="today_sign_in">Sign in to get %1$s a day</string>
+    <string name="today_sign_in_unknown">Sign in for more translations</string>
+    <!-- Pro sheet (not on sale yet) -->
+    <string name="pro_title">Translate without limits</string>
+    <string name="pro_subtitle">The dictionary stays free.</string>
+    <string name="pro_free">Free</string>
+    <string name="pro_plan">Pro</string>
+    <string name="pro_per_day">Per day</string>
+    <string name="pro_characters">Characters</string>
+    <string name="pro_dictionary">Dictionary</string>
+    <string name="pro_unlimited">Unlimited</string>
+    <string name="pro_full">Full</string>
+    <string name="pro_coming_soon">Coming soon</string>
+    <string name="pro_note">Pro is on its way. You\'ll see it here first.</string>
+    <string name="pro_sign_in_to_continue">Sign in to continue</string>
+    <string name="pro_yearly">Yearly</string>
+    <string name="pro_monthly">Monthly</string>
+    <!-- %1$s is Google Play's formatted price, such as ₹33.25. -->
+    <string name="pro_per_month">%1$s / month</string>
+    <string name="pro_terms">Renews automatically · Cancel any time in Google Play</string>
+    <string name="pro_restore">Restore purchase</string>
+    <string name="pro_fair_use_note">*Fair use: up to %1$s a day</string>
+    <string name="pro_error">Couldn\'t reach Google Play. Check your connection and try again.</string>
+    <string name="pro_pending">Payment pending. Pro starts when Google Play confirms it.</string>
+    <string name="pro_already">Pro is active on this Google Play account</string>
+    <string name="pro_switch_title">Switch to yearly</string>
+    <string name="pro_switch_button">Switch to yearly</string>
+    <string name="pro_switch_note">The time left on your monthly plan is credited to the year.</string>
+    <string name="pro_welcome">Welcome to Pro</string>
+    <!-- %1$s is the plan: Yearly or Monthly. -->
+    <string name="profile_plan_pro">Pro · %1$s</string>
+    <string name="profile_plan_pro_plain">Pro</string>
+    <string name="profile_plan_renews">Renews %1$s</string>
+    <string name="profile_plan_ends">Ends %1$s</string>
+    <string name="profile_plan_pro_usage">Unlimited translations · %1$s characters each</string>
+    <string name="profile_plan_fair_use">Fair use: %1$s of %2$s today</string>
+    <string name="profile_plan_billing_issue">Payment problem · Fix in Google Play</string>
+    <string name="profile_plan_manage">Manage subscription</string>
+    <string name="profile_plan_switch">Switch to yearly</string>
+    <string name="delete_account_pro_note">Your Pro subscription keeps renewing until you cancel it in Google Play.</string>
+    <string name="pro_restored">Pro restored</string>
+    <string name="pro_restore_none">No Pro purchase on this Google Play account</string>
 </resources>

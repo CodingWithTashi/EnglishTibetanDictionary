@@ -1,25 +1,52 @@
 package com.kharagedition.tibetandictionary.ui.profile
 
+import android.app.Activity
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.BuildConfig
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.SampleData
+import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.LocaleApplier
+import com.kharagedition.tibetandictionary.data.auth.Account
+import com.kharagedition.tibetandictionary.data.auth.DeleteAccount
+import com.kharagedition.tibetandictionary.data.billing.ProEntitlement
+import com.kharagedition.tibetandictionary.data.billing.ProPlan
+import com.kharagedition.tibetandictionary.data.billing.manageSubscriptionUrl
 import com.kharagedition.tibetandictionary.data.install.SwitchState
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.data.translation.ApiResult
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Quota
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.data.translation.TranslationAvailability
+import com.kharagedition.tibetandictionary.data.translation.TranslationRefusal
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
+import com.kharagedition.tibetandictionary.fakes.FakeBillingRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationApi
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingAnalytics
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import com.kharagedition.tibetandictionary.ui.model.AccountUi
+import com.kharagedition.tibetandictionary.ui.model.SignInAction
 import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import io.mockk.mockk
 import java.io.IOException
+import java.time.Instant
+import java.time.LocalDate
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -60,10 +87,32 @@ class ProfileViewModelTest {
     }
 
     private val errors = RecordingErrorReporter()
+    private val auth = FakeAuthRepository()
+    private val translation = FakeTranslationRepository()
+    private val api = FakeTranslationApi()
+    private val analytics = RecordingAnalytics()
+    private val billing = FakeBillingRepository()
+    private val clock = FakeClock()
+
+    private fun newViewModel(prefs: UserPreferencesRepository = this.prefs) =
+        ProfileViewModel(
+            prefs,
+            dictionary,
+            switcher,
+            locale,
+            linkTargets,
+            errors,
+            auth,
+            translation,
+            SignInAction(auth, translation, analytics),
+            DeleteAccount(api, auth, analytics),
+            billing,
+            clock,
+        )
 
     /** A view model whose state is collected for the whole test, as the screen does. */
     private fun TestScope.viewModel(prefs: UserPreferencesRepository = this@ProfileViewModelTest.prefs): ProfileViewModel {
-        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
+        val vm = newViewModel(prefs)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
     }
@@ -191,7 +240,7 @@ class ProfileViewModelTest {
             pack = DictionaryPack.DZONGKHA,
             directions = listOf(SampleData.boEn.copy(entryCount = 81_474)),
         )
-        val vm = ProfileViewModel(prefs, dictionary, switcher, locale, linkTargets, errors)
+        val vm = newViewModel()
 
         vm.uiState.test {
             dictionary.capabilities.value = dzCapabilities
@@ -544,7 +593,7 @@ class ProfileViewModelTest {
     }
 
     @Test
-    fun `no account and no word-of-the-day notification while those features are off`() = runTest {
+    fun `no account while signed out, and no word-of-the-day notification while that feature is off`() = runTest {
         val state = viewModel().state()
 
         assertThat(state.account).isNull()
@@ -560,6 +609,311 @@ class ProfileViewModelTest {
 
         assertThat(prefs.prefs.value.wotdNotificationEnabled).isTrue()
         assertThat(prefs.prefs.value.wotdNotificationMinute).isEqualTo(8 * 60)
+    }
+
+    // Account and plan (1z)
+
+    private val tenzin = Account("u1", isGuest = false, name = "Tenzin Dolma", email = "tenzin@example.com")
+    private val guest = Account("g1", isGuest = true, name = null, email = null)
+
+    private fun quota(plan: Plan, used: Int, limit: Int, maxChars: Int = 100, freeLimit: Int? = 10) =
+        QuotaState(Quota(plan, used, limit, Instant.parse("2026-10-20T00:00:00Z"), maxChars), freeLimit)
+
+    @Test
+    fun `a google account shows the account card`() = runTest {
+        auth.account.value = tenzin
+        translation.quota.value = quota(Plan.FREE, used = 3, limit = 10)
+        val state = viewModel().state()
+
+        assertThat(state.account)
+            .isEqualTo(AccountUi(name = "Tenzin Dolma", email = "tenzin@example.com", initials = "TD"))
+        assertThat(state.plan).isEqualTo(PlanCardUi.Free(used = 3, limit = 10, maxChars = 100))
+    }
+
+    private fun entitlement(
+        plan: ProPlan? = ProPlan.YEARLY,
+        active: Boolean = true,
+        willRenew: Boolean = true,
+        billingIssue: Boolean = false,
+    ) = ProEntitlement(active, plan, Instant.parse("2027-10-19T09:00:00Z"), willRenew, billingIssue)
+
+    private fun signedInPro(billingEnabled: Boolean = true) {
+        auth.account.value = tenzin
+        translation.quota.value = quota(Plan.PRO, used = 3, limit = 300, maxChars = 500)
+        translation.availability.value =
+            TranslationAvailability(enabled = true, pairs = emptySet(), billingEnabled = billingEnabled)
+    }
+
+    @Test
+    fun `a Pro user's card has the plan, its renewal and today's use`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(billingIssue = true)
+
+        assertThat(viewModel().state().plan).isEqualTo(
+            PlanCardUi.Pro(
+                plan = ProPlan.YEARLY,
+                renewsOn = LocalDate.of(2027, 10, 19),
+                willRenew = true,
+                billingIssue = true,
+                used = 3,
+                limit = 300,
+                maxChars = 500,
+                canSwitch = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `a monthly subscriber may switch only while Pro is on sale`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+        val vm = viewModel()
+        assertThat((vm.state().plan as PlanCardUi.Pro).canSwitch).isTrue()
+
+        translation.availability.value = translation.availability.value!!.copy(billingEnabled = false)
+        assertThat((vm.state().plan as PlanCardUi.Pro).canSwitch).isFalse()
+    }
+
+    @Test
+    fun `a build that can't sell offers no switch`() = runTest {
+        signedInPro()
+        billing.available = false
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+
+        assertThat((viewModel().state().plan as PlanCardUi.Pro).canSwitch).isFalse()
+    }
+
+    @Test
+    fun `the server says Pro before the store has answered - plain Pro`() = runTest {
+        signedInPro()
+
+        assertThat(viewModel().state().plan).isEqualTo(
+            PlanCardUi.Pro(null, null, willRenew = false, billingIssue = false, 3, 300, 500, canSwitch = false),
+        )
+    }
+
+    @Test
+    fun `an ended entitlement fills in nothing`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(active = false)
+
+        assertThat((viewModel().state().plan as PlanCardUi.Pro).plan).isNull()
+    }
+
+    @Test
+    fun `Manage opens the subscription's page in Google Play`() = runTest {
+        signedInPro()
+        billing.entitlement.value = entitlement(plan = ProPlan.MONTHLY)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.ManageSubscription)
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(manageSubscriptionUrl(ProPlan.MONTHLY)))
+
+            billing.entitlement.value = null
+            vm.onEvent(ProfileEvent.ManageSubscription)
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.OpenUrl(manageSubscriptionUrl(null)))
+        }
+    }
+
+    @Test
+    fun `SwitchToYearly opens the paywall to switch`() = runTest {
+        signedInPro()
+        val vm = viewModel()
+
+        vm.onEvent(ProfileEvent.SwitchToYearly)
+
+        assertThat(vm.state().paywall).isEqualTo(PaywallMode.SWITCH)
+    }
+
+    @Test
+    fun `the delete dialog notes Pro only for a subscription that renews`() = runTest {
+        signedInPro()
+        val vm = viewModel()
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+
+        billing.entitlement.value = entitlement()
+        assertThat(vm.state().proNoteOnDelete).isTrue()
+
+        billing.entitlement.value = entitlement(willRenew = false)
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+
+        billing.entitlement.value = entitlement(active = false)
+        assertThat(vm.state().proNoteOnDelete).isFalse()
+    }
+
+    @Test
+    fun `a guest shows the plan card Guest 1 of 3`() = runTest {
+        auth.account.value = guest
+        translation.quota.value = quota(Plan.GUEST, used = 1, limit = 3)
+        val state = viewModel().state()
+
+        assertThat(state.account).isNull()
+        assertThat(state.plan).isEqualTo(PlanCardUi.Guest(used = 1, limit = 3, freeLimit = 10))
+    }
+
+    @Test
+    fun `no user shows NoUser`() = runTest {
+        // A quota left from a signed-out user is not this install's count.
+        translation.quota.value = quota(Plan.FREE, used = 3, limit = 10)
+        val state = viewModel().state()
+
+        assertThat(state.account).isNull()
+        assertThat(state.plan).isEqualTo(PlanCardUi.NoUser)
+    }
+
+    @Test
+    fun `a google account whose usage is not known yet shows no plan card`() = runTest {
+        auth.account.value = tenzin
+        val state = viewModel().state()
+
+        assertThat(state.plan).isNull()
+    }
+
+    @Test
+    fun `initials come from the name, or from the email without one`() = runTest {
+        auth.account.value = tenzin.copy(name = "tenzin")
+        val vm = viewModel()
+        assertThat(vm.state().account?.initials).isEqualTo("T")
+
+        auth.account.value = tenzin.copy(name = null, email = "dolma@example.com")
+        assertThat(vm.state().account).isEqualTo(AccountUi(name = null, email = "dolma@example.com", initials = "D"))
+    }
+
+    @Test
+    fun `toggle smart translate persists`() = runTest {
+        val vm = viewModel()
+        assertThat(vm.state().smartTranslate).isTrue()
+
+        vm.onEvent(ProfileEvent.ToggleSmartTranslate)
+
+        assertThat(prefs.prefs.value.smartTranslate).isFalse()
+        assertThat(vm.state().smartTranslate).isFalse()
+    }
+
+    @Test
+    fun `confirm delete calls DeleteAccount and toasts`() = runTest {
+        auth.account.value = tenzin
+        api.deleteResults += ApiResult.Ok(Unit)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenAccount)
+            vm.onEvent(ProfileEvent.AskDeleteAccount)
+            assertThat(vm.state().sheet).isNull()
+            assertThat(vm.state().confirmDelete).isTrue()
+
+            vm.onEvent(ProfileEvent.ConfirmDeleteAccount)
+
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.account_deleted)))
+            assertThat(vm.state().confirmDelete).isFalse()
+            assertThat(api.deleteCalls).isEqualTo(1)
+            assertThat(auth.account.value).isNull()
+            assertThat(analytics.events).contains(AnalyticsEvent.AccountDeleted)
+        }
+    }
+
+    @Test
+    fun `a running delete keeps the dialog open with progress until it finishes`() = runTest {
+        auth.account.value = tenzin
+        api.deleteResults += ApiResult.Ok(Unit)
+        val gate = CompletableDeferred<Unit>().also { api.deleteGate = it }
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.AskDeleteAccount)
+            vm.onEvent(ProfileEvent.ConfirmDeleteAccount)
+            vm.onEvent(ProfileEvent.DismissDelete)
+            assertThat(vm.state().confirmDelete).isTrue()
+            assertThat(vm.state().deleting).isTrue()
+
+            gate.complete(Unit)
+
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.account_deleted)))
+            assertThat(vm.state().confirmDelete).isFalse()
+            assertThat(vm.state().deleting).isFalse()
+        }
+    }
+
+    @Test
+    fun `a failed delete keeps the account and says so`() = runTest {
+        auth.account.value = tenzin
+        api.deleteResults += ApiResult.Refused(TranslationRefusal.Offline)
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.AskDeleteAccount)
+            vm.onEvent(ProfileEvent.ConfirmDeleteAccount)
+
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.account_delete_failed)))
+            assertThat(auth.account.value).isEqualTo(tenzin)
+        }
+    }
+
+    @Test
+    fun `cancelling the delete closes the dialog`() = runTest {
+        auth.account.value = tenzin
+        val vm = viewModel()
+
+        vm.onEvent(ProfileEvent.AskDeleteAccount)
+        vm.onEvent(ProfileEvent.DismissDelete)
+
+        assertThat(vm.state().confirmDelete).isFalse()
+        assertThat(api.deleteCalls).isEqualTo(0)
+    }
+
+    @Test
+    fun `sign out toasts`() = runTest {
+        auth.account.value = tenzin
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.onEvent(ProfileEvent.OpenAccount)
+            assertThat(vm.state().sheet).isEqualTo(ProfileSheet.ACCOUNT)
+
+            vm.onEvent(ProfileEvent.SignOut)
+
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.signed_out)))
+            assertThat(vm.state().sheet).isNull()
+            assertThat(auth.signOutCalls).isEqualTo(1)
+            assertThat(vm.state().account).isNull()
+        }
+    }
+
+    @Test
+    fun `OpenPro opens the purchase paywall and leaves logging to it`() = runTest {
+        val vm = viewModel()
+        analytics.events.clear()
+
+        vm.onEvent(ProfileEvent.OpenPro)
+        assertThat(analytics.events).isEmpty()
+        assertThat(vm.state().paywall).isEqualTo(PaywallMode.PURCHASE)
+
+        vm.onEvent(ProfileEvent.DismissProSheet)
+        assertThat(vm.state().paywall).isNull()
+    }
+
+    @Test
+    fun `signIn logs its source and toasts the result`() = runTest {
+        auth.account.value = guest
+        val vm = viewModel()
+
+        vm.effects.test {
+            vm.signIn(mockk<Activity>(relaxed = true), PromptSource.PROFILE_PLAN)
+
+            assertThat(awaitItem()).isEqualTo(ProfileEffect.Toast(UiText(R.string.signed_in)))
+            assertThat(analytics.events.first()).isEqualTo(AnalyticsEvent.SignInPrompt(PromptSource.PROFILE_PLAN))
+            assertThat(auth.signInCalls).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `Shown refreshes translation`() = runTest {
+        val vm = viewModel()
+
+        vm.onEvent(ProfileEvent.Shown)
+
+        assertThat(translation.refreshCalls).containsExactly(false)
     }
 
     private companion object {

@@ -32,3 +32,11 @@ __pycache__/
 # Icon generator output that is not shipped (see tools/icon/README.md)
 tools/icon/previews/
 tools/icon/glyph_reference.json
+
+# Translation backend (backend/): dependencies, build output, local secrets and emulator logs
+backend/functions/node_modules/
+backend/functions/lib/
+backend/functions/coverage/
+backend/**/*.local
+backend/**/*-debug.log
+backend/**/firebase-debug.*.log

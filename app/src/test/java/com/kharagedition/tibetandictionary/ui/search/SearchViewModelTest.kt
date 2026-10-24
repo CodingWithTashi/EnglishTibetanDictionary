@@ -17,6 +17,8 @@ import com.kharagedition.tibetandictionary.SampleData.recentTashi
 import com.kharagedition.tibetandictionary.SampleData.tashi
 import com.kharagedition.tibetandictionary.SampleData.tashiBoBo
 import com.kharagedition.tibetandictionary.SampleData.tashiDelek
+import com.kharagedition.tibetandictionary.core.analytics.AnalyticsEvent
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.MatchField
 import com.kharagedition.tibetandictionary.data.model.Script
@@ -25,13 +27,26 @@ import com.kharagedition.tibetandictionary.data.model.SearchResult
 import com.kharagedition.tibetandictionary.data.model.Suggestion
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Quota
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.domain.OutputWord
 import com.kharagedition.tibetandictionary.domain.InputScript
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository.SearchCall
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationHistoryRepository
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
+import com.kharagedition.tibetandictionary.fakes.RecordingAnalytics
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
+import com.kharagedition.tibetandictionary.ui.model.SignInAction
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
+import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -56,6 +71,10 @@ class SearchViewModelTest {
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true, defaultDirectionId = boEn.id))
     private val errors = RecordingErrorReporter()
     private var speechAvailable = true
+    private val translation = FakeTranslationRepository()
+    private val translationHistory = FakeTranslationHistoryRepository()
+    private val analytics = RecordingAnalytics()
+    private val signIn = SignInAction(FakeAuthRepository(), translation, analytics)
 
     /** A view model whose state is collected for the whole test, as the screen would. */
     private fun TestScope.viewModel(
@@ -66,6 +85,7 @@ class SearchViewModelTest {
     ): SearchViewModel {
         val vm = SearchViewModel(
             initialQuery, voice, savedState, repository, recents, activity, prefs, { speechAvailable }, errors,
+            translation, translationHistory, signIn,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
@@ -917,5 +937,83 @@ class SearchViewModelTest {
             assertThat(awaitItem()).isEqualTo(SearchEffect.FocusField)
             expectNoEvents()
         }
+    }
+
+    // Smart translate
+
+    @Test
+    fun `OpenInTranslate emits OpenTranslate with the request`() = runTest {
+        translation.quota.value = QuotaState(Quota(Plan.FREE, 3, 10, Instant.parse("2026-10-22T18:15:00Z"), 100), 10)
+        val vm = viewModel()
+
+        vm.effects.test {
+            assertThat(awaitItem()).isEqualTo(SearchEffect.FocusField)
+            vm.type("བཀྲ་ཤིས")
+            advanceUntilIdle()
+            assertThat(vm.state.smartTranslate).isInstanceOf(SmartTranslateUi.Offer::class.java)
+
+            vm.onEvent(SearchEvent.OpenInTranslate)
+
+            assertThat(awaitItem())
+                .isEqualTo(SearchEffect.OpenTranslate(TranslateRequest(LangPair(Lang.BO, Lang.EN), "བཀྲ་ཤིས")))
+        }
+    }
+
+    @Test
+    fun `an English phrase with a word that opens like Wylie is still offered for translation`() = runTest {
+        // "station" opens like a Wylie syllable (st), so the query detects as Wylie; searched from English, it is
+        // English.
+        prefs.setDefaultDirectionId(enBo.id)
+        translation.quota.value = QuotaState(Quota(Plan.GUEST, 1, 3, Instant.parse("2026-10-22T18:15:00Z"), 100), 10)
+        val vm = viewModel()
+
+        vm.type("where is the bus station")
+        advanceUntilIdle()
+
+        with(vm.state) {
+            assertThat(script).isEqualTo(InputScript.WYLIE)
+            assertThat(selectedDirection).isEqualTo(enBo)
+            assertThat(phase).isEqualTo(SearchPhase.NoResults)
+            assertThat((smartTranslate as SmartTranslateUi.Offer).target).isEqualTo(Lang.BO)
+        }
+    }
+
+    @Test
+    fun `SmartUpgrade opens the paywall and leaves logging to it`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        analytics.events.clear()
+
+        vm.onEvent(SearchEvent.SmartUpgrade)
+        advanceUntilIdle()
+
+        assertThat(analytics.events).isEmpty()
+        assertThat(vm.state.showProSheet).isTrue()
+
+        vm.onEvent(SearchEvent.DismissProSheet)
+        advanceUntilIdle()
+
+        assertThat(vm.state.showProSheet).isFalse()
+    }
+
+    @Test
+    fun `a tapped word of a quick translation is searched`() = runTest {
+        val vm = viewModel()
+
+        vm.onEvent(SearchEvent.SmartWordTap(OutputWord("Luck,", "luck")))
+        advanceUntilIdle()
+
+        assertThat(vm.state.query.text).isEqualTo("luck")
+        assertThat(vm.state.settledQuery).isEqualTo("luck")
+    }
+
+    @Test
+    fun `a phrase lists its dictionary words`() = runTest {
+        val vm = viewModel()
+
+        vm.type("སྙིང་རྗེ་བཀྲ་ཤིས་ཡིན།")
+        advanceUntilIdle()
+
+        assertThat(vm.state.phraseWords.map { it.entryId }).containsExactly(SampleData.nyingje.id, tashi.id).inOrder()
     }
 }

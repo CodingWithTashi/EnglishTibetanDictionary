@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Tibetan pack's strings in the Tibetan UI; see values/strings_pack_bo.xml for what each one is. -->
+<resources>
+    <string name="pack_name_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
+    <string name="pack_gloss_bo">Tibetan Dictionary</string>
+    <string name="pack_desc_bo">སྨོན་ལམ། · བོད་ཡིག ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
+
+    <!-- No final tsheg: onboarding_textsize_body adds it -->
+    <string name="pack_language_bo">བོད་ཡིག</string>
+
+    <string name="greeting_morning_bo">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
+    <string name="greeting_afternoon_bo">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
+    <string name="greeting_evening_bo">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
+
+    <string name="direction_desc_bo_en">བོད་ཡིག་ནས་དབྱིན་ཡིག</string>
+    <string name="direction_desc_bo_bo">བོད་ཡིག་ཚིག་འགྲེལ།</string>
+    <string name="direction_desc_en_bo">དབྱིན་ཡིག་ནས་བོད་ཡིག</string>
+
+    <string name="licence_data_bo">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · GNU General Public License, version 3</string>
+</resources>

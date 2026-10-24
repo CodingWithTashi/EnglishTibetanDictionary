@@ -31,6 +31,12 @@ jobs:
             exit 1
           fi
           echo "$GOOGLE_SERVICES_JSON" | base64 --decode > app/google-services.json
+          # Google sign-in needs the OAuth web client, which the file has only once the Google provider is enabled.
+          # Without it the build passes and sign-in fails at runtime.
+          if ! jq -e '[.client[].oauth_client[]? | select(.client_type == 3)] | length > 0' app/google-services.json > /dev/null; then
+            echo "::error::GOOGLE_SERVICES_JSON has no OAuth web client, so Google sign-in would fail. Enable the Google provider, re-download app/google-services.json and update the secret (docs/translation-launch-checklist.md, step 1)."
+            exit 1
+          fi
 
       - name: Build, unit test and lint (debug)
         run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon --stacktrace
@@ -57,8 +63,8 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
 
   dictionary-pipeline:
-    # tools/dictionary builds the bundled dictionary.db. Its tests need no Monlam source: without MLDIC_SOURCE the
-    # one smoke test that reads it skips.
+    # tools/dictionary builds the bundled pack databases (assets/dictionary/<pack>.db). Its tests need no source data:
+    # without MLDIC_SOURCE and DZONGKHA_SOURCE the smoke tests that read them skip.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,3 +84,48 @@ jobs:
 
       - name: Run the pipeline tests
         run: .venv/bin/python -I -m pytest -q
+
+  translation-backend:
+    # backend/functions: the translate and getTranslationStatus Cloud Functions. Unit tests run on Node; the quota,
+    # cache and security-rules tests run against the Firestore emulator, which needs Java 21+.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+
+      - name: Set up Java for the Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache the Firestore emulator
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('backend/functions/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Format, lint and typecheck
+        run: npm run format:check && npm run lint && npm run typecheck
+
+      # The coverage runs are the unit and emulator tests, plus the thresholds in vitest*.config.ts.
+      - name: Unit tests with coverage
+        run: npm run coverage
+
+      - name: Emulator tests with coverage
+        run: npm run coverage:emulator
+
+      - name: Build
+        run: npm run build

@@ -14,36 +14,48 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
+import com.kharagedition.tibetandictionary.data.repository.TranslationRecord
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Provider
+import com.kharagedition.tibetandictionary.data.translation.TranslatedText
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
 import com.kharagedition.tibetandictionary.ui.components.AppToastHost
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.Toaster
 import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import org.junit.Rule
+import java.time.Instant
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -272,6 +284,7 @@ class SavedScreenTest {
         val channel = Channel<SavedEffect>(Channel.UNLIMITED)
         val effects = channel.receiveAsFlow()
         val opened = mutableListOf<Long>()
+        val translateRequests = mutableListOf<TranslateRequest>()
         compose.setContent {
             DictTheme(darkTheme = false) {
                 val host = remember { SnackbarHostState() }
@@ -280,7 +293,12 @@ class SavedScreenTest {
                     Box(Modifier.fillMaxSize()) {
                         AppToastHost(host, rootHeightPx = 0, modifier = Modifier.align(Alignment.BottomCenter))
                     }
-                    SavedEffects(effects, onEvent = { events += it }, onOpenEntry = { opened += it })
+                    SavedEffects(
+                        effects,
+                        onEvent = { events += it },
+                        onOpenEntry = { opened += it },
+                        onOpenTranslate = { translateRequests += it },
+                    )
                 }
             }
         }
@@ -302,8 +320,22 @@ class SavedScreenTest {
         compose.onNodeWithText("Change").performClick()
         compose.waitForIdle()
 
+        val thanks = TranslatedText("Thank you.", cached = true, provider = Provider.GOOGLE)
+        val request = TranslateRequest(LangPair(Lang.BO, Lang.EN), "བཀའ་དྲིན་ཆེ།", thanks)
+        channel.trySend(SavedEffect.OpenTranslate(request))
+        val record = TranslationRecord(5, request.pair, request.text, "Thank you.", Provider.GOOGLE, Instant.EPOCH)
+        channel.trySend(SavedEffect.TranslationRemoved(record))
+        compose.onNodeWithText("Removed").assertIsDisplayed()
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitForIdle()
+
         assertThat(opened).containsExactly(7L)
-        assertThat(events).containsExactly(SavedEvent.UndoUnsave(1, folderId = 2), SavedEvent.ChangeFolder(1)).inOrder()
+        assertThat(translateRequests).containsExactly(request)
+        assertThat(events).containsExactly(
+            SavedEvent.UndoUnsave(1, folderId = 2),
+            SavedEvent.ChangeFolder(1),
+            SavedEvent.UndoRemoveTranslation(record),
+        ).inOrder()
     }
 
     // Sheets
@@ -330,5 +362,91 @@ class SavedScreenTest {
         compose.onNodeWithText("Dharma").performClick()
 
         assertThat(events).containsExactly(SavedEvent.PickFolder(1))
+    }
+
+    // Translations (1y)
+
+    private val howAreYou = SavedTranslationUi(
+        id = 1,
+        source = "ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།",
+        translation = "How are you?",
+        pair = LangPair(Lang.BO, Lang.EN),
+        sourceIsTibetan = true,
+    )
+
+    private val withTranslations = populated.copy(
+        tab = SavedTab.TRANSLATIONS,
+        translationCount = 1,
+        translationGroups = listOf(SavedTranslationGroupUi(SavedPeriod.TODAY, listOf(howAreYou))),
+    )
+
+    @Test
+    fun `the switch shows both counts and selects translations`() {
+        show(populated.copy(translationCount = 2))
+
+        compose.onNodeWithText("Words · 3").assertIsDisplayed()
+        compose.onNodeWithText("Translations · 2").assertIsDisplayed()
+        compose.onNodeWithTag("saved_tab_words").assertIsSelected()
+        compose.onNodeWithTag("saved_tab_translations").performClick()
+
+        assertThat(events).containsExactly(SavedEvent.SelectTab(SavedTab.TRANSLATIONS))
+    }
+
+    @Test
+    fun `the translations empty state`() {
+        show(populated.copy(tab = SavedTab.TRANSLATIONS))
+
+        compose.onNodeWithTag("saved_translations_empty").assertIsDisplayed()
+        compose.onNodeWithText("Saved translations appear here").assertIsDisplayed()
+        compose.onNodeWithText("Tap ♡ on a translation to keep it.").assertIsDisplayed()
+        // Folders and the search field belong to the Words tab.
+        compose.onNodeWithTag("folder_chip_all").assertDoesNotExist()
+        compose.onNodeWithTag("saved_row_1").assertDoesNotExist()
+    }
+
+    @Test
+    fun `tapping a row sends OpenTranslation`() {
+        show(withTranslations)
+
+        compose.onNodeWithText("How are you?").assertIsDisplayed()
+        compose.onNodeWithText("བོད → EN").assertIsDisplayed()
+        compose.onNodeWithTag("saved_group_today").assertIsDisplayed()
+        compose.onNodeWithTag("saved_translation_1").performClick()
+
+        assertThat(events).containsExactly(SavedEvent.OpenTranslation(1))
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun `swiping a row away, or its Remove action, sends RemoveTranslation`() {
+        show(withTranslations)
+
+        compose.onNodeWithTag("saved_translation_1").performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+        assertThat(events).containsExactly(SavedEvent.RemoveTranslation(1))
+
+        events.clear()
+        // The swiped row comes back until the list drops it; the screen-reader action does the same.
+        compose.onNodeWithTag("saved_translation_1").performCustomAccessibilityActionWithLabel("Remove from Saved")
+        assertThat(events).containsExactly(SavedEvent.RemoveTranslation(1))
+    }
+
+    @Test
+    fun `a long press on a row offers Remove from Saved`() {
+        show(withTranslations)
+
+        compose.onNodeWithTag("saved_translation_1").performTouchInput { longClick() }
+        compose.onNodeWithTag("saved_translation_menu_remove").assertIsDisplayed().performClick()
+
+        assertThat(events).containsExactly(SavedEvent.RemoveTranslation(1))
+        compose.onNodeWithTag("saved_translation_menu_remove").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the translations tab hides the search field even with many words`() {
+        show(withTranslations.copy(totalCount = 20))
+
+        compose.onNodeWithTag("saved_search").assertDoesNotExist()
+        compose.onNodeWithText("Translations · 1").assertIsDisplayed()
     }
 }

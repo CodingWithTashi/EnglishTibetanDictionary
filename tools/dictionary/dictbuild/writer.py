@@ -1,4 +1,4 @@
-"""Turn entry drafts into dictionary.db rows and write the database (plan §5.1, §5.3).
+"""Turn entry drafts into dictionary database rows and write the database (plan §5.1, §5.3).
 
 `assemble_rows` assigns the build ids (entries keep `id_base + source _id`; senses, examples and
 related links are numbered sequentially) and derives the entry summary columns. `staged_database`

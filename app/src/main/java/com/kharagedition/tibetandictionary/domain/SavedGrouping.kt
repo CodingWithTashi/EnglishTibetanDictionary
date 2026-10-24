@@ -22,11 +22,21 @@ data class SavedGroup(val period: SavedPeriod, val items: List<SavedEntry>)
 object SavedGrouping {
     private const val WEEK_DAYS = 7L
 
-    fun group(items: List<SavedEntry>, today: LocalDate, zone: ZoneId): List<SavedGroup> {
+    fun group(items: List<SavedEntry>, today: LocalDate, zone: ZoneId): List<SavedGroup> =
+        groupBy(items, { Instant.ofEpochMilli(it.savedAt) }, today, zone)
+            .map { (period, list) -> SavedGroup(period, list) }
+
+    /** [group] for anything with a time, such as saved translations. */
+    fun <T> groupBy(
+        items: List<T>,
+        at: (T) -> Instant,
+        today: LocalDate,
+        zone: ZoneId,
+    ): List<Pair<SavedPeriod, List<T>>> {
         val byPeriod = items
-            .sortedByDescending { it.savedAt }
-            .groupBy { periodOf(Instant.ofEpochMilli(it.savedAt).atZone(zone).toLocalDate(), today) }
-        return SavedPeriod.entries.mapNotNull { period -> byPeriod[period]?.let { SavedGroup(period, it) } }
+            .sortedByDescending(at)
+            .groupBy { periodOf(at(it).atZone(zone).toLocalDate(), today) }
+        return SavedPeriod.entries.mapNotNull { period -> byPeriod[period]?.let { period to it } }
     }
 
     private fun periodOf(day: LocalDate, today: LocalDate): SavedPeriod {

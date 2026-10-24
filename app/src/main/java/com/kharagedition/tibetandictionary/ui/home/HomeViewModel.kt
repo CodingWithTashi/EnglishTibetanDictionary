@@ -9,6 +9,7 @@ import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.speech.SpeechAvailability
 import com.kharagedition.tibetandictionary.core.time.AppClock
+import com.kharagedition.tibetandictionary.data.auth.AuthRepository
 import com.kharagedition.tibetandictionary.data.model.DictionaryCapabilities
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.SavedEntry
@@ -19,6 +20,9 @@ import com.kharagedition.tibetandictionary.data.repository.DictionaryRepository
 import com.kharagedition.tibetandictionary.data.repository.RecentSearchesRepository
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.TranslationRepository
+import com.kharagedition.tibetandictionary.data.translation.translationPairs
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.Greeting
 import com.kharagedition.tibetandictionary.domain.StreakCalculator
@@ -44,6 +48,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -66,6 +71,10 @@ import kotlinx.coroutines.launch
  * saves today's word to the last-used folder (unfiled when that folder is gone) or removes it through
  * [SavedWordActions]: the toast names the folder ("Saved {headword} to {folder}"), and a removal offers Undo, which
  * puts the row back as it was. Choosing a folder lives on the Entry screen.
+ *
+ * The translate card (1h) opens the Translate tab with the count of today's translations left once there is a user;
+ * Home never creates one. Each [HomeEvent.Shown] asks [translation] to refresh that count, which it does only when
+ * it is stale.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -81,6 +90,8 @@ class HomeViewModel @Inject constructor(
     speech: SpeechAvailability,
     audioPlayer: Optional<AudioPlayer>,
     private val errors: ErrorReporter,
+    private val translation: TranslationRepository,
+    auth: AuthRepository,
 ) : ViewModel() {
 
     /** Today's word as loaded: the [entry] chosen for [date], and whether it is saved. */
@@ -133,6 +144,32 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * The translate card: the Translate tab's default direction for the pack (the first of the pack's the backend
+     * offers, all of them until it is known), with the count once there is a user. None while translation is off,
+     * or when the backend offers none of the pack's directions.
+     */
+    private val translateCard: Flow<TranslateCardUi?> = safely(fallback = null) {
+        combine(
+            userPrefs.map { it.dictionaryPack }.distinctUntilChanged(),
+            translation.availability,
+            translation.quota,
+            auth.account,
+        ) { pack, availability, quota, account ->
+            val pair = pack.translationPairs().firstOrNull { availability == null || it in availability.pairs }
+            val counted = quota?.takeIf { account != null }?.quota
+            pair?.takeIf { availability?.enabled != false }
+                ?.let {
+                    TranslateCardUi(
+                        it,
+                        remaining = counted?.remaining,
+                        limit = counted?.limit,
+                        unlimited = counted?.plan == Plan.PRO,
+                    )
+                }
+        }
+    }
+
     /** The word for [today] while Home is shown; null when there is none. */
     private val wotd: StateFlow<Wotd?> = today.flatMapLatest { date ->
         safely(fallback = null) {
@@ -146,13 +183,16 @@ class HomeViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
+    /** The cards under the switcher: today's word and the translate card. */
+    private val cards: Flow<Pair<Wotd?, TranslateCardUi?>> = combine(wotd, translateCard, ::Pair)
+
     val uiState: StateFlow<HomeUiState> = combine(
         capabilities,
         directionPrefs,
         greetingRow,
-        wotd,
+        cards,
         recents,
-    ) { caps, (userPrefs, layoutDefaultId), (timeOfDay, streakDays), todaysWord, recentChips ->
+    ) { caps, (userPrefs, layoutDefaultId), (timeOfDay, streakDays), (todaysWord, card), recentChips ->
         val directions = caps?.directions.orEmpty()
         val packDefaultId = caps?.pack?.defaultDirectionId
         val selected = DirectionSlots.defaultDirection(directions, userPrefs.defaultDirectionId, packDefaultId)
@@ -166,6 +206,7 @@ class HomeViewModel @Inject constructor(
             // Learn (Features.LEARN) has no stats source in release 1.
             stats = null,
             micAvailable = micAvailable,
+            translateCard = card,
         )
     }.stateIn(
         viewModelScope,
@@ -179,10 +220,12 @@ class HomeViewModel @Inject constructor(
                 greeting.value = Greeting.timeOfDay(clock)
                 today.value = clock.today()
                 visit.value++
+                launchSafely { translation.refresh() }
             }
             HomeEvent.OpenSearch -> send(HomeEffect.NavigateSearch(query = null, voice = false))
             HomeEvent.VoiceSearch -> send(HomeEffect.NavigateSearch(query = null, voice = true))
             is HomeEvent.RecentTap -> send(HomeEffect.NavigateSearch(event.query, voice = false))
+            HomeEvent.OpenTranslate -> send(HomeEffect.NavigateTranslate)
             is HomeEvent.SelectDirection -> launchSafely { prefs.setDefaultDirectionId(event.directionId) }
             HomeEvent.WotdPlay -> play()
             HomeEvent.WotdToggleSave -> toggleSave()

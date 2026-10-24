@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
@@ -18,6 +19,10 @@ import androidx.compose.ui.unit.dp
 /** Dash and gap of dashed outlines (the spec's CSS `1px dashed`). */
 private val DashLength = 4.dp
 private val DashGap = 3.dp
+
+/** Dot size and spacing of dotted underlines (CSS `1.5px dotted`). */
+private val DotSize = 1.5.dp
+private val DotPitch = 3.dp
 
 /**
  * A dashed [width] outline of [shape] in [color], drawn just inside the bounds. Used by dashed boxes: inline empty
@@ -41,6 +46,21 @@ internal fun Modifier.bottomDivider(color: Color, show: Boolean = true, width: D
         val y = size.height - strokePx / 2
         drawLine(color, Offset(0f, y), Offset(size.width, y), strokePx)
     }
+
+/** Round dots in [color] along the bottom edge: the mark of a tappable word in a translation. */
+fun Modifier.dottedUnderline(color: Color): Modifier = drawBehind {
+    val dot = DotSize.toPx()
+    val y = size.height - dot / 2
+    drawLine(
+        color,
+        Offset(dot / 2, y),
+        Offset(size.width - dot / 2, y),
+        strokeWidth = dot,
+        cap = StrokeCap.Round,
+        // Zero-length dashes with round caps are dots.
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(0f, DotPitch.toPx())),
+    )
+}
 
 /**
  * Pulls this element up by [amount] (a negative top margin): it is drawn [amount] higher and reports a height

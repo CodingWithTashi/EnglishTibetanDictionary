@@ -81,23 +81,30 @@ internal object PreviewSamples {
         hasTruncated = false,
     )
 
-    private fun direction(id: String, source: String, target: String, script: Script, position: Int) = Direction(
+    private fun direction(
+        id: String,
+        source: String,
+        target: String,
+        script: Script,
+        position: Int,
+        shortLabel: String,
+    ) = Direction(
         id = id,
         sourceLang = source,
         targetLang = target,
         sourceScript = script,
         labelEn = id,
         labelBo = id,
-        shortLabel = id,
+        shortLabel = shortLabel,
         position = position,
         entryCount = 50_000,
         features = features,
     )
 
-    val boEn = direction("bo-en", "bo", "en", Script.TIBETAN, 0)
-    val boBo = direction("bo-bo", "bo", "bo", Script.TIBETAN, 1)
-    val enBo = direction("en-bo", "en", "bo", Script.LATIN, 2)
-    val zhBo = direction("zh-bo", "zh", "bo", Script.HAN, 3)
+    val boEn = direction("bo-en", "bo", "en", Script.TIBETAN, 0, "བོད→EN")
+    val boBo = direction("bo-bo", "bo", "bo", Script.TIBETAN, 1, "བོད→བོད")
+    val enBo = direction("en-bo", "en", "bo", Script.LATIN, 2, "EN→བོད")
+    val zhBo = direction("zh-bo", "zh", "bo", Script.HAN, 3, "中→བོད")
     val directions = listOf(boEn, boBo, enBo)
 
     val threeSlots = DirectionSlots(fixed = listOf(boEn, boBo, enBo), overflow = emptyList())

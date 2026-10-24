@@ -7,11 +7,9 @@ skip_docs
 PROJECT_DIR = File.expand_path("..", __dir__)
 PLAY_PACKAGE = "com.kharagedition.tibetandictionary"
 TRACKS = %w[internal alpha beta production].freeze
-# SHA-256 of the Play upload certificate; Play rejects bundles signed with any other key.
-# PLACEHOLDER (owner): replace it with the SHA-256 shown in Play Console under App integrity > App signing >
-# Upload key certificate (or the SHA256 line of `keytool -list -v -keystore <upload keystore>`), in the same
-# colon-separated upper-case form. The lane refuses to run while the placeholder is here.
-UPLOAD_CERT_SHA256 = "PLACEHOLDER_UPLOAD_CERT_SHA256"
+# SHA-256 of the Play upload certificate (Play Console > App integrity > App signing > Upload key certificate);
+# Play rejects bundles signed with any other key.
+UPLOAD_CERT_SHA256 = "EA:0A:62:C8:E8:E1:DF:A9:AA:3E:17:36:99:7C:27:A0:AA:FF:22:BE:30:67:9E:F6:BA:9B:07:E6:C0:1B:18:04"
 
 # ["3.0.0", 21] from app/build.gradle.kts.
 def gradle_version

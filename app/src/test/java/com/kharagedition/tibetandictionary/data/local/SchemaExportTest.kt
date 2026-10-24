@@ -38,7 +38,9 @@ class SchemaExportTest {
         val database = schema(UserDatabase::class.java.name, UserDatabase.VERSION)
 
         assertThat(database["version"]!!.jsonPrimitive.int).isEqualTo(UserDatabase.VERSION)
-        assertThat(database.tables().keys).containsExactly("folders", "saved_entries", "recent_searches", "activity_days")
+        assertThat(database.tables().keys).containsExactly(
+            "folders", "saved_entries", "recent_searches", "activity_days", "recent_translations", "saved_translations",
+        )
     }
 
     /**

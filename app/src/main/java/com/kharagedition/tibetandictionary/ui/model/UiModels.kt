@@ -88,10 +88,10 @@ data class FolderUi(
     val count: Int,
 )
 
-/** The signed-in account shown on Profile; [syncedText] is the formatted last-sync line, if any. */
+/** The signed-in Google account shown on Profile: its [name] (when it has one) over its [email]. */
 @Immutable
 data class AccountUi(
+    val name: String?,
     val email: String,
     val initials: String,
-    val syncedText: String?,
 )

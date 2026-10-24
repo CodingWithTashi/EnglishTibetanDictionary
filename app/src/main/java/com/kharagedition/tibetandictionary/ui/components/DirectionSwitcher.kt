@@ -68,31 +68,35 @@ private val MoreChevron = 16.dp
 /** Gap between "More" and its chevron. */
 private val MoreGap = 4.dp
 
-/** Languages whose token is not Latin-lettered (it touches the arrow). */
-private val NonLatinTokens = setOf("bo", "dz", "zh")
-
-/** Display token of a language code: bo → "བོད", dz → "རྫོང", en → "EN", zh → "中", anything else upper-cased. */
-private fun languageToken(code: String): String = when (code.lowercase()) {
-    "bo" -> "བོད"
-    "dz" -> "རྫོང"
-    "en" -> "EN"
-    "zh" -> "中"
-    else -> code.uppercase()
+/**
+ * The source and target tokens of [direction]: the two sides of its [Direction.shortLabel], which the data build
+ * writes for every direction ("རྫོང→EN" gives "རྫོང" and "EN"), so a new pack brings its own. A label that is not
+ * two tokens around one arrow falls back to the upper-cased language codes.
+ */
+private fun languageTokens(direction: Direction): Pair<String, String> {
+    val tokens = direction.shortLabel.split('→').map { it.trim() }
+    return if (tokens.size == 2 && tokens.none { it.isEmpty() }) {
+        tokens[0] to tokens[1]
+    } else {
+        direction.sourceLang.uppercase() to direction.targetLang.uppercase()
+    }
 }
 
-/** True when the token for [code] is written in Latin letters (spaced away from the arrow). */
-private fun isLatinToken(code: String): Boolean = code.lowercase() !in NonLatinTokens
+/** True when [token] is written in Latin letters (spaced away from the arrow); Tibetan and Han tokens touch it. */
+private fun isLatinToken(token: String): Boolean =
+    token.codePoints().allMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.LATIN }
 
 /**
  * The short label of [direction]: "བོད→ EN", "བོད→བོད", "EN →བོད", "中→བོད". A Latin token is separated from
  * the arrow by a space; Tibetan and Han tokens touch it.
  */
 fun directionLabelText(direction: Direction): String = buildString {
-    append(languageToken(direction.sourceLang))
-    if (isLatinToken(direction.sourceLang)) append(' ')
+    val (source, target) = languageTokens(direction)
+    append(source)
+    if (isLatinToken(source)) append(' ')
     append('→')
-    if (isLatinToken(direction.targetLang)) append(' ')
-    append(languageToken(direction.targetLang))
+    if (isLatinToken(target)) append(' ')
+    append(target)
 }
 
 /** Three-per-em space (⅓ em): the mockups' 3–5px flex gap between a Tibetan or Han token and the arrow. */

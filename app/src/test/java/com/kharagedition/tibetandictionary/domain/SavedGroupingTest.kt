@@ -24,6 +24,20 @@ class SavedGroupingTest {
     }
 
     @Test
+    fun `groupBy uses the same periods as group`() {
+        val items = listOf(
+            saved(1, "2026-10-19T08:00:00Z"),
+            saved(2, "2026-10-14T10:00:00Z"),
+            saved(3, "2026-10-02T10:00:00Z"),
+            saved(4, "2025-01-01T10:00:00Z"),
+        )
+        val generic = SavedGrouping.groupBy(items, { Instant.ofEpochMilli(it.savedAt) }, today, ZoneOffset.UTC)
+
+        assertThat(generic.map { (period, list) -> period to list.map { it.entryId } })
+            .isEqualTo(group(*items.toTypedArray()).ids())
+    }
+
+    @Test
     fun `words fall into today, this week, this month and earlier`() {
         val groups = group(
             saved(1, "2026-10-19T08:00:00Z"),

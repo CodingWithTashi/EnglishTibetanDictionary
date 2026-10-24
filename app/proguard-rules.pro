@@ -21,4 +21,8 @@
 # Room: Room.databaseBuilder(context, X::class.java, ...) loads X_Impl by name. room-runtime's consumer rule
 # (-keep class * extends androidx.room.RoomDatabase { void <init>(); }) keeps both names and the constructor;
 # entities and DAOs are only reached through generated code, so nothing more is needed here.
-# Hilt and Firebase (Analytics, Crashlytics) ship consumer rules as well.
+# Hilt and Firebase (Analytics, Crashlytics, Auth, Functions, App Check) ship consumer rules as well.
+
+# Credential Manager loads its Play services provider by reflection.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** { *; }

@@ -21,9 +21,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +46,7 @@ import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
 import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Direction
+import com.kharagedition.tibetandictionary.data.model.PackResources
 import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
@@ -78,14 +82,16 @@ private val SelectedBorder = 2.dp
 
 /**
  * The app's modal bottom sheet: background container with 28dp top corners, the scrim colour, ink content and
- * a 32×4 outline drag handle; no tonal elevation.
+ * a 32×4 outline drag handle; no tonal elevation. While [dismissible] is false, a swipe, a scrim tap or back leaves it
+ * open.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictModalSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    dismissible: Boolean = true,
+    sheetState: SheetState = rememberDismissibleSheetState(dismissible),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = DictTheme.colors
@@ -100,6 +106,17 @@ fun DictModalSheet(
         scrimColor = colors.scrim,
         dragHandle = { SheetHandle() },
         content = content,
+    )
+}
+
+/** A fully expanded sheet state that refuses to hide (swipe, scrim tap, back) while [dismissible] is false. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun rememberDismissibleSheetState(dismissible: Boolean): SheetState {
+    val canHide by rememberUpdatedState(dismissible)
+    return rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || canHide },
     )
 }
 
@@ -195,18 +212,17 @@ fun OptionCard(
 }
 
 /**
- * What a direction is for: the `direction_desc_*` copy for the three release directions, otherwise the
- * direction's own label in the UI language.
+ * What a direction is for: the description its pack gives it ([PackResources.directionDescriptions]; direction ids
+ * are unique across packs), otherwise the direction's own label in the UI language.
  */
 @Composable
-fun directionDescription(direction: Direction): String = when (direction.id) {
-    "bo-en" -> stringResource(R.string.direction_desc_bo_en)
-    "bo-bo" -> stringResource(R.string.direction_desc_bo_bo)
-    "en-bo" -> stringResource(R.string.direction_desc_en_bo)
-    "dz-en" -> stringResource(R.string.direction_desc_dz_en)
-    "dz-dz" -> stringResource(R.string.direction_desc_dz_dz)
-    "en-dz" -> stringResource(R.string.direction_desc_en_dz)
-    else -> if (DictTheme.language == AppLanguage.BO) direction.labelBo else direction.labelEn
+fun directionDescription(direction: Direction): String {
+    val description = DictionaryPack.entries.firstNotNullOfOrNull { it.resources.directionDescriptions[direction.id] }
+    return when {
+        description != null -> stringResource(description)
+        DictTheme.language == AppLanguage.BO -> direction.labelBo
+        else -> direction.labelEn
+    }
 }
 
 /** Picks the default direction from [directions] (option cards with descriptions). */

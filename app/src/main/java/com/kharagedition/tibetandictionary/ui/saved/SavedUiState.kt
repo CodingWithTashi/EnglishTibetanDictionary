@@ -3,20 +3,27 @@ package com.kharagedition.tibetandictionary.ui.saved
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.AnnotatedString
+import com.kharagedition.tibetandictionary.data.repository.TranslationRecord
+import com.kharagedition.tibetandictionary.data.translation.LangPair
 import com.kharagedition.tibetandictionary.domain.SavedPeriod
 import com.kharagedition.tibetandictionary.ui.model.FolderPickerUi
 import com.kharagedition.tibetandictionary.ui.model.FolderUi
 import com.kharagedition.tibetandictionary.ui.model.UiText
 import com.kharagedition.tibetandictionary.ui.model.WordOfTheDayUi
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 
 /** The search-within field shows once this many words are saved. */
 internal const val SEARCH_MIN_COUNT = 8
 
+/** The Saved tab's two lists (1y). */
+enum class SavedTab { WORDS, TRANSLATIONS }
+
 /**
- * The Saved tab (1i/3c). [loading] until the saved words are first read. [totalCount] counts every saved word;
+ * The Saved tab (1i/3c/1y). [loading] until the saved words are first read. [totalCount] counts every saved word;
  * [groups] are the words that pass the filter ([selectedFolderId], null = All, and [query]), by when they were
  * saved. [folderPicker] is set while the "Save to folder" sheet is open for today's word, [newFolder] while the
- * new-folder sheet is open.
+ * new-folder sheet is open. [tab] picks the list: the words above, or the [translationCount] saved translations in
+ * [translationGroups]. The words' properties ([isEmpty], [showSearch], [noMatches]) keep their meaning on either tab.
  */
 @Immutable
 data class SavedUiState(
@@ -29,6 +36,9 @@ data class SavedUiState(
     val wotd: WordOfTheDayUi? = null,
     val folderPicker: FolderPickerUi? = null,
     val newFolder: NewFolderUi? = null,
+    val tab: SavedTab = SavedTab.WORDS,
+    val translationCount: Int = 0,
+    val translationGroups: List<SavedTranslationGroupUi> = emptyList(),
 ) {
     /** Nothing is saved at all: the empty state (3c) instead of the list. */
     val isEmpty: Boolean get() = !loading && totalCount == 0
@@ -57,6 +67,20 @@ data class SavedItemUi(
     val headwordIsTibetan: Boolean,
     val secondary: AnnotatedString,
     val folderId: Long?,
+)
+
+/** One section of the Translations list: the translations saved in [period], newest first. */
+@Immutable
+data class SavedTranslationGroupUi(val period: SavedPeriod, val items: List<SavedTranslationUi>)
+
+/** A saved translation (1y): [source] (in the Tibetan font when [sourceIsTibetan]), its [translation], in [pair]. */
+@Immutable
+data class SavedTranslationUi(
+    val id: Long,
+    val source: String,
+    val translation: String,
+    val pair: LangPair,
+    val sourceIsTibetan: Boolean,
 )
 
 /** The new-folder sheet: the [name] typed so far and an [error] (a duplicate name) shown under it. */
@@ -107,6 +131,18 @@ sealed interface SavedEvent {
     data class CreateFolder(val name: String) : SavedEvent
 
     data object DismissFolderPicker : SavedEvent
+
+    /** The Words | Translations switch. */
+    data class SelectTab(val tab: SavedTab) : SavedEvent
+
+    /** Opens the saved translation [id] in the Translate tab, with its saved result (no call). */
+    data class OpenTranslation(val id: Long) : SavedEvent
+
+    /** Removes the saved translation [id] (a swipe); the screen then offers Undo. */
+    data class RemoveTranslation(val id: Long) : SavedEvent
+
+    /** Puts back the translation removed by [RemoveTranslation], with its id and save time. */
+    data class UndoRemoveTranslation(val record: TranslationRecord) : SavedEvent
 }
 
 /** One-shot effects the screen performs. */
@@ -115,6 +151,12 @@ sealed interface SavedEffect {
 
     /** [entryId] was removed from [folderId]: a "Removed" toast whose Undo sends [SavedEvent.UndoUnsave]. */
     data class Removed(val entryId: Long, val folderId: Long?) : SavedEffect
+
+    /** Opens the Translate tab with [request]. */
+    data class OpenTranslate(val request: TranslateRequest) : SavedEffect
+
+    /** [record] was removed: a "Removed" toast whose Undo sends [SavedEvent.UndoRemoveTranslation]. */
+    data class TranslationRemoved(val record: TranslationRecord) : SavedEffect
 
     /**
      * A toast with [message] (resolved by the screen in the app language) and an optional [action] label;

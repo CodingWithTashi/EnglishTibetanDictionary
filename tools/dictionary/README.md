@@ -169,7 +169,7 @@ The database is built in memory, compacted with `VACUUM INTO` a temporary file n
 |---|---|
 | 0 | Success. |
 | 1 | The schema or source cannot be read, `--built-at` or `SOURCE_DATE_EPOCH` is not a time, or the database or `--stats-xml` cannot be written. The message names the path. `--out` and `--stats-xml` are left as they were. |
-| 2 | A full build's counts leave the expected ranges in the pack's `expected` (`dictbuild/packs.py`). Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
+| 2 | A full build's counts leave the expected ranges in the pack's `expected` (`dictbuild/packs/`). Each failing count is printed. `--out` is not replaced and `--stats-xml` is not written: the database goes to a new `dictionary-out-of-range-*` temporary directory (the path is printed), and the report is still written. |
 
 `--limit N` parses only the first N rows of each table, for quick checks. It skips the range
 checks, so it never exits 2.
@@ -206,7 +206,7 @@ The FTS tables use `unicode61` with Tibetan `tokenchars`, so one token is one sy
 | Module | Responsibility |
 |---|---|
 | `dictbuild/schema.py` | Load the Room schema export, run its DDL, set `user_version`, generate `INSERT`s |
-| `dictbuild/packs.py` | `Pack` (directions, tables, parsers, lookup order, meta, expected ranges), `MONLAM` and `DDC`; `--pack` picks one |
+| `dictbuild/packs/` | `base.py`: `Pack` (directions, tables, parsers, lookup order, meta, expected ranges); `monlam.py` (`MONLAM`, bo) and `ddc.py` (`DDC`, dz), one module per pack; `__init__.py`: `PACKS`, which `--pack` picks from |
 | `dictbuild/stardict.py` | Read a StarDict `.ifo`/`.idx`/`.dict` triple into source rows (the DDC source) |
 | `dictbuild/source.py` | Open the source read-only and read rows in `_id` order |
 | `dictbuild/text.py` | Shared text rules (see below) |

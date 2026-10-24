@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Feedback sent by app versions before 3.0 (SettingActivity on master): signed out, {message: string}.
+    // Write-only: nobody reads it from a client.
+    match /Message/{messageId} {
+      allow create: if request.resource.data.keys().hasOnly(['message'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 3
+        && request.resource.data.message.size() <= 5000;
+    }
+
+    // Everything else (translations, dailyUsage, budget, config, subscriptions) is server-only: Cloud Functions
+    // use the Admin SDK, which these rules do not apply to. No match means no client access.
+  }
+}

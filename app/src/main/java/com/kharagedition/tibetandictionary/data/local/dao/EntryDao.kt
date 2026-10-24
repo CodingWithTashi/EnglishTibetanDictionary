@@ -7,7 +7,7 @@ import com.kharagedition.tibetandictionary.data.local.entity.EntryEntity
 import com.kharagedition.tibetandictionary.data.local.relation.EntryWithDetails
 import kotlinx.coroutines.flow.Flow
 
-/** Read-only queries over `entries` (dictionary.db). */
+/** Read-only queries over `entries` (a pack's dictionary database). */
 @Dao
 interface EntryDao {
 
@@ -25,6 +25,10 @@ interface EntryDao {
     /** Entries for [ids] in no particular order; unknown ids are skipped. */
     @Query("SELECT * FROM entries WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<EntryEntity>
+
+    /** Entries of [dir] whose headword is one of [headwords] (NOCASE), in no particular order. */
+    @Query("SELECT * FROM entries WHERE direction_id = :dir AND headword IN (:headwords)")
+    suspend fun byHeadwords(dir: String, headwords: List<String>): List<EntryEntity>
 
     /**
      * Headwords in `[prefix, upper)` (NOCASE B-tree range scan); [upper] is `PrefixBounds.upper(prefix)`. The headword

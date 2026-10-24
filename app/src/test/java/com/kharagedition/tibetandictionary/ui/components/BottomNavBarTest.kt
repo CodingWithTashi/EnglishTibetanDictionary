@@ -20,6 +20,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.navigation.MainTab
+import com.kharagedition.tibetandictionary.ui.main.visibleTabs
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import com.kharagedition.tibetandictionary.ui.theme.Jomolhari
 import com.kharagedition.tibetandictionary.ui.theme.NotoSans
@@ -35,7 +36,7 @@ class BottomNavBarTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val releaseTabs = listOf(MainTab.SEARCH, MainTab.SAVED, MainTab.PROFILE)
+    private val releaseTabs = visibleTabs(learnEnabled = false)
 
     private fun SemanticsNodeInteraction.texts(): List<String> =
         fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text }
@@ -77,6 +78,23 @@ class BottomNavBarTest {
     }
 
     @Test
+    fun `the bar shows Search, Translate, Saved, Profile in order`() {
+        compose.setContent {
+            DictTheme(darkTheme = false, language = AppLanguage.EN) {
+                BottomNavBar(releaseTabs, MainTab.SEARCH, onSelect = {}, language = AppLanguage.EN)
+            }
+        }
+
+        val items = SemanticsMatcher("nav item") { node ->
+            val tag = node.config.getOrNull(SemanticsProperties.TestTag).orEmpty()
+            tag.startsWith("nav_") && !tag.startsWith("nav_label_")
+        }
+        val tags = compose.onAllNodes(items).fetchSemanticsNodes().map { it.config[SemanticsProperties.TestTag] }
+        assertThat(tags).containsExactly("nav_search", "nav_translate", "nav_saved", "nav_profile").inOrder()
+        assertThat(compose.onNodeWithTag("nav_translate").texts()).containsExactly("Translate", "ཡིག་སྒྱུར།").inOrder()
+    }
+
+    @Test
     fun `only the given tabs are shown and the selected one is marked`() {
         compose.setContent {
             DictTheme(darkTheme = false) {
@@ -104,11 +122,11 @@ class BottomNavBarTest {
     fun `every label and gloss fits on one line with four tabs on a 320dp screen`() {
         compose.setContent {
             DictTheme(darkTheme = false, language = AppLanguage.EN) {
-                BottomNavBar(MainTab.entries, MainTab.SEARCH, {}, AppLanguage.EN, Modifier.testTag(BAR))
+                BottomNavBar(releaseTabs, MainTab.SEARCH, {}, AppLanguage.EN, Modifier.testTag(BAR))
             }
         }
 
-        assertThat(lineCounts()).containsExactlyElementsIn(List(MainTab.entries.size * 2) { 1 })
+        assertThat(lineCounts()).containsExactlyElementsIn(List(releaseTabs.size * 2) { 1 })
         compose.onNodeWithTag(BAR).assertHeightIsEqualTo(88.dp)
     }
 
@@ -118,11 +136,11 @@ class BottomNavBarTest {
     fun `every Tibetan label and Latin gloss fits on one line with four tabs on a 320dp screen`() {
         compose.setContent {
             DictTheme(darkTheme = false) {
-                BottomNavBar(MainTab.entries, MainTab.SAVED, {}, DictTheme.language, Modifier.testTag(BAR))
+                BottomNavBar(releaseTabs, MainTab.SAVED, {}, DictTheme.language, Modifier.testTag(BAR))
             }
         }
 
-        assertThat(lineCounts()).containsExactlyElementsIn(List(MainTab.entries.size * 2) { 1 })
+        assertThat(lineCounts()).containsExactlyElementsIn(List(releaseTabs.size * 2) { 1 })
         // Jomolhari 15 over Latin 11 needs about 83dp: the 88dp bar (72 in the design) holds it.
         compose.onNodeWithTag(BAR).assertHeightIsEqualTo(88.dp)
     }

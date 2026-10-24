@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jomolhari&amp;family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"><style>body{margin:0;background:#E4DFD6;font-family:'Noto Sans',system-ui,sans-serif;color:#241E19}a{color:#8A2E1C}a:hover{color:#4A1409}</style></helmet>
+
+<div style="padding:40px;display:flex;flex-direction:column;gap:48px;align-items:flex-start">
+
+<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:#6B5F54">App icon · 512×512 (full-bleed, Play applies its own mask)</div>
+<div id="icon" style="width:512px;height:512px;overflow:hidden">
+<svg width="512" height="512" viewBox="0 0 160 160"><defs><radialGradient id="tile" cx="25%" cy="15%" r="110%"><stop offset="0" stop-color="#A63D27"></stop><stop offset="1" stop-color="#6A1F12"></stop></radialGradient><linearGradient id="pl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FBF8F3"></stop><stop offset="0.85" stop-color="#F3EDE3"></stop><stop offset="1" stop-color="#D9CDB9"></stop></linearGradient><linearGradient id="pr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#D9CDB9"></stop><stop offset="0.15" stop-color="#F3EDE3"></stop><stop offset="1" stop-color="#FBF8F3"></stop></linearGradient><linearGradient id="gut" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A1409" stop-opacity="0"></stop><stop offset="0.5" stop-color="#4A1409" stop-opacity=".45"></stop><stop offset="1" stop-color="#4A1409" stop-opacity="0"></stop></linearGradient></defs><rect width="160" height="160" fill="url(#tile)"></rect><path d="M26 118 Q54 108 80 122 Q106 108 134 118 L134 126 Q106 116 80 130 Q54 116 26 126 Z" fill="#3E1109" opacity=".8"></path><path d="M30 44 Q56 36 80 50 L80 122 Q56 108 30 116 Z" fill="url(#pl)"></path><path d="M130 44 Q104 36 80 50 L80 122 Q104 108 130 116 Z" fill="url(#pr)"></path><rect x="72" y="46" width="16" height="78" fill="url(#gut)"></rect><text x="54" y="92" text-anchor="middle" font-family="Jomolhari, serif" font-size="30" fill="#8A2E1C">བོད</text><text x="106" y="90" text-anchor="middle" font-family="Noto Sans, sans-serif" font-weight="600" font-size="26" fill="#8A2E1C">En</text><rect x="42" y="100" width="24" height="2" rx="1" fill="#D8CDBB"></rect><rect x="94" y="100" width="24" height="2" rx="1" fill="#D8CDBB"></rect></svg>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:#6B5F54">Feature graphic · 1024×500</div>
+<div id="feature" style="width:1024px;height:500px;background:#8A2E1C;background-image:radial-gradient(120% 140% at 0% 0%,#A63D27 0%,#8A2E1C 45%,#5C1D11 100%);position:relative;overflow:hidden;color:#FBF8F3;display:flex;align-items:center;padding:0 72px;box-sizing:border-box;gap:64px">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#F1E9E0;opacity:.5"></div><div style="display:flex;gap:10px;padding-left:40px"><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#3F6FB5"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#FBF8F3"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#C8402F"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#3F8F5E"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#E2B232"></span></div></div>
+<div style="flex:none;width:260px;height:260px;border-radius:64px;overflow:hidden;box-shadow:0 18px 36px rgba(40,8,2,.45)"><img src="play-store/app-icon-512.png" alt="" style="width:260px;height:260px;display:block"></div>
+<div style="display:none"><svg width="260" height="260" viewBox="0 0 160 160"><defs><radialGradient id="ftile" cx="25%" cy="15%" r="110%"><stop offset="0" stop-color="#A63D27"></stop><stop offset="1" stop-color="#6A1F12"></stop></radialGradient><linearGradient id="fpl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FBF8F3"></stop><stop offset="0.85" stop-color="#F3EDE3"></stop><stop offset="1" stop-color="#D9CDB9"></stop></linearGradient><linearGradient id="fpr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#D9CDB9"></stop><stop offset="0.15" stop-color="#F3EDE3"></stop><stop offset="1" stop-color="#FBF8F3"></stop></linearGradient><linearGradient id="fgut" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A1409" stop-opacity="0"></stop><stop offset="0.5" stop-color="#4A1409" stop-opacity=".45"></stop><stop offset="1" stop-color="#4A1409" stop-opacity="0"></stop></linearGradient></defs><rect width="160" height="160" rx="40" fill="url(#ftile)"></rect><path d="M26 118 Q54 108 80 122 Q106 108 134 118 L134 126 Q106 116 80 130 Q54 116 26 126 Z" fill="#3E1109" opacity=".8"></path><path d="M30 44 Q56 36 80 50 L80 122 Q56 108 30 116 Z" fill="url(#fpl)"></path><path d="M130 44 Q104 36 80 50 L80 122 Q104 108 130 116 Z" fill="url(#fpr)"></path><rect x="72" y="46" width="16" height="78" fill="url(#fgut)"></rect><text x="54" y="92" text-anchor="middle" font-family="Jomolhari, serif" font-size="30" fill="#8A2E1C">བོད</text><text x="106" y="90" text-anchor="middle" font-family="Noto Sans, sans-serif" font-weight="600" font-size="26" fill="#8A2E1C">En</text><rect x="42" y="100" width="24" height="2" rx="1" fill="#D8CDBB"></rect><rect x="94" y="100" width="24" height="2" rx="1" fill="#D8CDBB"></rect></svg></div>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+<div style="font-family:Jomolhari,serif;font-size:44px;line-height:1.7;color:#F6DDD2">བོད་ཡིག་ཚིག་མཛོད།</div>
+<div style="font-size:60px;font-weight:700;letter-spacing:-.02em;line-height:1.05">Tibetan Dictionary</div>
+<div style="font-size:24px;line-height:1.4;color:#F6DDD2;margin-top:12px">Tibetan ⇄ English. Search in Tibetan script, Wylie or English.</div>
+<div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
+<div style="height:40px;padding:0 18px;border-radius:20px;background:rgba(251,248,243,.14);border:1px solid rgba(251,248,243,.35);display:flex;align-items:center;font-size:16px;font-weight:500">Word of the day</div>
+<div style="height:40px;padding:0 18px;border-radius:20px;background:rgba(251,248,243,.14);border:1px solid rgba(251,248,243,.35);display:flex;align-items:center;font-size:16px;font-weight:500">Flashcards</div>
+<div style="height:40px;padding:0 18px;border-radius:20px;background:rgba(251,248,243,.14);border:1px solid rgba(251,248,243,.35);display:flex;align-items:center;font-size:16px;font-weight:500">Dark mode</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:#6B5F54">Phone screenshots · 540×960 here, exported at 1080×1920 (9:16)</div>
+<div style="display:flex;gap:24px;align-items:flex-start">
+
+<div id="p1" style="width:540px;height:960px;background:#8A2E1C;background-image:radial-gradient(120% 90% at 0% 0%,#A63D27 0%,#8A2E1C 50%,#5C1D11 100%);position:relative;overflow:hidden;color:#FBF8F3;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#F1E9E0;opacity:.5"></div><div style="display:flex;gap:8px;padding-left:28px"><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F6FB5"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#FBF8F3"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#C8402F"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F8F5E"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#E2B232"></span></div></div>
+<div style="padding:72px 44px 0;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center">
+<div style="font-family:Jomolhari,serif;font-size:30px;line-height:1.6;color:#F6DDD2">བོད་ཡིག་ཚིག་མཛོད།</div>
+<div style="font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1;text-wrap:balance">Tibetan ⇄ English, in your pocket</div>
+<div style="font-size:19px;line-height:1.45;color:#F6DDD2;max-width:400px">Search in Tibetan script, Wylie or English. Switch direction with one tap.</div>
+</div>
+<div style="position:absolute;left:50px;top:320px;width:440px;height:900px;border-radius:44px;background:#1E1A18;padding:10px;box-sizing:border-box;box-shadow:0 30px 60px rgba(40,8,2,.45)">
+<div style="width:100%;height:100%;border-radius:36px;overflow:hidden;background:#FBF8F3;position:relative">
+<div style="width:360px;height:780px;transform:scale(1.1667);transform-origin:0 0;display:flex;flex-direction:column;background:#FBF8F3;color:#241E19">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:600;color:#241E19"><span>9:41</span><span style="display:flex;gap:5px;align-items:center"><span style="width:14px;height:10px;border:1.5px solid #241E19;border-radius:2px;box-sizing:border-box"></span></span></div>
+<div style="flex:1;overflow:hidden;padding:12px 20px 0;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:40px">
+<div style="font-size:12px;color:#6B5F54">Good afternoon · ཕྱི་དྲོ་བདེ་ལེགས།</div>
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A2E1C;background:#F6DDD2;padding:4px 10px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#8A2E1C;display:inline-block"></span>12-day streak</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 8px 0 16px;background:#F3EDE3;border-radius:28px">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<div style="flex:1;font-size:16px;color:#6B5F54">Search a word · ཚིག་འཚོལ།</div>
+</div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#fff;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;color:#241E19;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;color:#241E19;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="background:#F3EDE3;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;padding:0 20px"><div style="height:1px;background:#B5A89A;opacity:.6"></div><div style="display:flex;gap:3px;padding-left:6px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#FBF8F3"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div></div>
+<div style="padding:10px 20px 14px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C"><span>Word of the day</span><span style="color:#6B5F54;font-weight:400;letter-spacing:0;text-transform:none">20 Oct</span></div>
+<div style="font-family:Jomolhari,serif;font-size:34px;line-height:1.9;color:#241E19">བཀྲ་ཤིས།</div>
+<div style="font-size:13px;font-style:italic;color:#6B5F54;margin-top:-6px">bkra shis</div>
+<div style="font-size:15px;line-height:1.5;color:#241E19;margin-top:6px">auspicious; good fortune, blessing</div>
+<div style="display:flex;align-items:center;gap:4px;margin-top:10px;margin-left:-10px">
+<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div style="flex:1"></div>
+<div style="font-size:13px;font-weight:500;color:#8A2E1C;padding:0 6px">Open</div>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">Recent</div>
+<div style="display:flex;gap:8px;overflow:hidden">
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">སྙིང་རྗེ།</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-size:13px">compassion</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">ཤེས་རབ།</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-size:13px">bde ba</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:16px;border:1px solid #E7DECF">
+<div><div style="font-size:14px;font-weight:500">9 words learned this week</div><div style="font-size:12px;color:#6B5F54">4 due for review in Learn</div></div>
+<div style="display:flex;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#8A2E1C"></span><span style="width:8px;height:8px;border-radius:50%;background:#8A2E1C"></span><span style="width:8px;height:8px;border-radius:50%;background:#8A2E1C"></span><span style="width:8px;height:8px;border-radius:50%;background:#8A2E1C"></span><span style="width:8px;height:8px;border-radius:50%;background:#8A2E1C"></span><span style="width:8px;height:8px;border-radius:50%;background:#EADFCF"></span><span style="width:8px;height:8px;border-radius:50%;background:#EADFCF"></span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="p2" style="width:540px;height:960px;background:#FBF8F3;position:relative;overflow:hidden;color:#241E19;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#B5A89A;opacity:.6"></div><div style="display:flex;gap:8px;padding-left:28px"><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F6FB5"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#EADFCF"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#C8402F"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F8F5E"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#E2B232"></span></div></div>
+<div style="padding:84px 44px 0;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center">
+<div style="font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:#8A2E1C;text-wrap:balance">Type Wylie. Find it instantly.</div>
+<div style="font-size:19px;line-height:1.45;color:#6B5F54;max-width:420px">No Tibetan keyboard needed. Results appear as you type, matches highlighted.</div>
+</div>
+<div style="position:absolute;left:50px;top:270px;width:440px;height:900px;border-radius:44px;background:#1E1A18;padding:10px;box-sizing:border-box;box-shadow:0 30px 60px rgba(74,20,9,.28)">
+<div style="width:100%;height:100%;border-radius:36px;overflow:hidden;background:#FBF8F3">
+<div style="width:360px;height:780px;transform:scale(1.1667);transform-origin:0 0;display:flex;flex-direction:column;background:#FBF8F3;color:#241E19">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:600"><span>9:41</span><span style="width:14px;height:10px;border:1.5px solid #241E19;border-radius:2px;box-sizing:border-box"></span></div>
+<div style="padding:8px 12px 12px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:4px">
+<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="flex:1;display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 16px;background:#F3EDE3;border-radius:26px">
+<div style="flex:1;font-size:17px">bkra<span style="width:2px;height:22px;background:#8A2E1C;display:inline-block;margin-left:1px;vertical-align:middle"></span></div>
+<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+</div>
+</div>
+<div style="display:flex;gap:8px;padding:0 4px;overflow:hidden">
+<div style="flex:none;height:32px;padding:0 12px 0 10px;border-radius:16px;background:#F6DDD2;color:#4A1409;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>Wylie ·<span style="font-family:Jomolhari,serif;font-size:14px">བོད</span>→ EN</div>
+<div style="flex:none;height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:14px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:14px">བོད</span></div>
+<div style="flex:none;height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:14px">བོད</span></div>
+</div>
+</div>
+<div style="padding:0 20px 8px;font-size:12px;color:#6B5F54">38 results</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:14px;padding:12px 20px;background:#F3EDE3"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><div style="font-family:Jomolhari,serif;font-size:24px;line-height:1.8">བཀྲ་ཤིས།</div><div style="font-size:13px;color:#6B5F54;margin-top:-6px"><b style="color:#8A2E1C;font-weight:600">bkra</b> shis</div><div style="font-size:14px;line-height:1.45;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">1. auspicious, fortunate 2. good luck, blessing</div></div><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→EN</div></div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #EFE7DA"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><div style="font-family:Jomolhari,serif;font-size:24px;line-height:1.8">བཀྲ་ཤིས་བདེ་ལེགས།</div><div style="font-size:13px;color:#6B5F54;margin-top:-6px"><b style="color:#8A2E1C;font-weight:600">bkra</b> shis bde legs</div><div style="font-size:14px;line-height:1.45;margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">greeting: good luck, may all be auspicious</div></div><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→EN</div></div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #EFE7DA"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><div style="font-family:Jomolhari,serif;font-size:24px;line-height:1.8">བཀྲ་མི་ཤིས་པ།</div><div style="font-size:13px;color:#6B5F54;margin-top:-6px"><b style="color:#8A2E1C;font-weight:600">bkra</b> mi shis pa</div><div style="font-size:14px;line-height:1.45;margin-top:4px">inauspicious, ill-omened</div></div><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→EN</div></div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #EFE7DA"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><div style="font-family:Jomolhari,serif;font-size:24px;line-height:1.8">བཀྲ་ཤིས་པ།</div><div style="font-size:13px;color:#6B5F54;margin-top:-6px"><b style="color:#8A2E1C;font-weight:600">bkra</b> shis pa</div><div style="font-size:14px;line-height:1.45;margin-top:4px">auspicious one; good fortune (adj./n.)</div></div><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→EN</div></div>
+<div style="display:flex;align-items:center;gap:14px;padding:12px 20px"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><div style="font-family:Jomolhari,serif;font-size:24px;line-height:1.8">བཀྲ་ཤིས་རྟགས་བརྒྱད།</div><div style="font-size:13px;color:#6B5F54;margin-top:-6px"><b style="color:#8A2E1C;font-weight:600">bkra</b> shis rtags brgyad</div><div style="font-size:14px;line-height:1.45;margin-top:4px">the eight auspicious symbols</div></div><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→EN</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="p3" style="width:540px;height:960px;background:#EADFCF;position:relative;overflow:hidden;color:#241E19;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#B5A89A;opacity:.7"></div><div style="display:flex;gap:8px;padding-left:28px"><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F6FB5"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#FBF8F3"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#C8402F"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F8F5E"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#E2B232"></span></div></div>
+<div style="padding:84px 44px 0;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center">
+<div style="font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:#4A1409;text-wrap:balance">Clear, numbered meanings</div>
+<div style="font-size:19px;line-height:1.45;color:#6B5F54;max-width:420px">Every sense on its own card, with examples and related words.</div>
+</div>
+<div style="position:absolute;left:50px;top:270px;width:440px;height:900px;border-radius:44px;background:#1E1A18;padding:10px;box-sizing:border-box;box-shadow:0 30px 60px rgba(74,20,9,.3)">
+<div style="width:100%;height:100%;border-radius:36px;overflow:hidden;background:#FBF8F3">
+<div style="width:360px;height:780px;transform:scale(1.1667);transform-origin:0 0;display:flex;flex-direction:column;background:#FBF8F3;color:#241E19">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:600"><span>9:41</span><span style="width:14px;height:10px;border:1.5px solid #241E19;border-radius:2px;box-sizing:border-box"></span></div>
+<div style="display:flex;align-items:center;padding:8px 12px 0">
+<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+<div style="flex:1"></div>
+<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#8A2E1C"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"></path></svg></div>
+<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+</div>
+<div style="padding:8px 20px 0;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#4A1409;background:#F6DDD2;border-radius:6px;padding:3px 7px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→ EN</div><div style="font-size:12px;color:#6B5F54">adj. · n.</div></div>
+<div style="font-family:Jomolhari,serif;font-size:46px;line-height:1.8">བཀྲ་ཤིས།</div>
+<div style="font-size:15px;font-style:italic;color:#6B5F54;margin-top:-8px">bkra shis</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:14px;padding:14px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">1</div><div style="font-size:15px;line-height:1.6">auspicious, fortunate, favourable</div></div>
+<div style="display:flex;gap:14px;padding:14px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">2</div><div style="font-size:15px;line-height:1.6">good luck, good fortune, blessing <span style="color:#6B5F54">— e.g.</span> <span style="font-family:Jomolhari,serif;font-size:19px">བཀྲ་ཤིས་བདེ་ལེགས།</span></div></div>
+<div style="display:flex;gap:14px;padding:14px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">3</div><div style="font-size:15px;line-height:1.6">(n.) a common personal name, "Tashi"</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">See also</div>
+<div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 4px;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:10px;font-weight:600;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;gap:3px;align-items:center"><span style="font-family:Jomolhari,serif;font-size:11px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:11px">བོད</span></div><span style="font-family:Jomolhari,serif;font-size:17px">བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།</span></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+<div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 4px"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:10px;font-weight:600;color:#6B5F54;border:1px solid #D8CDBB;border-radius:6px;padding:3px 6px;display:flex;gap:3px;align-items:center">EN→<span style="font-family:Jomolhari,serif;font-size:11px">བོད</span></div><span style="font-size:14px">auspicious</span></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="p4" style="width:540px;height:960px;background:#FBF8F3;position:relative;overflow:hidden;color:#241E19;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#B5A89A;opacity:.6"></div><div style="display:flex;gap:8px;padding-left:28px"><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F6FB5"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#EADFCF"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#C8402F"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F8F5E"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#E2B232"></span></div></div>
+<div style="padding:84px 44px 0;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center">
+<div style="font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:#8A2E1C;text-wrap:balance">Save it. Learn it. Keep your streak.</div>
+<div style="font-size:19px;line-height:1.45;color:#6B5F54;max-width:420px">Saved words become flashcards. A few minutes a day is all it takes.</div>
+</div>
+<div style="position:absolute;left:50px;top:270px;width:440px;height:900px;border-radius:44px;background:#1E1A18;padding:10px;box-sizing:border-box;box-shadow:0 30px 60px rgba(74,20,9,.28)">
+<div style="width:100%;height:100%;border-radius:36px;overflow:hidden;background:#FBF8F3">
+<div style="width:360px;height:780px;transform:scale(1.1667);transform-origin:0 0;display:flex;flex-direction:column;background:#FBF8F3;color:#241E19">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:600"><span>9:41</span><span style="width:14px;height:10px;border:1.5px solid #241E19;border-radius:2px;box-sizing:border-box"></span></div>
+<div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:24px;font-weight:600;letter-spacing:-.01em">Learn <span style="font-family:Jomolhari,serif;font-size:18px;font-weight:400;color:#6B5F54;margin-left:4px">སྦྱོང་བ།</span></div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A2E1C;background:#F6DDD2;padding:4px 10px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#8A2E1C;display:inline-block"></span>12-day streak</div></div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;background:#F3EDE3">
+<div style="font-size:12px;color:#6B5F54">This week · 9 of 15 reviewed</div>
+<div style="display:flex;gap:6px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#8A2E1C"></span><span style="font-size:10px;color:#6B5F54">M</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#8A2E1C"></span><span style="font-size:10px;color:#6B5F54">T</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#8A2E1C;opacity:.55"></span><span style="font-size:10px;color:#6B5F54">W</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#8A2E1C"></span><span style="font-size:10px;color:#6B5F54">T</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;border:2px dashed #8A2E1C;box-sizing:border-box"></span><span style="font-size:10px;font-weight:600">F</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#EADFCF"></span><span style="font-size:10px;color:#6B5F54">S</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:100%;height:28px;border-radius:6px;background:#EADFCF"></span><span style="font-size:10px;color:#6B5F54">S</span></div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:12px;font-weight:600;color:#6B5F54">Today's review · 4 due</div><div style="font-size:12px;color:#6B5F54">2 / 4</div></div>
+<div style="position:relative;height:300px">
+<div style="position:absolute;left:16px;right:16px;top:14px;bottom:-6px;border-radius:20px;background:#EADFCF"></div>
+<div style="position:absolute;inset:0;border-radius:20px;background:#fff;border:1px solid #E7DECF;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:6px">
+<div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#4A1409;background:#F6DDD2;border-radius:6px;padding:3px 7px;display:flex;align-items:center;gap:3px;position:absolute;top:16px;left:16px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→ EN</div>
+<div style="font-family:Jomolhari,serif;font-size:44px;line-height:1.8">སྙིང་རྗེ།</div>
+<div style="font-size:14px;font-style:italic;color:#6B5F54;margin-top:-8px">snying rje</div>
+<div style="font-size:13px;color:#6B5F54;position:absolute;bottom:18px">Tap to reveal · swipe to answer</div>
+</div>
+</div>
+<div style="display:flex;gap:12px">
+<div style="flex:1;height:52px;border-radius:26px;border:1px solid #D8CDBB;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>Still learning</div>
+<div style="flex:1;height:52px;border-radius:26px;background:#8A2E1C;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500">I know it<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div id="p5" style="width:540px;height:960px;background:#1B1715;background-image:radial-gradient(110% 80% at 100% 0%,#33261F 0%,#1B1715 60%);position:relative;overflow:hidden;color:#F1E9E0;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#B5A89A;opacity:.5"></div><div style="display:flex;gap:8px;padding-left:28px"><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F6FB5"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#FBF8F3"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#C8402F"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#3F8F5E"></span><span style="width:26px;height:17px;border-radius:0 0 4px 4px;background:#E2B232"></span></div></div>
+<div style="padding:84px 44px 0;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:center">
+<div style="font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.1;text-wrap:balance">Easy on the eyes, day or night</div>
+<div style="font-size:19px;line-height:1.45;color:#B5A89A;max-width:420px">Warm dark mode, adjustable Tibetan font size, and a UI you can switch to Tibetan.</div>
+</div>
+<div style="position:absolute;left:50px;top:270px;width:440px;height:900px;border-radius:44px;background:#000;padding:10px;box-sizing:border-box;box-shadow:0 30px 60px rgba(0,0,0,.6)">
+<div style="width:100%;height:100%;border-radius:36px;overflow:hidden;background:#1B1715">
+<div style="width:360px;height:780px;transform:scale(1.1667);transform-origin:0 0;display:flex;flex-direction:column;background:#1B1715;color:#F1E9E0">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px 0;font-size:13px;font-weight:600"><span>21:30</span><span style="width:14px;height:10px;border:1.5px solid #F1E9E0;border-radius:2px;box-sizing:border-box"></span></div>
+<div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:40px">
+<div style="font-size:12px;color:#B5A89A">Good evening · དགོང་དྲོ་བདེ་ལེགས།</div>
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#E8A58C;background:#3A221B;padding:4px 10px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#E8A58C;display:inline-block"></span>12-day streak</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;background:#262019;border-radius:28px">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<div style="flex:1;font-size:16px;color:#B5A89A">Search a word · ཚིག་འཚོལ།</div>
+</div>
+<div style="display:flex;height:40px;background:#262019;border-radius:20px;padding:4px;gap:4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#A63D27;color:#fff;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="background:#262019;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;padding:0 20px"><div style="height:1px;background:#B5A89A;opacity:.5"></div><div style="display:flex;gap:3px;padding-left:6px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#FBF8F3"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div></div>
+<div style="padding:10px 20px 14px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#E8A58C"><span>Word of the day</span><span style="color:#B5A89A;font-weight:400;letter-spacing:0;text-transform:none">20 Oct</span></div>
+<div style="font-family:Jomolhari,serif;font-size:34px;line-height:1.9">བཀྲ་ཤིས།</div>
+<div style="font-size:13px;font-style:italic;color:#B5A89A;margin-top:-6px">bkra shis</div>
+<div style="font-size:15px;line-height:1.5;margin-top:6px">auspicious; good fortune, blessing</div>
+<div style="display:flex;align-items:center;gap:4px;margin-top:10px;margin-left:-10px">
+<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div style="flex:1"></div>
+<div style="font-size:13px;font-weight:500;color:#E8A58C;padding:0 6px">Open</div>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;font-weight:600;color:#B5A89A">Recent</div>
+<div style="display:flex;gap:8px;overflow:hidden">
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #3A322C;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">སྙིང་རྗེ།</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #3A322C;display:flex;align-items:center;font-size:13px">compassion</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #3A322C;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">ཤེས་རབ།</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #3A322C;display:flex;align-items:center;font-size:13px">bde ba</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;color:#6B5F54">7-inch tablet screenshot · 1280×720 here, exported at 2560×1440 (16:9)</div>
+<div id="t1" style="width:1280px;height:720px;background:#EADFCF;background-image:radial-gradient(90% 120% at 0% 100%,#F3EDE3 0%,#EADFCF 60%);position:relative;overflow:hidden;color:#241E19;font-family:'Noto Sans',sans-serif">
+<div style="position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column"><div style="height:2px;background:#B5A89A;opacity:.7"></div><div style="display:flex;gap:10px;padding-left:40px"><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#3F6FB5"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#FBF8F3"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#C8402F"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#3F8F5E"></span><span style="width:34px;height:22px;border-radius:0 0 5px 5px;background:#E2B232"></span></div></div>
+<div style="position:absolute;left:64px;top:110px;width:330px;display:flex;flex-direction:column;gap:16px">
+<div style="font-family:Jomolhari,serif;font-size:28px;line-height:1.6;color:#8A2E1C">བོད་ཡིག་ཚིག་མཛོད།</div>
+<div style="font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1.08;color:#4A1409;text-wrap:balance">Made for the bigger screen</div>
+<div style="font-size:19px;line-height:1.5;color:#6B5F54">Results and the full entry side by side. Browse without losing your place.</div>
+</div>
+<div style="position:absolute;left:420px;top:80px;width:830px;height:600px;border-radius:28px;background:#1E1A18;padding:12px;box-sizing:border-box;box-shadow:0 30px 60px rgba(74,20,9,.3)">
+<div style="width:100%;height:100%;border-radius:18px;overflow:hidden;background:#FBF8F3;display:flex">
+<div style="width:80px;background:#F3EDE3;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:6px;flex:none">
+<div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:16px;background:#F6DDD2;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size:10px;font-weight:600">Search</span></div>
+<div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg><span style="font-size:10px">Saved</span></div>
+<div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg><span style="font-size:10px">Learn</span></div>
+<div style="width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0116 0"></path></svg><span style="font-size:10px">Profile</span></div>
+</div>
+<div style="width:320px;flex:none;border-right:1px solid #EFE7DA;display:flex;flex-direction:column">
+<div style="padding:16px 16px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 16px;background:#F3EDE3;border-radius:24px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex:1;font-size:15px">bkra</span></div>
+<div style="display:flex;height:36px;background:#F3EDE3;border-radius:18px;padding:3px;gap:3px;font-size:12px;font-weight:500"><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;border-radius:15px;background:#8A2E1C;color:#fff"><span style="font-family:Jomolhari,serif;font-size:14px">བོད</span>→ EN</div><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;border-radius:15px"><span style="font-family:Jomolhari,serif;font-size:14px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:14px">བོད</span></div><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;border-radius:15px">EN →<span style="font-family:Jomolhari,serif;font-size:14px">བོད</span></div></div>
+</div>
+<div style="display:flex;flex-direction:column;overflow:hidden">
+<div style="padding:10px 16px;background:#F6DDD2;border-radius:12px;margin:0 8px"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་ཤིས།</div><div style="font-size:12px;color:#4A1409;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> shis · auspicious, good fortune</div></div>
+<div style="padding:10px 24px;border-bottom:1px solid #EFE7DA"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་ཤིས་བདེ་ལེགས།</div><div style="font-size:12px;color:#6B5F54;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> shis bde legs · greeting</div></div>
+<div style="padding:10px 24px;border-bottom:1px solid #EFE7DA"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་མི་ཤིས་པ།</div><div style="font-size:12px;color:#6B5F54;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> mi shis pa · inauspicious</div></div>
+<div style="padding:10px 24px;border-bottom:1px solid #EFE7DA"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་ཤིས་པ།</div><div style="font-size:12px;color:#6B5F54;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> shis pa · auspicious one</div></div>
+<div style="padding:10px 24px;border-bottom:1px solid #EFE7DA"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་ཤིས་རྟགས་བརྒྱད།</div><div style="font-size:12px;color:#6B5F54;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> shis rtags brgyad · eight auspicious symbols</div></div>
+<div style="padding:10px 24px"><div style="font-family:Jomolhari,serif;font-size:21px;line-height:1.7">བཀྲ་ཤིས་ཁང་།</div><div style="font-size:12px;color:#6B5F54;margin-top:-4px"><b style="color:#8A2E1C">bkra</b> shis khang · auspicious house</div></div>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;padding:16px 32px 0;gap:18px;min-width:0">
+<div style="display:flex;justify-content:flex-end;gap:4px;margin-right:-12px"><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"></path></svg></div><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div></div>
+<div style="display:flex;flex-direction:column;gap:2px;margin-top:-10px">
+<div style="display:flex;align-items:center;gap:8px"><div style="font-size:10px;font-weight:600;letter-spacing:.06em;color:#4A1409;background:#F6DDD2;border-radius:6px;padding:3px 7px;display:flex;align-items:center;gap:3px"><span style="font-family:Jomolhari,serif;font-size:11px;letter-spacing:0">བོད</span>→ EN</div><div style="font-size:12px;color:#6B5F54">adj. · n.</div></div>
+<div style="font-family:Jomolhari,serif;font-size:48px;line-height:1.7">བཀྲ་ཤིས།</div>
+<div style="font-size:15px;font-style:italic;color:#6B5F54;margin-top:-8px">bkra shis</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:14px;padding:12px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">1</div><div style="font-size:15px;line-height:1.6">auspicious, fortunate, favourable</div></div>
+<div style="display:flex;gap:14px;padding:12px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">2</div><div style="font-size:15px;line-height:1.6">good luck, good fortune, blessing <span style="color:#6B5F54">— e.g.</span> <span style="font-family:Jomolhari,serif;font-size:19px">བཀྲ་ཤིས་བདེ་ལེགས།</span></div></div>
+<div style="display:flex;gap:14px;padding:12px 16px;border-radius:16px;background:#F3EDE3"><div style="font-size:13px;font-weight:600;color:#8A2E1C;width:16px;flex:none;line-height:1.6">3</div><div style="font-size:15px;line-height:1.6">(n.) a common personal name, "Tashi"</div></div>
+</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap"><div style="height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:10px;font-weight:600;color:#6B5F54;display:flex;gap:2px"><span style="font-family:Jomolhari,serif;font-size:11px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:11px">བོད</span></span><span style="font-family:Jomolhari,serif;font-size:16px">བདེ་ལེགས་དང་ལེགས་པའི་མཚན་མ།</span></div><div style="height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:10px;font-weight:600;color:#6B5F54">EN→<span style="font-family:Jomolhari,serif;font-size:11px">བོད</span></span>auspicious</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+</x-dc>
+</body>
+</html>

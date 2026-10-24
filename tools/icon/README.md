@@ -71,3 +71,11 @@ the tile size. Only edge pixels should differ.
 The preview images (adaptive icon in a circle and a squircle, safe zone, monochrome, splash on the light
 and dark backgrounds, installing tile; the Dzongkha ones have `mcc402` or `dz` in the name) go to `previews/`. They and `glyph_reference.json` are git-ignored;
 do not commit them.
+
+## Artwork override (Tibetan launcher and splash)
+
+The default (Tibetan) launcher and splash icon now come from `artwork/app-icon-512.png`, not from `gen.py`:
+`mipmap-anydpi-v26/ic_launcher*.xml`, `drawable/ic_launcher_art_*.xml`, `drawable-nodpi/ic_launcher_art*.png`,
+`drawable-nodpi/ic_splash_art.png`, `drawable{,-v26}/ic_splash_icon.xml` and the `mipmap-{m,h,xh,xxh,xxxh}dpi`
+PNGs. Re-running `gen.py` or `render.py` overwrites them with the old book icon. The Dzongkha (mcc402)
+variant and the installing-screen tiles are unchanged.

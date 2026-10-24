@@ -9,6 +9,8 @@ import com.google.common.truth.Truth.assertThat
 import com.kharagedition.tibetandictionary.MainDispatcherRule
 import com.kharagedition.tibetandictionary.core.init.AppInitializer
 import com.kharagedition.tibetandictionary.core.init.LegacyCleanup
+import com.kharagedition.tibetandictionary.data.billing.BillingIdentitySync
+import com.kharagedition.tibetandictionary.data.billing.ProReconciler
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.install.InstallState
 import com.kharagedition.tibetandictionary.data.install.SwitchState
@@ -17,8 +19,12 @@ import com.kharagedition.tibetandictionary.data.model.AppTextSize
 import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
+import com.kharagedition.tibetandictionary.fakes.FakeBillingRepository
+import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionarySwitcher
 import com.kharagedition.tibetandictionary.fakes.FakeInstaller
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
 import java.io.IOException
@@ -57,7 +63,19 @@ class AppRootViewModelTest {
     }
 
     private fun initializer(installer: DictionaryInstaller) =
-        AppInitializer(LegacyCleanup(context, prefs), installer, prefs, errors, TestScope(startup), startup)
+        TestScope(startup).let { scope ->
+            val billing = FakeBillingRepository(available = false)
+            AppInitializer(
+                LegacyCleanup(context, prefs),
+                installer,
+                prefs,
+                BillingIdentitySync(billing, FakeAuthRepository(), scope),
+                ProReconciler(billing, FakeAuthRepository(), FakeTranslationRepository(), FakeClock(), scope),
+                errors,
+                scope,
+                startup,
+            )
+        }
 
     /** The process-wide scope retries run in; it outlives every view model. */
     private val appScope = CoroutineScope(SupervisorJob() + main.dispatcher)

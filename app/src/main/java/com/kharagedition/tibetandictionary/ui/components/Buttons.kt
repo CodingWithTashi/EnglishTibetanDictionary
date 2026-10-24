@@ -1,5 +1,6 @@
 package com.kharagedition.tibetandictionary.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,13 +23,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.kharagedition.tibetandictionary.R
 import com.kharagedition.tibetandictionary.ui.theme.DictIcons
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
@@ -146,6 +151,67 @@ private fun DictButton(
             textAlign = TextAlign.Center,
         )
         if (trailing != null) Icon(trailing, contentDescription = null, Modifier.size(ButtonIcon), tint = content)
+    }
+}
+
+/** Google's sign-in button colours (branding guidelines): the container, its 1dp outline and the label. */
+private data class GoogleButtonColors(val container: Color, val outline: Color, val content: Color)
+
+private val GoogleLight = GoogleButtonColors(Color(0xFFFFFFFF), Color(0xFF747775), Color(0xFF1F1F1F))
+private val GoogleDark = GoogleButtonColors(Color(0xFF131314), Color(0xFF8E918F), Color(0xFFE3E3E3))
+
+/** The "G", and its gap to the label (Google's 20dp logo and 10dp gap; 18dp on the small sizes). */
+private val GoogleLogo = 20.dp
+private val GoogleLogoSmall = 18.dp
+private val GoogleLogoGap = 10.dp
+
+/**
+ * Sign in with Google as Google's branding guidelines draw it: the full-colour "G" before [text], on white in the
+ * light theme or #131314 in the dark one, with a grey outline and the system font (Roboto) in medium. Pill-shaped and
+ * [size]d like the app's other buttons; the label stays on one line.
+ */
+@Composable
+fun GoogleSignInButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: ButtonSize = ButtonSize.Default,
+) {
+    val colors = if (DictTheme.colors.isDark) GoogleDark else GoogleLight
+    val (latinStyle, tibetanStyle) = size.textStyles(semibold = false)
+    val shape = DictShapes.pill
+    val small = size == ButtonSize.Small || size == ButtonSize.Xs
+    Row(
+        modifier
+            .minimumInteractiveComponentSize()
+            .heightIn(min = size.height())
+            .clip(shape)
+            .background(colors.container)
+            .border(DictTheme.dimens.border, colors.outline, shape)
+            .clickable(
+                interactionSource = null,
+                indication = ripple(color = colors.content),
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .padding(horizontal = size.horizontalPadding(ButtonVariant.Outlined)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(GoogleLogoGap, Alignment.CenterHorizontally),
+    ) {
+        Image(
+            painterResource(R.drawable.ic_google_g),
+            contentDescription = null,
+            Modifier.size(if (small) GoogleLogoSmall else GoogleLogo),
+        )
+        MixedText(
+            text,
+            latinStyle.copy(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium),
+            tibetanStyle,
+            Modifier.padding(vertical = DictTheme.dimens.chipGap),
+            color = colors.content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

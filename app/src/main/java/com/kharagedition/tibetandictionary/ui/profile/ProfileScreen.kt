@@ -2,6 +2,7 @@ package com.kharagedition.tibetandictionary.ui.profile
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +46,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kharagedition.tibetandictionary.Features
 import com.kharagedition.tibetandictionary.R
+import com.kharagedition.tibetandictionary.core.analytics.PromptSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.startActivitySafely
 import com.kharagedition.tibetandictionary.core.text.TibetanNumerals
@@ -53,7 +55,6 @@ import com.kharagedition.tibetandictionary.data.model.Appearance
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.resources
 import com.kharagedition.tibetandictionary.data.prefs.LineSpacing
-import com.kharagedition.tibetandictionary.ui.components.AccountCard
 import com.kharagedition.tibetandictionary.ui.components.BoPreview
 import com.kharagedition.tibetandictionary.ui.components.ComponentPreview
 import com.kharagedition.tibetandictionary.ui.components.DirectionLabel
@@ -69,13 +70,12 @@ import com.kharagedition.tibetandictionary.ui.components.SegmentedControl3
 import com.kharagedition.tibetandictionary.ui.components.SettingsGroup
 import com.kharagedition.tibetandictionary.ui.components.SettingsRow
 import com.kharagedition.tibetandictionary.ui.components.SettingsTrailing
-import com.kharagedition.tibetandictionary.ui.components.SignedOutAccountCard
 import com.kharagedition.tibetandictionary.ui.components.TibetanText
 import com.kharagedition.tibetandictionary.ui.components.extendStart
 import com.kharagedition.tibetandictionary.ui.components.lineSpacingLabel
-import com.kharagedition.tibetandictionary.ui.components.sample
 import com.kharagedition.tibetandictionary.ui.components.textSizeLabel
-import com.kharagedition.tibetandictionary.ui.model.AccountUi
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallMode
+import com.kharagedition.tibetandictionary.ui.paywall.PaywallSheet
 import com.kharagedition.tibetandictionary.ui.theme.DictShapes
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
 import java.time.LocalTime
@@ -115,9 +115,24 @@ fun ProfileScreen(onOpenAbout: () -> Unit) {
     // Each time the tab is shown (also back from the background or recreated): the app language may have changed.
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onEvent(ProfileEvent.Shown) }
     ProfileEffects(viewModel.effects, onOpenAbout)
+    val activity = LocalActivity.current
     val loaded = state
     if (loaded != null) {
-        ProfileScreen(loaded, viewModel::onEvent)
+        ProfileScreen(
+            loaded,
+            onEvent = { event ->
+                // Google sign-in needs the activity, which the view model does not hold.
+                when {
+                    event !is ProfileEvent.SignIn -> viewModel.onEvent(event)
+                    activity != null -> viewModel.signIn(activity, event.source)
+                }
+            },
+        )
+        PaywallSheet(
+            PromptSource.PROFILE_PLAN.takeIf { loaded.paywall != null },
+            loaded.paywall ?: PaywallMode.PURCHASE,
+            onDismiss = { viewModel.onEvent(ProfileEvent.DismissProSheet) },
+        )
     } else {
         // Prefs and capabilities arrive within a frame; show the background instead of default values.
         Box(
@@ -162,11 +177,13 @@ private fun Context.shareText(text: String) {
 }
 
 /**
- * The stateless Profile tab: title, the account card (with accounts), the Reading group, footer links and the
- * version line, with the open [ProfileUiState.sheet] on top.
+ * The stateless Profile tab: title, the account card and the plan card (with accounts), the Reading and Search groups,
+ * footer links and the version line, with the open [ProfileUiState.sheet], the delete dialog or the Pro sheet on top.
  *
- * Test tags: `profile_screen`, `profile_row_{text_size|theme|dictionary|direction|language}`,
- * `profile_link_{about|rate|share|more|support|privacy}`.
+ * Test tags: `profile_screen`, `profile_account_card`, `profile_plan_card`, `profile_plan_upgrade`,
+ * `profile_plan_sign_in`, `profile_row_{text_size|theme|dictionary|direction|language|smart_translate}`,
+ * `profile_link_{about|rate|share|more|support|privacy}`, `profile_sign_out`, `profile_delete_account`,
+ * `profile_delete_confirm`.
  */
 @Composable
 fun ProfileScreen(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit, modifier: Modifier = Modifier) {
@@ -182,25 +199,16 @@ fun ProfileScreen(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit, modifi
         verticalArrangement = Arrangement.spacedBy(BlockGap),
     ) {
         ScreenTitle(stringResource(R.string.profile_title), gloss = stringResource(R.string.profile_gloss))
-        if (Features.ACCOUNTS) ProfileAccount(state.account, onEvent)
+        if (Features.ACCOUNTS) {
+            ProfileAccountCard(state.account, onEvent)
+            state.plan?.let { PlanCard(it, onEvent) }
+        }
         ReadingGroup(state, onEvent)
+        SearchGroup(state, onEvent)
         ProfileFooter(state, onEvent)
     }
     ProfileSheets(state, onEvent)
-}
-
-@Composable
-private fun ProfileAccount(account: AccountUi?, onEvent: (ProfileEvent) -> Unit) {
-    if (account != null) {
-        AccountCard(account, onClick = { onEvent(ProfileEvent.OpenAccount) })
-    } else {
-        SignedOutAccountCard(
-            title = stringResource(R.string.profile_signed_out_title),
-            body = stringResource(R.string.profile_signed_out_body),
-            actionLabel = stringResource(R.string.sign_in),
-            onSignIn = { onEvent(ProfileEvent.SignIn) },
-        )
-    }
+    if (state.confirmDelete) DeleteAccountDialog(state.deleting, state.proNoteOnDelete, onEvent)
 }
 
 @Composable
@@ -265,6 +273,20 @@ private fun ReadingGroup(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit)
     }
 }
 
+/** "Search": the smart translate switch (auto-translate phrases with no dictionary match). */
+@Composable
+private fun SearchGroup(state: ProfileUiState, onEvent: (ProfileEvent) -> Unit) {
+    SettingsGroup(stringResource(R.string.profile_search)) {
+        SettingsRow(
+            label = stringResource(R.string.smart_translate),
+            modifier = Modifier.testTag("profile_row_smart_translate"),
+            subLabel = stringResource(R.string.smart_translate_body),
+            trailing = SettingsTrailing.Switch(state.smartTranslate) { onEvent(ProfileEvent.ToggleSmartTranslate) },
+            divider = false,
+        )
+    }
+}
+
 /** "English" or "བོད་ཡིག": each language is named in its own script. */
 @Composable
 private fun languageName(language: AppLanguage): String =
@@ -286,7 +308,7 @@ private fun notificationTime(minuteOfDay: Int): String {
 @Composable
 private fun ReadingSample() {
     val colors = DictTheme.colors
-    val sample = LocalActivePack.current.sample
+    val sample = LocalActivePack.current.resources.sample
     Row(
         Modifier
             .fillMaxWidth()

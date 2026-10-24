@@ -20,6 +20,8 @@ import com.kharagedition.tibetandictionary.SampleData.boEn
 import com.kharagedition.tibetandictionary.SampleData.directions
 import com.kharagedition.tibetandictionary.SampleData.enBo
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.ui.model.LearnStatsUi
@@ -165,5 +167,40 @@ class HomeScreenTest {
             HomeEvent.WotdOpen,
             HomeEvent.RecentTap("compassion"),
         ).inOrder()
+    }
+
+    private val translateCard = TranslateCardUi(LangPair(Lang.BO, Lang.EN), remaining = 7, limit = 10)
+
+    @Test
+    fun `tapping the translate card sends OpenTranslate`() {
+        show(full.copy(translateCard = translateCard))
+
+        compose.onNodeWithTag("home_translate_card").performScrollTo().performClick()
+
+        assertThat(events).containsExactly(HomeEvent.OpenTranslate)
+    }
+
+    @Test
+    fun `the card shows 7 left today`() {
+        show(bare.copy(translateCard = translateCard))
+
+        compose.onNodeWithText("Translate a sentence").assertExists()
+        compose.onNodeWithText("Tibetan ⇄ English · 7 left today").assertExists()
+    }
+
+    @Test
+    fun `a Pro user's card says unlimited today`() {
+        show(bare.copy(translateCard = translateCard.copy(remaining = 297, limit = 300, unlimited = true)))
+
+        compose.onNodeWithText("Tibetan ⇄ English · Unlimited today").assertExists()
+    }
+
+    @Test
+    fun `without a user the card leaves out the count, and without a card there is none`() {
+        show(bare.copy(translateCard = translateCard.copy(remaining = null, limit = null)))
+        compose.onNodeWithText("Tibetan ⇄ English").assertExists()
+
+        state = bare
+        compose.onNodeWithTag("home_translate_card").assertDoesNotExist()
     }
 }

@@ -10,21 +10,17 @@
 
     <!-- Bottom navigation: Tibetan label with an English gloss. -->
     <string name="tab_search">འཚོལ།</string>
+    <string name="tab_translate">ཡིག་སྒྱུར།</string>
     <string name="tab_saved">ཉར་ཚགས།</string>
     <string name="tab_learn">སྦྱོང་།</string>
     <string name="tab_profile">སྒེར།</string>
     <string name="tab_search_gloss">Search</string>
+    <string name="tab_translate_gloss">Translate</string>
     <string name="tab_saved_gloss">Saved</string>
     <string name="tab_learn_gloss">Learn</string>
     <string name="tab_profile_gloss">Profile</string>
 
     <!-- Home -->
-    <string name="greeting_morning_bo">ཞོགས་པ་བདེ་ལེགས། · Good morning</string>
-    <string name="greeting_afternoon_bo">ཕྱི་དྲོ་བདེ་ལེགས། · Good afternoon</string>
-    <string name="greeting_evening_bo">དགོང་དྲོ་བདེ་ལེགས། · Good evening</string>
-    <string name="greeting_morning_dz">དྲོ་པ་བདེ་ལེགས། · Good morning</string>
-    <string name="greeting_afternoon_dz">ཉི་མ་བདེ་ལེགས། · Good afternoon</string>
-    <string name="greeting_evening_dz">ཕྱི་རུ་བདེ་ལེགས། · Good evening</string>
     <plurals name="streak_days">
         <item quantity="other">ཉིན་ %1$s མཐུད་མར།</item>
     </plurals>
@@ -34,7 +30,7 @@
     <string name="clear">གཙང་སེལ།</string>
 
     <!-- Search -->
-    <string name="search_placeholder">ཚིག་འཚོལ། · Search a word</string>
+    <string name="search_placeholder">ཚིག་འཚོལ་དང་ཡིག་སྒྱུར། · Search or translate</string>
     <string name="search_placeholder_saved">ཉར་བའི་ཚིག་འཚོལ།</string>
     <plurals name="results_count">
         <item quantity="other">འཚོལ་འབྲས། %1$s</item>
@@ -71,6 +67,10 @@
     <string name="new_folder_hint">ཡིག་སྣོད་ཀྱི་མིང་།</string>
     <string name="saved_empty_title">ད་དུང་ཉར་ཚགས་གང་ཡང་མེད།</string>
     <string name="saved_empty_body">ཚིག་གང་རུང་གི་སྙིང་རྟགས་ལ་མནན་ན་འདིར་ཉར་ཐུབ།</string>
+    <string name="saved_tab_words">ཚིག · %1$s</string>
+    <string name="saved_tab_translations">ཡིག་སྒྱུར། · %1$s</string>
+    <string name="saved_translations_empty_title">ཉར་བའི་ཡིག་སྒྱུར་འདིར་མངོན།</string>
+    <string name="saved_translations_empty_body">ཡིག་སྒྱུར་ཞིག་ཉར་བར་ ♡ ལ་ནོན།</string>
     <string name="saved_empty_body_learn">ཉར་བའི་ཚིག་རྣམས་སྦྱོང་ནང་གི་སྦྱོང་བྱང་དུ་འགྱུར།</string>
     <string name="save_todays_word">དེ་རིང་གི་ཚིག་ཉར། %1$s</string>
     <string name="no_matches">འཚོལ་འབྲས་མི་འདུག</string>
@@ -136,24 +136,7 @@
     <string name="close">སྒོ་རྒྱོབ།</string>
     <string name="more">གཞན།</string>
 
-    <!-- Direction descriptions (onboarding cards, direction picker) -->
-    <string name="direction_desc_bo_en">བོད་ཡིག་ནས་དབྱིན་ཡིག</string>
-    <string name="direction_desc_bo_bo">བོད་ཡིག་ཚིག་འགྲེལ།</string>
-    <string name="direction_desc_en_bo">དབྱིན་ཡིག་ནས་བོད་ཡིག</string>
-    <string name="direction_desc_dz_en">རྫོང་ཁ་ནས་དབྱིན་ཡིག</string>
-    <string name="direction_desc_dz_dz">རྫོང་ཁའི་ཚིག་འགྲེལ།</string>
-    <string name="direction_desc_en_dz">དབྱིན་ཡིག་ནས་རྫོང་ཁ</string>
-
-    <!-- Dictionary packs -->
-    <string name="pack_name_bo">བོད་ཡིག་ཚིག་མཛོད།</string>
-    <string name="pack_name_dz">རྫོང་ཁའི་ཚིག་མཛོད།</string>
-    <string name="pack_gloss_bo">Tibetan Dictionary</string>
-    <string name="pack_gloss_dz">Dzongkha Dictionary</string>
-    <string name="pack_desc_bo">སྨོན་ལམ། · བོད་ཡིག ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
-    <string name="pack_desc_dz">DDC · རྫོང་ཁ ↔ དབྱིན་ཡིག · ཚིག %1$s</string>
-    <!-- No final tsheg: onboarding_textsize_body adds it -->
-    <string name="pack_language_bo">བོད་ཡིག</string>
-    <string name="pack_language_dz">རྫོང་ཁ</string>
+    <!-- Dictionary packs; each pack's own strings are in strings_pack_<id>.xml -->
     <string name="dictionary">ཚིག་མཛོད།</string>
     <string name="onboarding_dictionary_title">ཚིག་མཛོད་གང་དགོས་སམ།</string>
     <string name="onboarding_dictionary_body">མཉེན་ཆས་འདི་ཚིག་མཛོད་འདིས་འགོ་འཛུགས། སྒེར་གྱི་སྒྲིག་འགོད་ནས་དུས་ནམ་ཡང་བརྗེ་ཆོག</string>
@@ -164,8 +147,6 @@
     <string name="about_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། %2$s ཀྱིས་བསྒྲིགས་པའི་ %1$s (%3$s)</string>
     <string name="about_fonts">ཡིག་གཟུགས། Jomolhari དང་ Noto Sans (SIL Open Font License)</string>
     <string name="licences">ཆོག་མཆན།</string>
-    <string name="licence_data">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · GNU General Public License, version 3</string>
-    <string name="licence_data_dz">ཚིག་མཛོད་ཀྱི་གཞི་གྲངས། · རྫོང་ཁ་གོང་འཕེལ་ལྷན་ཚོགས། ཆོག་མཆན་ཐོབ།</string>
     <string name="licence_font_jomolhari">ཡིག་གཟུགས། Jomolhari · SIL Open Font License 1.0</string>
     <string name="licence_font_noto_sans">ཡིག་གཟུགས། Noto Sans · SIL Open Font License 1.1</string>
     <string name="share_app_text">%1$s ཐོག་དྲ་རྒྱ་མེད་པར་ཚིག་འཚོལ། %2$s</string>
@@ -189,7 +170,29 @@
 
     <!-- Profile (T4.1) -->
     <string name="profile_signed_out_title">ནང་འཛུལ་བྱས་མེད།</string>
-    <string name="profile_signed_out_body">ཉར་བའི་ཚིག་རྣམས་སྒྲིག་ཆས་ཚང་མར་མཉམ་སྒྲིག</string>
+    <string name="profile_signed_out_body">ནང་འཛུལ་བྱས་ན་ཉིན་རེར་ཡིག་སྒྱུར་རིན་མེད་ ༡༠ ཐོབ།</string>
+    <string name="profile_plan_none">ཉིན་རེར་ཚིག་གྲུབ་རིན་མེད་དུ་ཡིག་སྒྱུར་བྱེད་ཆོག ནང་འཛུལ་བྱས་ན་དེ་ལས་མང་བ་ཐོབ།</string>
+    <string name="profile_plan_guest">མགྲོན་པོ།</string>
+    <string name="profile_plan_guest_usage">དེ་རིང་ %2$s ནས་ %1$s བཀོལ།</string>
+    <string name="profile_plan_sign_in_for">ནང་འཛུལ་བྱས་ན་ %1$s</string>
+    <string name="profile_plan_sign_in_more">ནང་འཛུལ་བྱས་ན་མང་བ།</string>
+    <string name="profile_plan_free">རིན་མེད་འཆར་གཞི།</string>
+    <string name="profile_plan_upgrade">རིམ་སྤར།</string>
+    <string name="profile_plan_free_usage">དེ་རིང་ཡིག་སྒྱུར་ %2$s ནས་ %1$s བཀོལ། · ཐེངས་རེར་ཡིག་འབྲུ་ %3$s</string>
+    <string name="account_sheet_title">རྩིས་ཁྲ།</string>
+    <string name="sign_out">ཕྱིར་ཐོན།</string>
+    <string name="signed_out">ཕྱིར་ཐོན་ཟིན།</string>
+    <string name="delete_account">རྩིས་ཁྲ་སུབ།</string>
+    <string name="delete_account_title">རྩིས་ཁྲ་སུབ་དགོས་སམ།</string>
+    <string name="delete_account_body">བཀོལ་སྤྱོད་ཀྱི་ལོ་རྒྱུས་སུབ་ངེས། ཉར་བའི་ཚིག་དང་ཡིག་སྒྱུར་རྣམས་ཁ་པར་འདིའི་ནང་ལུས་ངེས།</string>
+    <string name="delete">སུབ།</string>
+    <string name="deleting">སུབ་བཞིན་པ…</string>
+    <string name="cancel">དོར།</string>
+    <string name="account_deleted">རྩིས་ཁྲ་སུབ་ཟིན།</string>
+    <string name="account_delete_failed">རྩིས་ཁྲ་སུབ་མ་ཐུབ། ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།</string>
+    <string name="profile_search">འཚོལ་ཞིབ།</string>
+    <string name="smart_translate">འཚོལ་ཞིབ་ནང་རང་འགུལ་ཡིག་སྒྱུར།</string>
+    <string name="smart_translate_body">ཚིག་མཛོད་ནང་མེད་པའི་ཚིག་གྲུབ་རང་འགུལ་གྱིས་ཡིག་སྒྱུར་བྱེད།</string>
     <string name="sign_in">ནང་འཛུལ།</string>
     <!-- The apps' own Tibetan names -->
     <string name="other_app_prayer">ཉིན་རེའི་ཁ་འདོན།</string>
@@ -217,4 +220,111 @@
     <string name="usage_label_mongolian">སོག་སྐད།</string>
     <string name="usage_label_definition">མཚན་ཉིད།</string>
     <string name="usage_label_division">དབྱེ་བ།</string>
+
+    <!-- Translate (draft Tibetan: owner to review) -->
+    <string name="translation_saved">ཡིག་སྒྱུར་ནང་ཉར་ཚགས་བྱས།</string>
+    <string name="translation_removed">ཉར་ཚགས་ནས་བསལ།</string>
+    <string name="translate_rate_limited">ཐེངས་གྲངས་མང་དྲགས་སོང་། སྐར་ཆ་འགའ་རྗེས་སུ་བསྐྱར་དུ་ཚོད་ལྟ།</string>
+    <string name="signed_in">ནང་འཛུལ་བྱས་ཟིན།</string>
+    <string name="signed_in_left">ནང་འཛུལ་བྱས་ཟིན། · དེ་རིང་ཡིག་སྒྱུར་ %1$s ལྷག་ཡོད།</string>
+    <string name="sign_in_failed">ནང་འཛུལ་བྱེད་མ་ཐུབ། བསྐྱར་དུ་ཚོད་ལྟ།</string>
+    <string name="translate_title">ཡིག་སྒྱུར།</string>
+    <string name="translate_gloss">Translate</string>
+    <string name="translate_action">སྒྱུར།</string>
+    <string name="translate_loading">སྒྱུར་བཞིན་པ…</string>
+    <string name="translate_left">%2$s ནས་ %1$s ལྷག</string>
+    <string name="translate_limit_reached">ཚད་ལ་སླེབས།</string>
+    <string name="translate_pro_pill">Pro</string>
+    <string name="translate_lang_english">དབྱིན་ཡིག</string>
+    <string name="translate_swap">སྐད་ཡིག་བརྗེ།</string>
+    <string name="translate_placeholder_tibetan">ཡི་གེ་འདིར་འབྲི།</string>
+    <string name="translate_placeholder_english">དབྱིན་ཡིག་འདིར་འབྲི།</string>
+    <string name="translate_paste">སྦྱར།</string>
+    <string name="translate_hint_wylie">བོད་ཡིག་ཏུ་འབྲི་རོགས། ཝ་ཡིལ་ཡིག་སྒྱུར་མི་བྱེད།</string>
+    <string name="translate_hint_looks_tibetan">འདི་བོད་ཡིག་ཡིན་པ་འདྲ།</string>
+    <string name="translate_switch">བརྗེ།</string>
+    <string name="translate_try">ཚོད་ལྟ།</string>
+    <string name="translate_recent">ཉེ་ཆར།</string>
+    <string name="translate_from_cache">ཉར་ཚགས་ནས། · གྲངས་སུ་མི་རྩི།</string>
+    <string name="translate_by_google">འཕྲུལ་ཆས་ཡིག་སྒྱུར། · Google</string>
+    <string name="translate_by_microsoft">འཕྲུལ་ཆས་ཡིག་སྒྱུར། · Microsoft</string>
+    <string name="translate_machine">འཕྲུལ་ཆས་ཡིག་སྒྱུར།</string>
+    <string name="translate_pro_hint">ཡི་གེ་རིང་བ་དགོས་སམ། Pro ལ་ཡིག་འབྲུ་ %1$s ཆོག</string>
+    <string name="translate_guest_title">དེ་རིང་གི་རིན་མེད་ཡིག་སྒྱུར་ %1$s བེད་སྤྱོད་ཚར།</string>
+    <string name="translate_guest_body">Google བརྒྱུད་ནས་ནང་འཛུལ་བྱས་ན་དེ་རིང་ %1$s ལྷག་ཐོབ། རིན་མེད་ཡིན།</string>
+    <string name="translate_guest_body_unknown">Google བརྒྱུད་ནས་ནང་འཛུལ་བྱས་ན་དེ་རིང་ཡིག་སྒྱུར་མང་བ་ཐོབ། རིན་མེད་ཡིན།</string>
+    <string name="continue_with_google">Google བརྒྱུད་ནས་མུ་མཐུད།</string>
+    <string name="translate_look_up">ཚིག་འཚོལ།</string>
+    <string name="translate_daily_title">ཉིན་རེའི་ཚད་ལ་སླེབས། · ནམ་ཕྱེད་ལ་བསྐྱར་གསོ།</string>
+    <string name="translate_daily_body">ཚིག་མཛོད་ནི་ཚིག་ཚང་མར་བེད་སྤྱོད་ཐུབ།</string>
+    <string name="upgrade_to_pro">Pro ལ་རིམ་སྤར།</string>
+    <string name="translate_offline_title">དྲ་རྒྱ་མེད།</string>
+    <string name="translate_offline_body">གྲངས་སུ་མི་རྩི། ཚིག་མཛོད་བེད་སྤྱོད་ཐུབ།</string>
+    <string name="translate_busy_title">ཡིག་སྒྱུར་ད་ལྟ་བྲེལ་བ་ཆེ།</string>
+    <string name="translate_busy_body">གྲངས་སུ་མི་རྩི། ཅུང་ཙམ་རྗེས་སུ་བསྐྱར་དུ་ཚོད་ལྟ།</string>
+    <string name="translate_disabled_title">ཡིག་སྒྱུར་གནས་སྐབས་མཚམས་བཞག</string>
+    <string name="translate_disabled_body">ཚིག་མཛོད་བེད་སྤྱོད་ཐུབ།</string>
+    <string name="translate_unexpected_title">ནོར་འཁྲུལ་ཞིག་བྱུང་།</string>
+    <string name="translate_unexpected_body">གྲངས་སུ་མི་རྩི།</string>
+    <string name="retry">བསྐྱར་དུ་ཚོད་ལྟ།</string>
+    <string name="search_translate_offer">“%1$s” %2$s ལ་སྒྱུར།</string>
+    <string name="search_translate_tap">མནན་ནས་ %1$s ལ་སྒྱུར།</string>
+    <string name="search_translate_instead">དེའི་ཚབ་ཏུ་ཡིག་སྒྱུར།</string>
+    <string name="search_translate_left_today">དེ་རིང་ %2$s ནས་ %1$s ལྷག</string>
+    <string name="home_translate_title">ཚིག་གྲུབ་ཅིག་ཡིག་སྒྱུར་བྱེད།</string>
+    <string name="home_translate_languages">%1$s ⇄ %2$s</string>
+    <string name="home_translate_left_today">%1$s · དེ་རིང་ %2$s ལྷག</string>
+    <string name="search_translate_heading">ཡིག་སྒྱུར།</string>
+    <string name="search_translate_open">ཡིག་སྒྱུར་ནང་ཁ་ཕྱེ།</string>
+    <string name="search_translate_too_long">མྱུར་སྒྱུར་ལ་རིང་དྲགས།</string>
+    <string name="search_translate_characters">ཡིག་འབྲུ་ %1$s / %2$s</string>
+    <string name="search_translate_sign_in">ཡིག་སྒྱུར་ཆེད་ནང་འཛུལ།</string>
+    <string name="search_translate_limit">དེ་རིང་གི་ཚད་ལ་སླེབས།</string>
+    <string name="search_translate_upgrade">རིམ་སྤར།</string>
+    <string name="search_in_dictionary">ཚིག་མཛོད་ནང་།</string>
+    <string name="today_used">དེ་རིང་ %2$s ནས་ %1$s བེད་སྤྱོད་བྱས།</string>
+    <string name="today_resets">ནམ་ཕྱེད་ལ་བསྐྱར་གསོ།</string>
+    <string name="today_unlimited">དེ་རིང་ཚད་མེད།</string>
+    <string name="translate_fair_use_title">དེ་རིང་གི་འོས་འཚམས་བེད་སྤྱོད་ཚད་ལ་སླེབས་ཟིན།</string>
+    <string name="search_translate_fair_use">དེ་རིང་གི་འོས་འཚམས་བེད་སྤྱོད་ཚད་ལ་སླེབས་ཟིན།</string>
+    <string name="home_translate_unlimited">%1$s · དེ་རིང་ཚད་མེད།</string>
+    <string name="today_sign_in">ནང་འཛུལ་བྱས་ན་ཉིན་རེར་ %1$s ཐོབ།</string>
+    <string name="today_sign_in_unknown">ནང་འཛུལ་བྱས་ན་ཡིག་སྒྱུར་མང་བ་ཐོབ།</string>
+    <string name="pro_title">ཚད་མེད་ཡིག་སྒྱུར།</string>
+    <string name="pro_subtitle">ཚིག་མཛོད་རྟག་ཏུ་རིན་མེད།</string>
+    <string name="pro_free">རིན་མེད།</string>
+    <string name="pro_plan">Pro</string>
+    <string name="pro_per_day">ཉིན་རེར།</string>
+    <string name="pro_characters">ཡིག་འབྲུ།</string>
+    <string name="pro_dictionary">ཚིག་མཛོད།</string>
+    <string name="pro_unlimited">ཚད་མེད།</string>
+    <string name="pro_full">ཆ་ཚང་།</string>
+    <string name="pro_coming_soon">མྱུར་དུ་ཡོང་།</string>
+    <string name="pro_note">Pro མྱུར་དུ་ཡོང་། འདིར་ཐོག་མར་མཐོང་ཐུབ།</string>
+    <string name="pro_sign_in_to_continue">མུ་མཐུད་པར་ནང་འཛུལ་གནང་།</string>
+    <string name="pro_yearly">ལོ་རེར།</string>
+    <string name="pro_monthly">ཟླ་རེར།</string>
+    <string name="pro_per_month">%1$s / ཟླ་རེ།</string>
+    <string name="pro_terms">རང་འགུལ་གྱིས་བསྐྱར་གསོ་འགྲོ། · Google Play ནང་དུས་ནམ་ཡིན་ཡང་འདོར་ཆོག</string>
+    <string name="pro_restore">ཉོས་ཟིན་པ་སླར་གསོ།</string>
+    <string name="pro_fair_use_note">*འོས་འཚམས་བེད་སྤྱོད། ཉིན་རེར་ %1$s བར།</string>
+    <string name="pro_error">Google Play དང་འབྲེལ་མ་ཐུབ། དྲ་རྒྱ་ལ་ཞིབ་བཤེར་གནང་ནས་ཡང་བསྐྱར་ཚོད་ལྟ་གནང་།</string>
+    <string name="pro_pending">དངུལ་སྤྲོད་སྒུག་བཞིན་པ། Google Play ཡིས་གཏན་འཁེལ་བྱས་རྗེས་ Pro འགོ་འཛུགས།</string>
+    <string name="pro_already">Google Play རྩིས་ཐོ་འདིར་ Pro ནུས་ལྡན་ཡིན།</string>
+    <string name="pro_switch_title">ལོ་རེའི་འཆར་གཞིར་སྤོ།</string>
+    <string name="pro_switch_button">ལོ་རེའི་འཆར་གཞིར་སྤོ།</string>
+    <string name="pro_switch_note">ཟླ་རེའི་འཆར་གཞིའི་དུས་ཚོད་ལྷག་མ་ལོ་རེའི་ནང་བསྣན་འགྲོ།</string>
+    <string name="pro_welcome">Pro ལ་ཕེབས་པར་དགའ་བསུ་ཞུ།</string>
+    <string name="profile_plan_pro">Pro · %1$s</string>
+    <string name="profile_plan_pro_plain">Pro</string>
+    <string name="profile_plan_renews">%1$s ལ་བསྐྱར་གསོ།</string>
+    <string name="profile_plan_ends">%1$s ལ་མཇུག་རྫོགས།</string>
+    <string name="profile_plan_pro_usage">ཡིག་སྒྱུར་ཚད་མེད། · ཐེངས་རེར་ཡིག་འབྲུ་ %1$s</string>
+    <string name="profile_plan_fair_use">འོས་འཚམས་བེད་སྤྱོད། དེ་རིང་ %2$s ནས་ %1$s</string>
+    <string name="profile_plan_billing_issue">དངུལ་སྤྲོད་ལ་དཀའ་ངལ། · Google Play ནང་བཅོས།</string>
+    <string name="profile_plan_manage">ཞུ་འབུལ་དོ་དམ།</string>
+    <string name="profile_plan_switch">ལོ་རེའི་འཆར་གཞིར་སྤོ།</string>
+    <string name="delete_account_pro_note">Google Play ནང་མ་བཏང་བར་དུ་ཁྱེད་ཀྱི་ Pro ཞུ་འབུལ་བསྐྱར་གསོ་རྒྱུན་མཐུད་འགྲོ།</string>
+    <string name="pro_restored">Pro སླར་གསོ་བྱས་ཟིན།</string>
+    <string name="pro_restore_none">Google Play རྩིས་ཐོ་འདིར་ Pro ཉོས་པ་མི་འདུག</string>
 </resources>

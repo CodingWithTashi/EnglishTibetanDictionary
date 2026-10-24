@@ -8,8 +8,11 @@ object Features {
     /** Learn tab, Home stats card and the flashcards copy. */
     const val LEARN = false
 
-    /** Onboarding sign-in step and the Profile account card. */
-    const val ACCOUNTS = false
+    /** The Profile account card, its sign-in and account sheet, and the plan card (Google sign-in for translation). */
+    const val ACCOUNTS = true
+
+    /** The onboarding sign-in step (2d): sign-in is asked for after the first translations, never during setup. */
+    const val ONBOARDING_SIGN_IN = false
 
     /** Share an entry as an image card (otherwise plain-text share). */
     const val SHARE_IMAGE = false

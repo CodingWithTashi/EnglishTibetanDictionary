@@ -44,6 +44,11 @@ data class DictColors(
     val success: Color,
     /** Errors (the Material 3 error role). */
     val danger: Color,
+    /** Amber container: the low-quota pill, the near-limit translate row. */
+    val warnContainer: Color,
+    val onWarnContainer: Color,
+    /** Amber text and bars: the character counter near its limit. */
+    val warn: Color,
     /** Prayer-flag strand line (alpha included). */
     val flagLine: Color,
     val flagBlue: Color = Color(0xFF3F6FB5),
@@ -74,6 +79,9 @@ data class DictColors(
             inverseAccent = Color(0xFFE8A58C),
             success = Color(0xFF3F8F5E),
             danger = Color(0xFFA8322D),
+            warnContainer = Color(0xFFFBE9C8),
+            onWarnContainer = Color(0xFF7A4E00),
+            warn = Color(0xFF8A5A00),
             flagLine = Color(0xFFB5A89A).copy(alpha = 0.6f),
         )
 
@@ -98,6 +106,10 @@ data class DictColors(
             inverseAccent = Color(0xFF8A2E1C),
             success = Color(0xFF3F8F5E),
             danger = Color(0xFFE08A86),
+            // No amber in the dark mockups: chosen to match the light ones (owner to confirm).
+            warnContainer = Color(0xFF4A3410),
+            onWarnContainer = Color(0xFFF3D08A),
+            warn = Color(0xFFE0B060),
             flagLine = Color(0xFFB5A89A).copy(alpha = 0.5f),
         )
     }

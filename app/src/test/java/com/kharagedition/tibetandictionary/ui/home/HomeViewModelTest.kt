@@ -15,6 +15,7 @@ import com.kharagedition.tibetandictionary.SampleData.tashiEntry
 import com.kharagedition.tibetandictionary.core.audio.AudioPlayer
 import com.kharagedition.tibetandictionary.core.audio.AudioSource
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
+import com.kharagedition.tibetandictionary.data.auth.Account
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.model.Entry
 import com.kharagedition.tibetandictionary.data.model.EntrySummary
@@ -22,13 +23,21 @@ import com.kharagedition.tibetandictionary.data.model.Folder
 import com.kharagedition.tibetandictionary.data.prefs.UserPrefs
 import com.kharagedition.tibetandictionary.data.repository.SavedRepository
 import com.kharagedition.tibetandictionary.data.repository.WordOfTheDayRepository
+import com.kharagedition.tibetandictionary.data.translation.Lang
+import com.kharagedition.tibetandictionary.data.translation.LangPair
+import com.kharagedition.tibetandictionary.data.translation.Plan
+import com.kharagedition.tibetandictionary.data.translation.Quota
+import com.kharagedition.tibetandictionary.data.translation.QuotaState
+import com.kharagedition.tibetandictionary.data.translation.TranslationAvailability
 import com.kharagedition.tibetandictionary.domain.TimeOfDay
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository
 import com.kharagedition.tibetandictionary.fakes.FakeActivityRepository.Day
+import com.kharagedition.tibetandictionary.fakes.FakeAuthRepository
 import com.kharagedition.tibetandictionary.fakes.FakeClock
 import com.kharagedition.tibetandictionary.fakes.FakeDictionaryRepository
 import com.kharagedition.tibetandictionary.fakes.FakeRecentSearchesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeSavedRepository
+import com.kharagedition.tibetandictionary.fakes.FakeTranslationRepository
 import com.kharagedition.tibetandictionary.fakes.FakeUserPreferencesRepository
 import com.kharagedition.tibetandictionary.fakes.FakeWordOfTheDayRepository
 import com.kharagedition.tibetandictionary.fakes.RecordingErrorReporter
@@ -68,6 +77,8 @@ class HomeViewModelTest {
     private val prefs = FakeUserPreferencesRepository(UserPrefs(onboarded = true, defaultDirectionId = boEn.id))
     private val errors = RecordingErrorReporter()
     private val player = RecordingAudioPlayer()
+    private val translation = FakeTranslationRepository()
+    private val auth = FakeAuthRepository()
     private var speechAvailable = true
 
     private class RecordingAudioPlayer : AudioPlayer {
@@ -98,6 +109,8 @@ class HomeViewModelTest {
             speech = { speechAvailable },
             audioPlayer = Optional.ofNullable(audio),
             errors = errors,
+            translation = translation,
+            auth = auth,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
         return vm
@@ -557,5 +570,94 @@ class HomeViewModelTest {
         assertThat(vm.state.wotd).isNull()
         assertThat(vm.state.selectedDirection).isEqualTo(boEn)
         assertThat(errors.recorded).hasSize(1)
+    }
+
+    // The translate card (1h)
+
+    private val boToEn = LangPair(Lang.BO, Lang.EN)
+
+    private fun freeQuota(used: Int, limit: Int = 10) =
+        QuotaState(Quota(Plan.FREE, used, limit, Instant.parse("2026-10-20T00:00:00Z"), maxChars = 100), freeLimit = 10)
+
+    @Test
+    fun `translate card shows remaining once a user exists`() = runTest {
+        auth.account.value = Account("u1", isGuest = false, name = "Tashi", email = "t@x.com")
+        translation.quota.value = freeQuota(used = 3)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.translateCard).isEqualTo(TranslateCardUi(boToEn, remaining = 7, limit = 10))
+    }
+
+    @Test
+    fun `a Pro user's card is unlimited`() = runTest {
+        auth.account.value = Account("u1", isGuest = false, name = "Tashi", email = "t@x.com")
+        translation.quota.value =
+            QuotaState(Quota(Plan.PRO, 3, 300, Instant.parse("2026-10-20T00:00:00Z"), maxChars = 500), freeLimit = 10)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.translateCard)
+            .isEqualTo(TranslateCardUi(boToEn, remaining = 297, limit = 300, unlimited = true))
+    }
+
+    @Test
+    fun `no user - card without count`() = runTest {
+        // A quota left from a signed-out user is not this install's count.
+        translation.quota.value = freeQuota(used = 3)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.translateCard).isEqualTo(TranslateCardUi(boToEn, remaining = null, limit = null))
+    }
+
+    @Test
+    fun `disabled - no card`() = runTest {
+        auth.account.value = Account("u1", isGuest = true, name = null, email = null)
+        translation.availability.value = TranslationAvailability(enabled = false, pairs = setOf(boToEn))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertThat(vm.state.translateCard).isNull()
+    }
+
+    @Test
+    fun `the card follows the pack and the directions the backend offers`() = runTest {
+        prefs.setDictionaryPack(DictionaryPack.DZONGKHA)
+        val vm = viewModel()
+        advanceUntilIdle()
+        assertThat(vm.state.translateCard?.pair).isEqualTo(LangPair(Lang.DZ, Lang.EN))
+
+        val enToDz = LangPair(Lang.EN, Lang.DZ)
+        translation.availability.value = TranslationAvailability(enabled = true, pairs = setOf(enToDz))
+        advanceUntilIdle()
+        assertThat(vm.state.translateCard?.pair).isEqualTo(enToDz)
+
+        // None of the pack's directions is offered: the Translate tab would have nothing to open with.
+        translation.availability.value = TranslationAvailability(enabled = true, pairs = setOf(boToEn))
+        advanceUntilIdle()
+        assertThat(vm.state.translateCard).isNull()
+    }
+
+    @Test
+    fun `Shown refreshes translation`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(HomeEvent.Shown)
+        advanceUntilIdle()
+
+        assertThat(translation.refreshCalls).containsExactly(false)
+    }
+
+    @Test
+    fun `OpenTranslate navigates`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.effects.test {
+            vm.onEvent(HomeEvent.OpenTranslate)
+            assertThat(awaitItem()).isEqualTo(HomeEffect.NavigateTranslate)
+        }
     }
 }

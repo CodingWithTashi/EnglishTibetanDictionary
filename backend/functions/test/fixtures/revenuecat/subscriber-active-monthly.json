@@ -1,0 +1,41 @@
+{
+  "request_date": "2026-10-23T10:00:00Z",
+  "request_date_ms": 1792749600000,
+  "subscriber": {
+    "entitlements": {
+      "pro": {
+        "expires_date": "2026-11-23T09:00:00Z",
+        "grace_period_expires_date": null,
+        "product_identifier": "dictionary_pro",
+        "product_plan_identifier": "monthly",
+        "purchase_date": "2026-10-23T09:00:00Z"
+      }
+    },
+    "first_seen": "2026-10-23T08:59:00Z",
+    "last_seen": "2026-10-23T09:00:00Z",
+    "management_url": "https://play.google.com/store/account/subscriptions",
+    "non_subscriptions": {},
+    "original_app_user_id": "firebase-uid-1",
+    "original_application_version": null,
+    "original_purchase_date": null,
+    "other_purchases": {},
+    "subscriptions": {
+      "dictionary_pro": {
+        "auto_resume_date": null,
+        "billing_issues_detected_at": null,
+        "expires_date": "2026-11-23T09:00:00Z",
+        "grace_period_expires_date": null,
+        "is_sandbox": false,
+        "original_purchase_date": "2026-10-23T09:00:00Z",
+        "ownership_type": "PURCHASED",
+        "period_type": "normal",
+        "product_plan_identifier": "monthly",
+        "purchase_date": "2026-10-23T09:00:00Z",
+        "refunded_at": null,
+        "store": "play_store",
+        "store_transaction_id": "GPA.0000-0000-0000-00000",
+        "unsubscribe_detected_at": null
+      }
+    }
+  }
+}

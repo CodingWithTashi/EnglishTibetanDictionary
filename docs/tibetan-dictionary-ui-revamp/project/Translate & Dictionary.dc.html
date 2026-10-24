@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jomolhari&amp;family=Noto+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"><style>body{margin:0;background:#EFEBE4;font-family:'Noto Sans',system-ui,sans-serif;color:#241E19}a{color:#8A2E1C}a:hover{color:#4A1409}textarea::placeholder{color:#9A8D80}@keyframes tdPulse{0%,100%{opacity:.55}50%{opacity:1}}</style></helmet>
+<section id="t1" style="padding:44px 48px 80px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:6px;max-width:760px">
+<div style="display:flex;align-items:center;gap:10px"><a href="#t1" style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:4px;text-decoration:none">1</a><span style="font-size:13px;font-weight:600">Translate &amp; Dictionary · full revamp · Android</span></div>
+<div style="font-size:13px;line-height:1.6;color:#6B5F54;text-wrap:pretty">One app per language pack (Tibetan, Dzongkha), same design system. Dictionary is instant and local; translation lives in search (smart, quota-aware) and on its own tab. Bottom nav: Home, Translate, Learn, Saved. Settings via the sliders icon on Home.</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:44px 0 18px">Live prototypes</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div id="1a" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1a" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1a</a>Language switch · tap the pill, pick a language</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;position:relative;overflow:hidden">
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:18px;transition:opacity .18s ease;opacity:{{ fade }}">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px">
+<div onClick="{{ openSheet }}" role="button" aria-label="Change language" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 14px;border-radius:20px;background:#F3EDE3;cursor:pointer">
+<span style="font-family:Jomolhari,serif;font-size:17px;line-height:1">{{ p.native }}</span><span style="font-size:13px;font-weight:600">{{ p.name }}</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+</div>
+<div aria-label="Settings" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"></path><circle cx="16" cy="7" r="2.5"></circle><circle cx="10" cy="17" r="2.5"></circle></svg></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 8px 0 16px;background:#F3EDE3;border-radius:28px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<div style="flex:1;font-size:15px;color:#6B5F54">Search or translate</div>
+<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0014 0M12 18v3"></path></svg></div>
+</div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px">
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }}"><span style="font-family:{{ c.lf }}">{{ c.l }}</span>→<span style="font-family:{{ c.rf }}">{{ c.r }}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="background:#F3EDE3;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;padding:0 20px"><div style="height:1px;background:#B5A89A;opacity:.6"></div><div style="display:flex;gap:3px;padding-left:6px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#FBF8F3"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div></div>
+<div style="padding:10px 20px 16px;display:flex;flex-direction:column;gap:4px">
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C">Word of the day</div>
+<div style="font-family:Jomolhari,serif;font-size:32px;line-height:1.9">{{ p.wotd }}</div>
+<div style="font-size:13px;font-style:italic;color:#6B5F54;margin-top:-6px">{{ p.rom }}</div>
+<div style="font-size:15px;line-height:1.5;margin-top:4px">{{ p.gloss }}</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:1px solid #E7DECF">
+<div style="width:40px;height:40px;border-radius:12px;background:#F6DDD2;color:#8A2E1C;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Translate a sentence</div><div style="font-size:12px;color:#6B5F54">{{ p.name }} ⇄ English</div></div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#F3EDE3;padding:8px 8px 4px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#F6DDD2;display:flex;align-items:center;justify-content:center;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;font-weight:600">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;color:#6B5F54">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#6B5F54">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Saved</div></div>
+</div>
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(36,30,25,.42);transition:opacity .28s ease;opacity:{{ scrimOp }};pointer-events:{{ scrimPe }}"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#FBF8F3;border-radius:28px 28px 0 0;padding:10px 16px 20px;display:flex;flex-direction:column;gap:10px;transition:transform .34s cubic-bezier(.2,.8,.2,1);transform:{{ sheetTf }}">
+<div style="width:36px;height:4px;border-radius:2px;background:#D8CDBB;align-self:center;margin-bottom:6px"></div>
+<div style="font-size:18px;font-weight:600;padding:0 6px 4px">Language</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+<div onClick="{{ r.onPick }}" role="radio" aria-checked="{{ r.sel }}" style="position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;cursor:pointer;transition:background .2s ease, box-shadow .2s ease;background:{{ r.bg }};box-shadow:{{ r.ring }}">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">{{ r.native }}</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:600">{{ r.name }}</div><div style="font-size:12px;color:#6B5F54">{{ r.sub }}</div></div>
+<div style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s ease;background:{{ r.dotBg }};box-shadow:{{ r.dotRing }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBF8F3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transition:opacity .2s ease;opacity:{{ r.checkOp }}"><path d="M5 12l5 5 9-10"></path></svg></div>
+<div style="position:absolute;left:0;bottom:0;height:3px;background:#8A2E1C;transition:width .14s linear, opacity .3s ease;width:{{ r.progW }};opacity:{{ r.progOp }}"></div>
+</div>
+</sc-for>
+</div>
+<div style="position:absolute;left:16px;right:16px;bottom:88px;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 16px;border-radius:12px;background:#241E19;color:#FBF8F3;font-size:14px;transition:opacity .2s ease, transform .25s ease;opacity:{{ snackOp }};transform:{{ snackTf }};pointer-events:none">{{ snack }}</div>
+</div>
+</x-import>
+</div>
+
+<div id="1b" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1b" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1b</a>Translate page · type or tap a sample, then Translate</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;position:relative;overflow:hidden">
+<div style="flex:1;overflow:auto;padding:8px 16px 16px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 4px">
+<div style="font-size:24px;font-weight:600;letter-spacing:-.01em">Translate</div>
+<div style="display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;background:{{ pillBg }};color:{{ pillFg }}">{{ leftLabel }}</div>
+</div>
+<div style="display:flex;align-items:center;height:48px;background:#F3EDE3;border-radius:24px;padding:4px">
+<div style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:20px;background:#FBF8F3;font-size:14px;font-weight:600">{{ srcName }}</div>
+<div onClick="{{ swap }}" role="button" aria-label="Swap languages" style="width:48px;height:40px;display:flex;align-items:center;justify-content:center;color:#8A2E1C;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .35s cubic-bezier(.2,.8,.2,1);transform:{{ swapTf }}"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:20px;background:#FBF8F3;font-size:14px;font-weight:600">{{ tgtName }}</div>
+</div>
+<div style="background:#F3EDE3;border-radius:20px;padding:14px 16px 8px;display:flex;flex-direction:column;gap:4px;transition:box-shadow .2s ease;box-shadow:{{ inRing }}">
+<textarea value="{{ t }}" onChange="{{ onType }}" maxLength="{{ limit }}" placeholder="{{ ph }}" aria-label="Text to translate" style="border:0;outline:0;background:transparent;resize:none;height:104px;color:#241E19;padding:0;margin:0;font-family:{{ inFont }};font-size:{{ inSize }};line-height:1.7"></textarea>
+<div style="display:flex;align-items:center;gap:2px;margin-left:-10px">
+<div onClick="{{ paste }}" role="button" aria-label="Paste" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 3h6v3H9z"></path></svg></div>
+<sc-if value="{{ hasText }}" hint-placeholder-val="{{ false }}"><div onClick="{{ clear }}" role="button" aria-label="Clear" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></sc-if>
+<div style="flex:1"></div>
+<div style="font-size:12px;font-variant-numeric:tabular-nums;font-weight:500;transition:color .2s ease;color:{{ countFg }}">{{ count }}</div>
+</div>
+</div>
+<sc-if value="{{ notLimit }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ translate }}" role="button" style="height:52px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s ease, color .2s ease;background:{{ btnBg }};color:{{ btnFg }}">{{ btnLabel }}</div>
+</sc-if>
+<sc-if value="{{ isLimit }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;border:1px solid #E7DECF">
+<div style="font-size:14px;font-weight:600">Daily limit reached · Resets at midnight</div>
+<div style="font-size:13px;color:#6B5F54;line-height:1.5">The dictionary still works. Pro gives 500 characters and unlimited translations.</div>
+<div style="height:48px;border-radius:24px;background:#8A2E1C;color:#FBF8F3;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Upgrade to Pro</div>
+</div>
+</sc-if>
+<sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+<div style="background:#F3EDE3;border-radius:20px;padding:18px 16px;display:flex;flex-direction:column;gap:10px">{{ skel }}</div>
+</sc-if>
+<sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:#F3EDE3">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M2 8.5a15 15 0 0120 0M5.5 12a10 10 0 0113 0M9 15.5a5 5 0 016 0M12 19h.01M3 3l18 18"></path></svg>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">You're offline</div><div style="font-size:12px;color:#6B5F54">Not counted against today's limit.</div></div>
+<div onClick="{{ translate }}" role="button" style="height:40px;padding:0 16px;border-radius:20px;border:1px solid #D8CDBB;display:flex;align-items:center;font-size:13px;font-weight:600;color:#8A2E1C;cursor:pointer">Retry</div>
+</div>
+</sc-if>
+<sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+<div style="background:#F3EDE3;border-radius:20px;padding:14px 16px 6px;display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C">{{ tgtName }}</span><span style="font-size:11px;color:#6B5F54">{{ outNote }}</span></div>
+<div style="display:flex;flex-wrap:wrap;column-gap:6px;row-gap:2px;font-family:{{ outFont }};font-size:{{ outSize }};line-height:1.7">
+<sc-for list="{{ tokens }}" as="k" hint-placeholder-count="3"><span onClick="{{ k.on }}" style="cursor:pointer;border-bottom:{{ k.u }}">{{ k.w }}</span></sc-for>
+</div>
+<div style="display:flex;align-items:center;margin-left:-10px">
+<div onClick="{{ copy }}" role="button" aria-label="Copy" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 012-2h8"></path></svg></div>
+<div onClick="{{ share }}" role="button" aria-label="Share" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div onClick="{{ save }}" role="button" aria-label="Save" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:{{ saveFg }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="{{ saveFill }}" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="flex:1"></div>
+<span style="font-size:11px;color:#6B5F54;padding-right:4px">Machine translation</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isIdle }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:8px;padding:4px 4px 0">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">Try</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{ samples }}" as="s" hint-placeholder-count="2"><div onClick="{{ s.on }}" style="min-height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;cursor:pointer;font-family:{{ s.f }};font-size:{{ s.fs }}">{{ s.t }}</div></sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;padding:6px 4px 0">
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:4px"><span style="font-size:12px;font-weight:600;color:#6B5F54">Recent</span><span style="font-size:11px;color:#6B5F54">{{ resetLabel }}</span></div>
+<sc-for list="{{ recent }}" as="r" hint-placeholder-count="2">
+<div onClick="{{ r.on }}" style="display:flex;flex-direction:column;justify-content:center;min-height:56px;border-bottom:1px solid #EFE7DA;cursor:pointer">
+<div style="font-family:{{ r.sf }};font-size:15px;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.src }}</div>
+<div style="font-family:{{ r.of }};font-size:13px;color:#6B5F54;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.out }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#F3EDE3;padding:8px 8px 4px;flex:none">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#F6DDD2;display:flex;align-items:center;justify-content:center;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;font-weight:600">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#6B5F54">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Saved</div></div>
+</div>
+<div style="position:absolute;left:16px;right:16px;bottom:88px;display:flex;align-items:center;min-height:48px;padding:0 16px;border-radius:12px;background:#241E19;color:#FBF8F3;font-size:14px;transition:opacity .2s ease, transform .25s ease;opacity:{{ snackOp }};transform:{{ snackTf }};pointer-events:none">{{ snack }}</div>
+</div>
+</x-import>
+<div style="display:flex;flex-wrap:wrap;gap:8px;max-width:360px">
+<div onClick="{{ simLow }}" role="button" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;font-size:12px;display:flex;align-items:center;cursor:pointer;background:#FBF8F3">Set 2 left</div>
+<div onClick="{{ simZero }}" role="button" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;font-size:12px;display:flex;align-items:center;cursor:pointer;background:#FBF8F3">Reach limit</div>
+<div onClick="{{ simOffline }}" role="button" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;font-size:12px;display:flex;align-items:center;cursor:pointer;background:#FBF8F3">{{ offLabel }}</div>
+<div onClick="{{ simReset }}" role="button" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid #D8CDBB;font-size:12px;display:flex;align-items:center;cursor:pointer;background:#FBF8F3">Reset</div>
+</div>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">App icon &amp; splash</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+<div id="1c" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1c" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1c</a>Icon · two overlapping tiles, ཀ over A</div>
+<div style="width:360px;box-sizing:border-box;padding:28px;border-radius:12px;background:#FBF8F3;border:1px solid rgba(0,0,0,.06);display:flex;flex-direction:column;gap:28px">
+<div style="position:relative;width:180px;height:180px;border-radius:40px;background:#FBF8F3;box-shadow:0 12px 30px rgba(74,20,9,.18), inset 0 0 0 1px #EADFCF;overflow:hidden">
+<div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#EADFCF;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-family:'Noto Sans',sans-serif;font-weight:700;font-size:44px;color:#4A1409">A</div>
+<div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);box-shadow:6px 6px 16px rgba(74,20,9,.28);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div>
+<div style="position:absolute;left:40px;top:136px;display:flex;gap:3px"><span style="width:9px;height:5px;border-radius:1px;background:#3F6FB5"></span><span style="width:9px;height:5px;border-radius:1px;background:#FBF8F3"></span><span style="width:9px;height:5px;border-radius:1px;background:#C8402F"></span><span style="width:9px;height:5px;border-radius:1px;background:#3F8F5E"></span><span style="width:9px;height:5px;border-radius:1px;background:#E2B232"></span></div>
+</div>
+<div style="display:flex;align-items:flex-end;gap:22px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:60px;height:60px;overflow:hidden;border-radius:14px"><div style="width:180px;height:180px;transform:scale(.3333);transform-origin:0 0;position:relative;background:#FBF8F3"><div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#EADFCF;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-weight:700;font-size:44px;color:#4A1409">A</div><div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div></div></div><span style="font-size:11px;color:#6B5F54">Tibetan</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:60px;height:60px;overflow:hidden;border-radius:50%"><div style="width:180px;height:180px;transform:scale(.3333);transform-origin:0 0;position:relative;background:#FBF8F3"><div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#EADFCF;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-weight:700;font-size:44px;color:#4A1409">A</div><div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div></div></div><span style="font-size:11px;color:#6B5F54">Round mask</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:60px;height:60px;overflow:hidden;border-radius:14px"><div style="width:180px;height:180px;transform:scale(.3333);transform-origin:0 0;position:relative;background:#1B1715"><div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#3C342D;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-weight:700;font-size:44px;color:#F1E9E0">A</div><div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div></div></div><span style="font-size:11px;color:#6B5F54">Dark</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:36px;height:36px;border-radius:50%;background:#E7DECF;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:22px;line-height:1;color:#4A1409;padding-bottom:3px;box-sizing:border-box">ཀ</div><span style="font-size:11px;color:#6B5F54">Themed</span></div>
+</div>
+<div style="font-size:12px;line-height:1.55;color:#6B5F54">Same mark for both packs; the store name carries the language. Tibetan: <b style="color:#241E19;font-weight:600">Tibetan Translate &amp; Dictionary</b>. Dzongkha: <b style="color:#241E19;font-weight:600">Dzongkha Translate &amp; Dictionary</b>.</div>
+</div>
+</div>
+
+<div id="1d" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1d" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1d</a>Splash · light</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;align-items:center;justify-content:center;position:relative">
+<div style="position:relative;width:104px;height:104px;border-radius:26px;overflow:hidden;box-shadow:0 10px 24px rgba(74,20,9,.18), inset 0 0 0 1px #EADFCF"><div style="width:180px;height:180px;transform:scale(.5778);transform-origin:0 0;position:relative;background:#FBF8F3"><div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#EADFCF;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-weight:700;font-size:44px;color:#4A1409">A</div><div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div></div></div>
+<div style="font-family:Jomolhari,serif;font-size:28px;line-height:1.8;margin-top:24px">བོད་ཡིག</div>
+<div style="font-size:15px;font-weight:600;margin-top:-6px">Translate &amp; Dictionary</div>
+<div style="position:absolute;bottom:44px;width:120px;height:3px;border-radius:2px;background:#EADFCF;overflow:hidden"><div style="width:62%;height:100%;border-radius:2px;background:#8A2E1C"></div></div>
+</div>
+</x-import>
+</div>
+
+<div id="1e" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1e" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1e</a>Splash · dark · Dzongkha</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0;align-items:center;justify-content:center;position:relative">
+<div style="position:relative;width:104px;height:104px;border-radius:26px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.4)"><div style="width:180px;height:180px;transform:scale(.5778);transform-origin:0 0;position:relative;background:#262019"><div style="position:absolute;left:70px;top:30px;width:84px;height:96px;border-radius:16px;background:#3C342D;display:flex;align-items:center;justify-content:flex-end;padding-right:14px;box-sizing:border-box;font-weight:700;font-size:44px;color:#F1E9E0">A</div><div style="position:absolute;left:26px;top:52px;width:84px;height:100px;border-radius:16px;background:linear-gradient(165deg,#A63D27,#6A1F12);display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:58px;line-height:1;color:#FBF8F3;padding-bottom:10px;box-sizing:border-box">ཀ</div></div></div>
+<div style="font-family:Jomolhari,serif;font-size:28px;line-height:1.8;margin-top:24px">རྫོང་ཁ</div>
+<div style="font-size:15px;font-weight:600;margin-top:-6px">Translate &amp; Dictionary</div>
+<div style="position:absolute;bottom:44px;width:120px;height:3px;border-radius:2px;background:#332B26;overflow:hidden"><div style="width:62%;height:100%;border-radius:2px;background:#E8A58C"></div></div>
+</div>
+</x-import>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">Onboarding · Home · Language</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div id="1f" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1f" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1f</a>Onboarding · pick language</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:32px 16px 20px;box-sizing:border-box;gap:20px">
+<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+<div style="font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25">Choose a language</div>
+<div style="font-family:Jomolhari,serif;font-size:17px;line-height:1.8;color:#6B5F54">སྐད་ཡིག་འདེམས།</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div role="radio" aria-checked="true" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#F6DDD2;box-shadow:inset 0 0 0 1.5px #8A2E1C">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">བོད་ཡིག</div>
+<div style="flex:1;font-size:15px;font-weight:600">Tibetan</div>
+<div style="width:24px;height:24px;border-radius:50%;background:#8A2E1C;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FBF8F3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></div>
+</div>
+<div role="radio" aria-checked="false" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#F3EDE3">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">རྫོང་ཁ</div>
+<div style="flex:1;font-size:15px;font-weight:600">Dzongkha</div>
+<div style="width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 2px #B5A89A"></div>
+</div>
+</div>
+<div style="flex:1"></div>
+<div style="font-size:13px;color:#6B5F54;text-align:center">Switch any time from Home.</div>
+<div style="height:52px;border-radius:26px;background:#8A2E1C;color:#FBF8F3;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Continue</div>
+</div>
+</x-import>
+</div>
+
+<div id="1g" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1g" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1g</a>Onboarding · preparing pack · progress in place</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:32px 16px 20px;box-sizing:border-box;gap:20px">
+<div style="display:flex;flex-direction:column;gap:6px;padding:0 4px">
+<div style="font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25">Choose a language</div>
+<div style="font-family:Jomolhari,serif;font-size:17px;line-height:1.8;color:#6B5F54">སྐད་ཡིག་འདེམས།</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#F3EDE3;opacity:.5">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">བོད་ཡིག</div>
+<div style="flex:1;font-size:15px;font-weight:600">Tibetan</div>
+<div style="width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 2px #B5A89A"></div>
+</div>
+<div style="position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#F6DDD2;box-shadow:inset 0 0 0 1.5px #8A2E1C">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">རྫོང་ཁ</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="font-size:15px;font-weight:600">Dzongkha</div><div style="font-size:12px;color:#6B5F54;font-variant-numeric:tabular-nums">Preparing · 68%</div></div>
+<div style="width:24px;height:24px;border-radius:50%;background:#8A2E1C"></div>
+<div style="position:absolute;left:0;bottom:0;width:68%;height:3px;background:#8A2E1C"></div>
+</div>
+</div>
+<div style="flex:1"></div>
+<div style="font-size:13px;color:#6B5F54;text-align:center">Dictionary works offline once ready.</div>
+<div style="height:52px;border-radius:26px;background:#EADFCF;color:#9A8D80;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Preparing…</div>
+</div>
+</x-import>
+</div>
+
+<div id="1h" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1h" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1h</a>Home · Tibetan · light</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px">
+<div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 14px;border-radius:20px;background:#F3EDE3"><span style="font-family:Jomolhari,serif;font-size:17px;line-height:1">བོད་ཡིག</span><span style="font-size:13px;font-weight:600">Tibetan</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></div>
+<div style="display:flex;align-items:center;gap:4px"><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A2E1C;background:#F6DDD2;padding:4px 10px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#8A2E1C"></span>12 days</div><div aria-label="Settings" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"></path><circle cx="16" cy="7" r="2.5"></circle><circle cx="10" cy="17" r="2.5"></circle></svg></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 8px 0 16px;background:#F3EDE3;border-radius:28px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><div style="flex:1;font-size:15px;color:#6B5F54">Search or translate</div><div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0014 0M12 18v3"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="background:#F3EDE3;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;padding:0 20px"><div style="height:1px;background:#B5A89A;opacity:.6"></div><div style="display:flex;gap:3px;padding-left:6px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#FBF8F3"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div></div>
+<div style="padding:10px 20px 14px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C"><span>Word of the day</span><span style="color:#6B5F54;font-weight:400;letter-spacing:0;text-transform:none">22 Oct</span></div>
+<div style="font-family:Jomolhari,serif;font-size:32px;line-height:1.9">བཀྲ་ཤིས།</div>
+<div style="font-size:13px;font-style:italic;color:#6B5F54;margin-top:-6px">bkra shis</div>
+<div style="font-size:15px;line-height:1.5;margin-top:4px">auspicious; good fortune</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:1px solid #E7DECF">
+<div style="width:40px;height:40px;border-radius:12px;background:#F6DDD2;color:#8A2E1C;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Translate a sentence</div><div style="font-size:12px;color:#6B5F54">Tibetan ⇄ English · 7 left today</div></div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">Recent</div>
+<div style="display:flex;gap:8px;overflow:hidden">
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">སྙིང་རྗེ།</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-size:13px">compassion</div>
+<div style="flex:none;height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:17px">ཤེས་རབ།</div>
+</div>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#F3EDE3;padding:8px 8px 4px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#F6DDD2;display:flex;align-items:center;justify-content:center;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;font-weight:600">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;color:#6B5F54">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#6B5F54">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Saved</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1i" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1i" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1i</a>Home · Dzongkha · dark · two directions only</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0">
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px">
+<div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 14px;border-radius:20px;background:#262019"><span style="font-family:Jomolhari,serif;font-size:17px;line-height:1">རྫོང་ཁ</span><span style="font-size:13px;font-weight:600">Dzongkha</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></div>
+<div aria-label="Settings" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"></path><circle cx="16" cy="7" r="2.5"></circle><circle cx="10" cy="17" r="2.5"></circle></svg></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 8px 0 16px;background:#262019;border-radius:28px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><div style="flex:1;font-size:15px;color:#B5A89A">Search or translate</div><div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="1.75" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0014 0M12 18v3"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#262019;border-radius:20px;padding:4px;gap:4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#E8A58C;color:#3E1109;font-size:13px;font-weight:600"><span style="font-family:Jomolhari,serif;font-size:15px">རྫོང</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">རྫོང</span></div>
+</div>
+</div>
+<div style="background:#262019;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;padding:0 20px"><div style="height:1px;background:#4A403A"></div><div style="display:flex;gap:3px;padding-left:6px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#F1E9E0"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div></div>
+<div style="padding:10px 20px 14px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#E8A58C"><span>Word of the day</span><span style="color:#B5A89A;font-weight:400;letter-spacing:0;text-transform:none">22 Oct</span></div>
+<div style="font-family:Jomolhari,serif;font-size:32px;line-height:1.9">སྐུ་གཟུགས་བཟང་པོ།</div>
+<div style="font-size:13px;font-style:italic;color:#B5A89A;margin-top:-6px">ku zu zang po</div>
+<div style="font-size:15px;line-height:1.5;margin-top:4px">hello; good health (greeting)</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;border:1px solid #332B26">
+<div style="width:40px;height:40px;border-radius:12px;background:#5C2416;color:#F6DDD2;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Translate a sentence</div><div style="font-size:12px;color:#B5A89A">Dzongkha ⇄ English · Pro</div></div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:16px;background:#262019">
+<div><div style="font-size:14px;font-weight:500">9 words learned this week</div><div style="font-size:12px;color:#B5A89A">4 due for review</div></div>
+<div style="display:flex;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#E8A58C"></span><span style="width:8px;height:8px;border-radius:50%;background:#E8A58C"></span><span style="width:8px;height:8px;border-radius:50%;background:#E8A58C"></span><span style="width:8px;height:8px;border-radius:50%;background:#E8A58C"></span><span style="width:8px;height:8px;border-radius:50%;background:#E8A58C"></span><span style="width:8px;height:8px;border-radius:50%;background:#4A403A"></span><span style="width:8px;height:8px;border-radius:50%;background:#4A403A"></span></div>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#262019;padding:8px 8px 4px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#5C2416;display:flex;align-items:center;justify-content:center;color:#F6DDD2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;font-weight:600">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;color:#B5A89A">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#B5A89A">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#B5A89A">Saved</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1j" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1j" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1j</a>Language sheet · dark · switching (replaces your heavy sheet)</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#0F0C0B;color:#F1E9E0;position:relative">
+<div style="flex:1;opacity:.35;padding:8px 20px;display:flex;flex-direction:column;gap:18px">
+<div style="height:48px;display:flex;align-items:center"><div style="height:40px;width:150px;border-radius:20px;background:#262019"></div></div>
+<div style="height:56px;border-radius:28px;background:#262019"></div>
+<div style="height:200px;border-radius:16px;background:#262019"></div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#1F1A17;border-radius:28px 28px 0 0;padding:10px 16px 20px;display:flex;flex-direction:column;gap:10px">
+<div style="width:36px;height:4px;border-radius:2px;background:#4A403A;align-self:center;margin-bottom:6px"></div>
+<div style="font-size:18px;font-weight:600;padding:0 6px 4px">Language</div>
+<div style="display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#262019">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">བོད་ཡིག</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:600">Tibetan</div><div style="font-size:12px;color:#B5A89A">167,839 entries</div></div>
+<div style="width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 2px #6B5F54"></div>
+</div>
+<div style="position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;min-height:72px;padding:0 16px;border-radius:18px;background:#3A1A12;box-shadow:inset 0 0 0 1.5px #E8A58C">
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.5;min-width:64px">རྫོང་ཁ</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:1px"><div style="font-size:15px;font-weight:600">Dzongkha</div><div style="font-size:12px;color:#E8A58C;font-variant-numeric:tabular-nums">Preparing · 54%</div></div>
+<div style="width:24px;height:24px;border-radius:50%;background:#E8A58C"></div>
+<div style="position:absolute;left:0;bottom:0;width:54%;height:3px;background:#E8A58C"></div>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">Home-screen widgets</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+<div id="1k" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54"><a href="#1k" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1k</a>4×2 Quick translate · 2×2 Word of the day · light and dark</div>
+<div style="width:740px;max-width:100%;box-sizing:border-box;padding:28px;border-radius:12px;background:#C9BBA8;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px">
+<div style="border-radius:28px;background:#FBF8F3;padding:16px;display:flex;flex-direction:column;gap:12px;color:#241E19">
+<div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 16px;border-radius:26px;background:#F3EDE3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="flex:1;font-size:14px;color:#6B5F54">Search or translate</span><span style="width:40px;height:40px;border-radius:50%;background:#8A2E1C;color:#FBF8F3;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></span></div>
+<div style="display:flex;gap:8px">
+<div style="flex:1;height:40px;border-radius:20px;border:1px solid #D8CDBB;display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;height:40px;border-radius:20px;border:1px solid #D8CDBB;display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="width:40px;height:40px;border-radius:20px;border:1px solid #D8CDBB;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0014 0M12 18v3"></path></svg></div>
+</div>
+</div>
+<div style="border-radius:28px;background:#1F1A17;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;color:#F1E9E0;gap:6px">
+<div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#E8A58C">Word of the day</div>
+<div style="font-family:Jomolhari,serif;font-size:26px;line-height:1.6">བཀྲ་ཤིས།</div>
+<div style="font-size:13px;line-height:1.4;color:#B5A89A">auspicious; good fortune</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">Search · smart translate</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div id="1l" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1l" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1l</a>Wylie “bkra shis” · exact match · tap-only translate row, no API call</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#F3EDE3;border-radius:28px"><div aria-label="Back" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-size:16px">bkra shis<span style="display:inline-block;width:1.5px;height:20px;background:#8A2E1C;vertical-align:-4px;margin-left:1px"></span></div><div aria-label="Clear" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:22px;line-height:1.7;color:#8A2E1C">བཀྲ་ཤིས།</span><span style="font-size:13px;font-style:italic;color:#6B5F54"><b style="color:#8A2E1C;font-weight:600">bkra shis</b></span><span style="margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.06em;color:#8A2E1C;background:#F6DDD2;padding:2px 7px;border-radius:6px">EXACT</span></div><div style="font-size:14px;color:#6B5F54;line-height:1.45">auspicious; good fortune, blessing</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">བཀྲ་ཤིས་བདེ་ལེགས།</span><span style="font-size:13px;font-style:italic;color:#6B5F54"><b style="color:#8A2E1C;font-weight:600">bkra shis</b> bde legs</span></div><div style="font-size:14px;color:#6B5F54;line-height:1.45">greetings; good luck (salutation)</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">བཀྲ་ཤིས་རྟགས་བརྒྱད།</span><span style="font-size:13px;font-style:italic;color:#6B5F54"><b style="color:#8A2E1C;font-weight:600">bkra shis</b> rtags brgyad</span></div><div style="font-size:14px;color:#6B5F54;line-height:1.45">the eight auspicious symbols</div></div>
+<div style="display:flex;align-items:center;gap:12px;min-height:60px;margin-top:6px">
+<div style="width:36px;height:36px;border-radius:10px;background:#F3EDE3;color:#8A2E1C;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Translate “bkra shis” → English</div><div style="font-size:12px;color:#6B5F54">7 of 10 left today</div></div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1m" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1m" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1m</a>Tibetan sentence (ends in །) · auto-translating after 1s pause</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#F3EDE3;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-family:Jomolhari,serif;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:4px 16px 0;display:flex;flex-direction:column;gap:8px">
+<div style="background:#F3EDE3;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C">Translation</span><span style="font-size:11px;color:#6B5F54">Translating…</span></div>
+<div style="width:70%;height:16px;border-radius:8px;background:#E7DECF"></div>
+<div style="width:42%;height:12px;border-radius:6px;background:#E7DECF"></div>
+<div style="height:2px;border-radius:1px;background:#EADFCF;overflow:hidden"><div style="width:55%;height:100%;background:#8A2E1C"></div></div>
+</div>
+<div style="font-size:12px;font-weight:600;color:#6B5F54;padding:10px 4px 0">In the dictionary</div>
+<div style="padding:0 4px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">ཁྱེད་རང་།</span><span style="font-size:13px;font-style:italic;color:#6B5F54">khyed rang</span></div><div style="font-size:14px;color:#6B5F54">you (honorific)</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">སྐུ་གཟུགས།</span><span style="font-size:13px;font-style:italic;color:#6B5F54">sku gzugs</span></div><div style="font-size:14px;color:#6B5F54">body (honorific); health</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">བདེ་པོ།</span><span style="font-size:13px;font-style:italic;color:#6B5F54">bde po</span></div><div style="font-size:14px;color:#6B5F54">well, happy, at ease</div></div>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1n" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1n" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1n</a>EN phrase · auto-translated · tappable words, word results below</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;position:relative">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#F3EDE3;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-size:16px">may all beings be happy</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:4px 16px 0;display:flex;flex-direction:column;gap:8px">
+<div style="background:#F3EDE3;border-radius:16px;padding:14px 16px 4px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C">Translation</span><span style="font-size:11px;color:#6B5F54">Machine translation</span></div>
+<div style="font-family:Jomolhari,serif;font-size:22px;line-height:1.8;display:flex;flex-wrap:wrap"><span style="border-bottom:1.5px dotted #B5A89A">སེམས་ཅན་</span><span style="border-bottom:1.5px dotted #B5A89A">ཐམས་ཅད་</span><span style="border-bottom:1.5px dotted #B5A89A">བདེ་བ་</span><span>དང་</span><span style="border-bottom:1.5px dotted #B5A89A">ལྡན་</span><span>པར་ཤོག</span></div>
+<div style="display:flex;align-items:center;margin-left:-10px">
+<div aria-label="Copy" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 012-2h8"></path></svg></div>
+<div aria-label="Share" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div aria-label="Save" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="flex:1"></div>
+<div style="height:36px;padding:0 10px;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:#8A2E1C">Open in Translate<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"></path></svg></div>
+</div>
+</div>
+<div style="font-size:12px;color:#6B5F54;padding:0 4px">6 of 10 left today</div>
+<div style="font-size:12px;font-weight:600;color:#6B5F54;padding:10px 4px 0">In the dictionary</div>
+<div style="padding:0 4px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:16px;font-weight:600"><b style="color:#8A2E1C">happy</b></span><span style="font-family:Jomolhari,serif;font-size:18px;line-height:1.6">སྐྱིད་པོ།</span></div><div style="font-size:13px;color:#6B5F54">adj. · also བདེ་བ།</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:16px;font-weight:600"><b style="color:#8A2E1C">beings</b></span><span style="font-family:Jomolhari,serif;font-size:18px;line-height:1.6">སེམས་ཅན།</span></div><div style="font-size:13px;color:#6B5F54">n. · sentient beings</div></div>
+</div>
+</div>
+<div style="position:absolute;left:16px;right:16px;bottom:24px;display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 8px 0 16px;border-radius:12px;background:#241E19;color:#FBF8F3;font-size:14px"><span>Copied</span><span style="height:36px;padding:0 10px;display:flex;align-items:center;font-weight:600;color:#E8A58C">Undo</span></div>
+</div>
+</x-import>
+</div>
+
+<div id="1o" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1o" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1o</a>3 or fewer left · auto off, tap to translate · too-long variant below</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#F3EDE3;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-size:16px">where is the monastery?</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:4px 16px 0;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 12px 0 14px;border-radius:16px;background:#F3EDE3">
+<div style="width:36px;height:36px;border-radius:10px;background:#FBF8F3;color:#8A2E1C;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Tap to translate → Tibetan</div><div style="font-size:12px;color:#7A4E00;font-weight:500">2 of 10 left today</div></div>
+<div style="height:36px;padding:0 14px;border-radius:18px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:600;display:flex;align-items:center">Translate</div>
+</div>
+<div style="font-size:12px;font-weight:600;color:#6B5F54;padding:8px 4px 0">In the dictionary</div>
+<div style="padding:0 4px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid #EFE7DA"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:16px;font-weight:600"><b style="color:#8A2E1C">monastery</b></span><span style="font-family:Jomolhari,serif;font-size:18px;line-height:1.6">དགོན་པ།</span></div><div style="font-size:13px;color:#6B5F54">n. · gompa</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:16px;font-weight:600"><b style="color:#8A2E1C">where</b></span><span style="font-family:Jomolhari,serif;font-size:18px;line-height:1.6">ག་པར།</span></div><div style="font-size:13px;color:#6B5F54">adv.</div></div>
+</div>
+<div style="height:1px;background:#EFE7DA;margin:14px 0 4px"></div>
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#6B5F54;padding:0 4px">Too-long query</div>
+<div style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 12px 0 14px;border-radius:16px;border:1px solid #E7DECF">
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Too long for quick translate</div><div style="font-size:12px;color:#6B5F54;font-variant-numeric:tabular-nums">132 / 100 characters</div></div>
+<div style="height:36px;padding:0 12px;border-radius:18px;border:1px solid #D8CDBB;color:#8A2E1C;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px">Open in Translate</div>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1p" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1p" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1p</a>བོད→བོད monolingual · dictionary only, no translate UI</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#F3EDE3;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-family:Jomolhari,serif;font-size:18px">སྙིང་རྗེ</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#F3EDE3;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#8A2E1C;color:#FBF8F3;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><span style="font-family:Jomolhari,serif;font-size:22px;line-height:1.7;color:#8A2E1C">སྙིང་རྗེ།</span><div style="font-family:Jomolhari,serif;font-size:16px;line-height:1.8;color:#6B5F54">གཞན་ལ་སྡུག་བསྔལ་དང་བྲལ་བར་འདོད་པའི་སེམས།</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">སྙིང་རྗེ་ཆེན་པོ།</span><div style="font-family:Jomolhari,serif;font-size:16px;line-height:1.8;color:#6B5F54">ཐུགས་རྗེ་ཆེན་པོ།</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">སྙིང་རྗེ་བ།</span><div style="font-family:Jomolhari,serif;font-size:16px;line-height:1.8;color:#6B5F54">སྡུག་པོ། མཛེས་པོ།</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1q" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1q" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1q</a>No results · dark · did you mean + translate instead</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#262019;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1E9E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-size:16px">bkra shiz</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#262019;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#E8A58C;color:#3E1109;font-size:13px;font-weight:600"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">བོད</span></div>
+</div>
+</div>
+<div style="flex:1;padding:40px 28px 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+<div style="font-size:17px;font-weight:600">No match for “bkra shiz”</div>
+<div style="font-size:14px;color:#B5A89A">Did you mean</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px">
+<div style="height:40px;padding:0 16px;border-radius:20px;background:#262019;display:flex;align-items:center;gap:8px"><span style="font-family:Jomolhari,serif;font-size:17px">བཀྲ་ཤིས།</span><span style="font-size:13px;font-style:italic;color:#B5A89A">bkra shis</span></div>
+<div style="height:40px;padding:0 16px;border-radius:20px;background:#262019;display:flex;align-items:center;font-size:13px;font-style:italic;color:#B5A89A">bkra bzhi</div>
+</div>
+<div style="width:100%;height:1px;background:#332B26;margin:28px 0 10px"></div>
+<div style="width:100%;display:flex;align-items:center;gap:12px;min-height:60px;text-align:left">
+<div style="width:36px;height:36px;border-radius:10px;background:#262019;color:#E8A58C;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">Translate instead</div><div style="font-size:12px;color:#B5A89A">7 of 10 left today</div></div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1r" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1r" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1r</a>Dzongkha · dark · translated from cache (not counted)</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0">
+<div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;height:56px;background:#262019;border-radius:28px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1E9E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1;font-family:Jomolhari,serif;font-size:17px">ག་ཏེ་འགྱོ་ནི་ཨིན།</div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B5A89A" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;height:40px;background:#262019;border-radius:20px;padding:4px;gap:4px;margin:0 4px">
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;background:#E8A58C;color:#3E1109;font-size:13px;font-weight:600"><span style="font-family:Jomolhari,serif;font-size:15px">རྫོང</span>→ EN</div>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:16px;font-size:13px;font-weight:500">EN →<span style="font-family:Jomolhari,serif;font-size:15px">རྫོང</span></div>
+</div>
+</div>
+<div style="flex:1;overflow:hidden;padding:4px 16px 0;display:flex;flex-direction:column;gap:8px">
+<div style="background:#262019;border-radius:16px;padding:14px 16px 4px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#E8A58C">Translation</span><span style="font-size:11px;color:#B5A89A">Machine translation</span></div>
+<div style="font-size:20px;line-height:1.6;display:flex;flex-wrap:wrap;column-gap:6px"><span style="border-bottom:1.5px dotted #6B5F54">Where</span><span>are</span><span>you</span><span style="border-bottom:1.5px dotted #6B5F54">going?</span></div>
+<div style="display:flex;align-items:center;margin-left:-10px">
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 012-2h8"></path></svg></div>
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#E8A58C"><svg width="20" height="20" viewBox="0 0 24 24" fill="#E8A58C" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+<div style="flex:1"></div>
+<div style="height:36px;padding:0 10px;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:#E8A58C">Open in Translate</div>
+</div>
+</div>
+<div style="font-size:12px;color:#B5A89A;padding:0 4px">From cache · not counted · Pro</div>
+<div style="font-size:12px;font-weight:600;color:#B5A89A;padding:10px 4px 0">In the dictionary</div>
+<div style="padding:0 4px;display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid #332B26"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">ག་ཏེ།</span><span style="font-size:13px;font-style:italic;color:#B5A89A">ga te</span></div><div style="font-size:14px;color:#B5A89A">where</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 0"><div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7">འགྱོ་ནི།</span><span style="font-size:13px;font-style:italic;color:#B5A89A">jo ni</span></div><div style="font-size:14px;color:#B5A89A">to go</div></div>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">Translate page · states</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div id="1s" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1s" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1s</a>Near the character limit · counter turns amber</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:8px 16px 16px;box-sizing:border-box;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 4px"><div style="font-size:24px;font-weight:600">Translate</div><div style="height:30px;padding:0 12px;border-radius:15px;background:#F3EDE3;color:#6B5F54;font-size:12px;font-weight:600;display:flex;align-items:center">7 of 10 left</div></div>
+<div style="display:flex;align-items:center;height:48px;background:#F3EDE3;border-radius:24px;padding:4px"><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Tibetan</div><div style="width:48px;display:flex;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">English</div></div>
+<div style="background:#F3EDE3;border-radius:20px;padding:14px 16px 8px;display:flex;flex-direction:column;gap:4px">
+<div style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7;height:136px;overflow:hidden">བོད་ཀྱི་སྐད་ཡིག་ནི་རྒྱལ་ཁབ་མང་པོའི་ནང་བེད་སྤྱོད་བྱེད་ཀྱི་ཡོད། དེ་ནི་ང་ཚོའི་རིག་གཞུང་གི་རྩ་བ་ཡིན།</div>
+<div style="display:flex;align-items:center;margin-left:-10px"><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 3h6v3H9z"></path></svg></div><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div><div style="flex:1"></div><div style="font-size:12px;font-weight:600;color:#8A5A00;font-variant-numeric:tabular-nums">92 / 100</div></div>
+<div style="height:3px;border-radius:2px;background:#EADFCF;overflow:hidden;margin:2px 0 4px"><div style="width:92%;height:100%;background:#C98A1A"></div></div>
+</div>
+<div style="height:52px;border-radius:26px;background:#8A2E1C;color:#FBF8F3;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Translate</div>
+<div style="font-size:12px;color:#6B5F54;text-align:center">Need longer text? Pro allows 500 characters.</div>
+<div style="flex:1"></div>
+<div style="background:#E7DECF;margin:0 -16px -16px;padding:8px 6px 14px;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px">
+<div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཀ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཁ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ག</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ང</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཅ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཆ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཇ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཉ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཏ</div><div style="height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">ཐ</div>
+<div style="grid-column:span 2;height:40px;border-radius:6px;background:#D8CDBB;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Wylie</div><div style="grid-column:span 6;height:40px;border-radius:6px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-family:Jomolhari,serif;font-size:17px">་</div><div style="grid-column:span 2;height:40px;border-radius:6px;background:#8A2E1C;color:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">Go</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1t" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1t" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1t</a>Daily limit reached · input stays editable</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:8px 16px 16px;box-sizing:border-box;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 4px"><div style="font-size:24px;font-weight:600">Translate</div><div style="height:30px;padding:0 12px;border-radius:15px;background:#FBE9C8;color:#7A4E00;font-size:12px;font-weight:600;display:flex;align-items:center">0 of 10 left</div></div>
+<div style="display:flex;align-items:center;height:48px;background:#F3EDE3;border-radius:24px;padding:4px"><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">English</div><div style="width:48px;display:flex;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Tibetan</div></div>
+<div style="background:#F3EDE3;border-radius:20px;padding:14px 16px 8px;display:flex;flex-direction:column;gap:4px">
+<div style="font-size:18px;line-height:1.6;height:104px">The teacher arrives tomorrow morning.</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;height:44px"><div style="font-size:12px;color:#6B5F54;font-variant-numeric:tabular-nums">37 / 100</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;padding:18px 16px 16px;border-radius:20px;border:1px solid #E7DECF">
+<div style="font-size:15px;font-weight:600">Daily limit reached · Resets at midnight</div>
+<div style="font-size:13px;color:#6B5F54;line-height:1.5">The dictionary still works for every word.</div>
+<div style="display:flex;gap:8px"><div style="flex:1;height:48px;border-radius:24px;background:#8A2E1C;color:#FBF8F3;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center">Upgrade to Pro</div><div style="flex:1;height:48px;border-radius:24px;border:1px solid #D8CDBB;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;color:#8A2E1C">Look up words</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1u" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1u" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1u</a>Offline · retry · failures not counted</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:8px 16px 16px;box-sizing:border-box;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 4px"><div style="font-size:24px;font-weight:600">Translate</div><div style="height:30px;padding:0 12px;border-radius:15px;background:#F3EDE3;color:#6B5F54;font-size:12px;font-weight:600;display:flex;align-items:center">7 of 10 left</div></div>
+<div style="display:flex;align-items:center;height:48px;background:#F3EDE3;border-radius:24px;padding:4px"><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Tibetan</div><div style="width:48px;display:flex;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="flex:1;height:40px;border-radius:20px;background:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">English</div></div>
+<div style="background:#F3EDE3;border-radius:20px;padding:14px 16px 8px;display:flex;flex-direction:column;gap:4px">
+<div style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7;height:104px">ང་བོད་པ་ཡིན།</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;height:44px"><div style="font-size:12px;color:#6B5F54">13 / 100</div></div>
+</div>
+<div style="height:52px;border-radius:26px;background:#8A2E1C;color:#FBF8F3;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Translate</div>
+<div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:#F3EDE3">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B5F54" stroke-width="1.75" stroke-linecap="round"><path d="M2 8.5a15 15 0 0120 0M5.5 12a10 10 0 0113 0M9 15.5a5 5 0 016 0M12 19h.01M3 3l18 18"></path></svg>
+<div style="flex:1"><div style="font-size:14px;font-weight:600">You're offline</div><div style="font-size:12px;color:#6B5F54">Not counted. Dictionary still works.</div></div>
+<div style="height:40px;padding:0 16px;border-radius:20px;border:1px solid #D8CDBB;display:flex;align-items:center;font-size:13px;font-weight:600;color:#8A2E1C">Retry</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1v" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1v" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1v</a>Result · dark · Pro · recent list</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0">
+<div style="flex:1;overflow:hidden;padding:8px 16px 0;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 4px"><div style="font-size:24px;font-weight:600">Translate</div><div style="height:30px;padding:0 12px;border-radius:15px;background:#5C2416;color:#F6DDD2;font-size:12px;font-weight:600;display:flex;align-items:center">Pro</div></div>
+<div style="display:flex;align-items:center;height:48px;background:#262019;border-radius:24px;padding:4px"><div style="flex:1;height:40px;border-radius:20px;background:#332B26;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">Tibetan</div><div style="width:48px;display:flex;justify-content:center;color:#E8A58C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="flex:1;height:40px;border-radius:20px;background:#332B26;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600">English</div></div>
+<div style="background:#262019;border-radius:20px;padding:14px 16px 8px;display:flex;flex-direction:column">
+<div style="font-family:Jomolhari,serif;font-size:20px;line-height:1.7;min-height:68px">ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།</div>
+<div style="display:flex;justify-content:flex-end;height:28px;align-items:center"><span style="font-size:12px;color:#B5A89A">31 / 500</span></div>
+</div>
+<div style="background:#262019;border-radius:20px;padding:14px 16px 4px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 0 0 0 1px #332B26">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#E8A58C">English</span><span style="font-size:11px;color:#B5A89A">Machine translation</span></div>
+<div style="font-size:21px;line-height:1.55;display:flex;flex-wrap:wrap;column-gap:6px"><span>How</span><span>are</span><span>you?</span></div>
+<div style="display:flex;align-items:center;margin-left:-10px">
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 012-2h8"></path></svg></div>
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div>
+<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;padding:4px 4px 0">
+<div style="display:flex;justify-content:space-between;padding-bottom:4px"><span style="font-size:12px;font-weight:600;color:#B5A89A">Recent</span><span style="font-size:12px;color:#E8A58C">Clear</span></div>
+<div style="display:flex;flex-direction:column;justify-content:center;min-height:56px;border-bottom:1px solid #332B26"><div style="font-family:Jomolhari,serif;font-size:15px;line-height:1.6">བཀའ་དྲིན་ཆེ།</div><div style="font-size:13px;color:#B5A89A">Thank you.</div></div>
+<div style="display:flex;flex-direction:column;justify-content:center;min-height:56px"><div style="font-size:15px">See you tomorrow</div><div style="font-family:Jomolhari,serif;font-size:14px;color:#B5A89A">སང་ཉིན་མཇལ་ཡོང་།</div></div>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#262019;padding:8px 8px 4px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;color:#B5A89A">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#5C2416;display:flex;align-items:center;justify-content:center;color:#F6DDD2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;font-weight:600">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#B5A89A">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#B5A89A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#B5A89A">Saved</div></div>
+</div>
+</div>
+</x-import>
+</div>
+</div>
+
+<div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A2E1C;margin:56px 0 18px">Word · Learn · Saved · Settings · Pro</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div id="1w" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1w" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1w</a>Word detail · numbered senses · example translates on tap</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="display:flex;align-items:center;height:56px;padding:0 4px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="flex:1"></div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="#8A2E1C" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"></path></svg></div></div>
+<div style="flex:1;overflow:hidden;padding:0 20px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="font-family:Jomolhari,serif;font-size:44px;line-height:1.7">སྙིང་རྗེ།</div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:-6px"><span style="font-size:15px;font-style:italic;color:#6B5F54">snying rje</span><span style="font-size:12px;color:#6B5F54;padding:2px 8px;border-radius:6px;background:#F3EDE3">noun</span><div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:#8A2E1C"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M16 9a4 4 0 010 6"></path></svg></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:14px;padding:14px 16px;border-radius:16px;background:#F3EDE3"><span style="font-size:13px;font-weight:700;color:#8A2E1C">1</span><div style="font-size:15px;line-height:1.5">compassion; the wish that others be free from suffering</div></div>
+<div style="display:flex;gap:14px;padding:14px 16px;border-radius:16px;background:#F3EDE3"><span style="font-size:13px;font-weight:700;color:#8A2E1C">2</span><div style="font-size:15px;line-height:1.5">kindness, mercy</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">Example</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-top:1px solid #EFE7DA;border-bottom:1px solid #EFE7DA">
+<div style="font-family:Jomolhari,serif;font-size:17px;line-height:1.8">སེམས་ཅན་ཐམས་ཅད་ལ་སྙིང་རྗེ་སྒོམ།</div>
+<div style="font-size:14px;color:#6B5F54">Meditate on compassion for all beings.</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-size:12px;font-weight:600;color:#6B5F54">See also</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><div style="height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:16px">བྱམས་པ།</div><div style="height:36px;padding:0 14px;border-radius:18px;border:1px solid #D8CDBB;display:flex;align-items:center;font-family:Jomolhari,serif;font-size:16px">ཐུགས་རྗེ།</div></div>
+</div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1x" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1x" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1x</a>Learn · flashcard from saved words · streak</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="flex:1;padding:8px 20px 0;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:center;justify-content:space-between;height:48px"><div style="font-size:24px;font-weight:600">Learn</div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:#8A2E1C;background:#F6DDD2;padding:4px 10px;border-radius:999px"><span style="width:6px;height:6px;border-radius:50%;background:#8A2E1C"></span>12 days</div></div>
+<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:4px;border-radius:2px;background:#EADFCF;overflow:hidden"><div style="width:40%;height:100%;background:#8A2E1C"></div></div><span style="font-size:12px;color:#6B5F54;font-variant-numeric:tabular-nums">4 / 10</span></div>
+<div style="flex:1;max-height:420px;border-radius:24px;background:#F3EDE3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:24px;display:flex;gap:3px"><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#FBF8F3"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:12px;height:8px;border-radius:0 0 2px 2px;background:#E2B232"></span></div>
+<div style="font-family:Jomolhari,serif;font-size:52px;line-height:1.7">ཤེས་རབ།</div>
+<div style="font-size:14px;font-style:italic;color:#6B5F54">shes rab</div>
+<div style="font-size:13px;color:#6B5F54;margin-top:24px">Tap to reveal</div>
+</div>
+<div style="display:flex;gap:10px"><div style="flex:1;height:52px;border-radius:26px;border:1px solid #D8CDBB;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Again</div><div style="flex:1;height:52px;border-radius:26px;background:#8A2E1C;color:#FBF8F3;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Knew it</div></div>
+</div>
+<div style="display:flex;height:72px;background:#F3EDE3;padding:8px 8px 4px;margin-top:16px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;color:#6B5F54">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#F6DDD2;display:flex;align-items:center;justify-content:center;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;font-weight:600">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Saved</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1y" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1y" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1y</a>Saved · Words / Translations tabs</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19">
+<div style="flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;height:48px"><div style="font-size:24px;font-weight:600">Saved</div></div>
+<div style="display:flex;height:44px;background:#F3EDE3;border-radius:22px;padding:4px;gap:4px"><div style="flex:1;display:flex;align-items:center;justify-content:center;border-radius:18px;font-size:13px;font-weight:500;color:#6B5F54">Words · 24</div><div style="flex:1;display:flex;align-items:center;justify-content:center;border-radius:18px;background:#FBF8F3;font-size:13px;font-weight:600;box-shadow:0 1px 2px rgba(36,30,25,.08)">Translations · 6</div></div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><div style="font-family:Jomolhari,serif;font-size:17px;line-height:1.7">ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།</div><div style="font-size:14px;color:#6B5F54">How are you?</div><div style="font-size:11px;color:#9A8D80;margin-top:2px">བོད → EN · Today</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid #EFE7DA"><div style="font-size:15px;line-height:1.5">May all beings be happy</div><div style="font-family:Jomolhari,serif;font-size:16px;line-height:1.8;color:#6B5F54">སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་ལྡན་པར་ཤོག</div><div style="font-size:11px;color:#9A8D80;margin-top:2px">EN → བོད · Yesterday</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:12px 0"><div style="font-family:Jomolhari,serif;font-size:17px;line-height:1.7">བཀའ་དྲིན་ཆེ།</div><div style="font-size:14px;color:#6B5F54">Thank you.</div><div style="font-size:11px;color:#9A8D80;margin-top:2px">བོད → EN · 20 Oct</div></div>
+</div>
+</div>
+<div style="display:flex;height:72px;background:#F3EDE3;padding:8px 8px 4px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></div><div style="font-size:12px;color:#6B5F54">Home</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg></div><div style="font-size:12px;color:#6B5F54">Translate</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;display:flex;align-items:center;justify-content:center;color:#6B5F54"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="3" y="5" width="13" height="15" rx="2"></rect><path d="M8 5V3h13v15h-2"></path></svg></div><div style="font-size:12px;color:#6B5F54">Learn</div></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:56px;height:30px;border-radius:15px;background:#F6DDD2;display:flex;align-items:center;justify-content:center;color:#4A1409"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"></path></svg></div><div style="font-size:12px;font-weight:600">Saved</div></div>
+</div>
+</div>
+</x-import>
+</div>
+
+<div id="1z" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1z" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1z</a>Settings · dark · plan, usage, smart translate</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" dark="{{ true }}" bg="#1B1715" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#1B1715;color:#F1E9E0;padding:0 20px;box-sizing:border-box">
+<div style="display:flex;align-items:center;height:56px;margin-left:-14px"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1E9E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div><div style="font-size:20px;font-weight:600">Settings</div></div>
+<div style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:#262019;margin-top:4px">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">Free plan</span><span style="font-size:13px;font-weight:600;color:#E8A58C">Upgrade</span></div>
+<div style="height:4px;border-radius:2px;background:#332B26;overflow:hidden"><div style="width:30%;height:100%;background:#E8A58C"></div></div>
+<div style="font-size:12px;color:#B5A89A">3 of 10 translations used today · 100 characters each</div>
+</div>
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#B5A89A;margin:22px 0 4px">Language</div>
+<div style="display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid #332B26"><span style="font-size:15px">Language</span><span style="display:flex;align-items:center;gap:6px;font-size:14px;color:#B5A89A"><span style="font-family:Jomolhari,serif;font-size:16px">བོད་ཡིག</span>Tibetan<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid #332B26"><span style="font-size:15px">App language</span><span style="display:flex;align-items:center;gap:6px;font-size:14px;color:#B5A89A">English<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg></span></div>
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#B5A89A;margin:22px 0 4px">Search</div>
+<div style="display:flex;align-items:center;gap:16px;min-height:72px;border-bottom:1px solid #332B26"><div style="flex:1"><div style="font-size:15px">Smart translate in search</div><div style="font-size:12px;color:#B5A89A;line-height:1.4">Auto-translate phrases with no dictionary match</div></div><div role="switch" aria-checked="true" style="width:52px;height:32px;border-radius:16px;background:#E8A58C;position:relative;flex:none"><div style="position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#3E1109"></div></div></div>
+<div style="display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid #332B26"><span style="font-size:15px">Default direction</span><span style="display:flex;align-items:center;gap:6px;font-size:14px;color:#B5A89A"><span style="font-family:Jomolhari,serif;font-size:15px">བོད</span>→ EN<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg></span></div>
+<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#B5A89A;margin:22px 0 4px">Reading</div>
+<div style="display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid #332B26"><span style="font-size:15px">Text size</span><span style="font-size:14px;color:#B5A89A">Default</span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;min-height:56px"><span style="font-size:15px">Theme</span><div style="display:flex;height:36px;padding:3px;border-radius:18px;background:#262019;font-size:13px"><span style="padding:0 12px;display:flex;align-items:center;color:#B5A89A">Light</span><span style="padding:0 12px;display:flex;align-items:center;color:#B5A89A">Dark</span><span style="padding:0 12px;display:flex;align-items:center;border-radius:15px;background:#E8A58C;color:#3E1109;font-weight:600">System</span></div></div>
+</div>
+</x-import>
+</div>
+
+<div id="1za" style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;color:#6B5F54;max-width:360px"><a href="#1za" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#241E19;color:#FBF8F3;border-radius:5px;text-decoration:none">1za</a>Upgrade to Pro · opened from limit or Settings only</div>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 360 }}" height="{{ 780 }}" bg="#FBF8F3" hint-size="360px,780px">
+<div style="display:flex;flex-direction:column;height:100%;background:#FBF8F3;color:#241E19;padding:0 20px 20px;box-sizing:border-box">
+<div style="display:flex;justify-content:flex-end;height:56px;align-items:center;margin-right:-12px"><div aria-label="Close" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#241E19" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div></div>
+<div style="display:flex;gap:3px"><span style="width:14px;height:9px;border-radius:0 0 2px 2px;background:#3F6FB5"></span><span style="width:14px;height:9px;border-radius:0 0 2px 2px;background:#EADFCF"></span><span style="width:14px;height:9px;border-radius:0 0 2px 2px;background:#C8402F"></span><span style="width:14px;height:9px;border-radius:0 0 2px 2px;background:#3F8F5E"></span><span style="width:14px;height:9px;border-radius:0 0 2px 2px;background:#E2B232"></span></div>
+<div style="font-size:28px;font-weight:600;letter-spacing:-.01em;line-height:1.2;margin-top:18px">Translate without limits</div>
+<div style="font-size:14px;color:#6B5F54;margin-top:8px">The dictionary stays free.</div>
+<div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);margin-top:24px;font-size:13px">
+<div style="padding:10px 0;color:#6B5F54"></div><div style="padding:10px 0;font-weight:600;color:#6B5F54;text-align:center">Free</div><div style="padding:10px 0;font-weight:700;color:#8A2E1C;text-align:center">Pro</div>
+<div style="padding:12px 0;border-top:1px solid #EFE7DA">Per day</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;text-align:center">10</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;text-align:center;font-weight:600">Unlimited</div>
+<div style="padding:12px 0;border-top:1px solid #EFE7DA">Characters</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;text-align:center">100</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;text-align:center;font-weight:600">500</div>
+<div style="padding:12px 0;border-top:1px solid #EFE7DA;border-bottom:1px solid #EFE7DA">Dictionary</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;border-bottom:1px solid #EFE7DA;text-align:center">Full</div><div style="padding:12px 0;border-top:1px solid #EFE7DA;border-bottom:1px solid #EFE7DA;text-align:center;font-weight:600">Full</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:24px">
+<div style="display:flex;align-items:center;gap:14px;min-height:64px;padding:0 16px;border-radius:18px;background:#F6DDD2;box-shadow:inset 0 0 0 1.5px #8A2E1C"><div style="flex:1"><div style="font-size:15px;font-weight:600">Yearly</div><div style="font-size:12px;color:#6B5F54">$1.67 / month</div></div><div style="font-size:15px;font-weight:600">$19.99</div></div>
+<div style="display:flex;align-items:center;gap:14px;min-height:64px;padding:0 16px;border-radius:18px;background:#F3EDE3"><div style="flex:1;font-size:15px;font-weight:600">Monthly</div><div style="font-size:15px;font-weight:600">$2.99</div></div>
+</div>
+<div style="flex:1"></div>
+<div style="height:52px;border-radius:26px;background:#8A2E1C;color:#FBF8F3;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Continue</div>
+<div style="font-size:11px;color:#6B5F54;text-align:center;margin-top:10px">Cancel any time in Google Play · Restore purchase</div>
+</div>
+</x-import>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PACKS = {
+  bo: { id: 'bo', native: 'བོད་ཡིག', short: 'བོད', name: 'Tibetan', wotd: 'བཀྲ་ཤིས།', rom: 'bkra shis', gloss: 'auspicious; good fortune', entries: '167,839 entries', mono: true },
+  dz: { id: 'dz', native: 'རྫོང་ཁ', short: 'རྫོང', name: 'Dzongkha', wotd: 'སྐུ་གཟུགས་བཟང་པོ།', rom: 'ku zu zang po', gloss: 'hello; good health (greeting)', entries: '81,474 entries', mono: false }
+};
+const BO = "'Noto Sans', Jomolhari, serif", EN = "'Noto Sans', sans-serif";
+const CANNED = {
+  'ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།': 'How are you?',
+  'ང་བོད་པ་ཡིན།': 'I am Tibetan.',
+  'Where is the monastery?': 'དགོན་པ་ག་པར་ཡོད།',
+  'May all beings be happy': 'སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་ལྡན་པར་ཤོག'
+};
+class Component extends DCLogic {
+  state = { lang: 'bo', sheet: false, pending: null, prog: 0, fade: 1, snack: '', snackOn: false,
+    t: '', dir: 0, rot: 0, phase: 'idle', left: 7, out: null, saved: false, offline: false,
+    recent: [{ src: 'བཀའ་དྲིན་ཆེ།', out: 'Thank you.', dir: 0 }, { src: 'See you tomorrow', out: 'སང་ཉིན་མཇལ་ཡོང་།', dir: 1 }] };
+  componentWillUnmount() { clearInterval(this._i); clearTimeout(this._s); clearTimeout(this._tt); }
+  toast(m) { clearTimeout(this._s); this.setState({ snack: m, snackOn: true }); this._s = setTimeout(() => this.setState({ snackOn: false }), 1700); }
+  pick(id) {
+    if (this.state.pending) return;
+    if (id === this.state.lang) { this.setState({ sheet: false }); return; }
+    this.setState({ pending: id, prog: 4 });
+    let p = 4;
+    this._i = setInterval(() => {
+      p = Math.min(100, p + 9 + Math.random() * 16);
+      this.setState({ prog: p });
+      if (p >= 100) {
+        clearInterval(this._i);
+        setTimeout(() => {
+          this.setState({ fade: 0, sheet: false });
+          setTimeout(() => { this.setState({ lang: id, pending: null, prog: 0, fade: 1 }); this.toast('Switched to ' + PACKS[id].name); }, 200);
+        }, 260);
+      }
+    }, 110);
+  }
+  doTranslate() {
+    const t = this.state.t.trim();
+    if (!t || this.state.left <= 0 || this.state.phase === 'loading') return;
+    const cached = this.state.recent.find(r => r.src === t);
+    if (cached) { this.setState({ phase: 'done', out: { text: cached.out, cached: true }, saved: false }); return; }
+    this.setState({ phase: 'loading', out: null, saved: false });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => {
+      if (this.state.offline) { this.setState({ phase: 'error' }); return; }
+      const text = CANNED[t] || (this.state.dir === 0 ? 'Sample translation appears here.' : 'དཔེ་མཚོན་གྱི་ཡིག་སྒྱུར།');
+      this.setState(s => ({ phase: 'done', out: { text, cached: false }, left: s.left - 1, recent: [{ src: t, out: text, dir: s.dir }, ...s.recent].slice(0, 4) }));
+    }, 1200);
+  }
+  renderVals() {
+    const s = this.state, p = PACKS[s.lang];
+    const dirs = p.mono ? [[p.short, BO, 'EN', EN], [p.short, BO, p.short, BO], ['EN', EN, p.short, BO]] : [[p.short, BO, 'EN', EN], ['EN', EN, p.short, BO]];
+    const chips = dirs.map((d, i) => ({ l: d[0], lf: d[1], r: d[2], rf: d[3], bg: i === 0 ? '#8A2E1C' : 'transparent', fg: i === 0 ? '#FBF8F3' : '#241E19' }));
+    const rows = Object.values(PACKS).map(k => {
+      const sel = s.pending ? s.pending === k.id : s.lang === k.id;
+      const loading = s.pending === k.id;
+      return { native: k.native, name: k.name, sel: String(sel),
+        sub: loading ? (s.prog >= 100 ? 'Ready' : 'Preparing · ' + Math.round(s.prog) + '%') : k.entries,
+        bg: sel ? '#F6DDD2' : '#F3EDE3', ring: sel ? 'inset 0 0 0 1.5px #8A2E1C' : 'inset 0 0 0 1px transparent',
+        dotBg: sel ? '#8A2E1C' : 'transparent', dotRing: sel ? 'none' : 'inset 0 0 0 2px #B5A89A', checkOp: sel && !loading ? 1 : (loading && s.prog >= 100 ? 1 : 0),
+        progW: loading ? s.prog + '%' : '0%', progOp: loading && s.prog < 100 ? 1 : 0, onPick: () => this.pick(k.id) };
+    });
+    const src = s.dir === 0 ? p.name : 'English', tgt = s.dir === 0 ? 'English' : p.name;
+    const srcBo = s.dir === 0, limit = 100, len = s.t.length;
+    const outBo = !srcBo;
+    const tokens = s.out ? (outBo ? [s.out.text] : s.out.text.split(' ')).map(w => {
+      const link = outBo || w.replace(/[^A-Za-z]/g, '').length > 3;
+      return { w, u: link ? '1.5px dotted #B5A89A' : '1.5px solid transparent', on: () => link && this.toast('Opening “' + w.replace(/[.?!,]/g, '') + '” in dictionary') };
+    }) : [];
+    const samples = (srcBo ? ['ཁྱེད་རང་སྐུ་གཟུགས་བདེ་པོ་ཡིན་པས།', 'ང་བོད་པ་ཡིན།'] : ['Where is the monastery?', 'May all beings be happy']).map(t => ({ t, f: srcBo ? BO : EN, fs: srcBo ? '16px' : '13px', on: () => this.setState({ t, phase: 'idle', out: null }) }));
+    const isLimit = s.left <= 0, low = s.left <= 3;
+    const can = len > 0 && s.phase !== 'loading';
+    const skel = React.createElement(React.Fragment, null, ['88%', '64%', '40%'].map((w, i) => React.createElement('div', { key: i, style: { width: w, height: i === 2 ? 10 : 16, borderRadius: 8, background: '#E7DECF', animation: 'tdPulse 1.2s ease-in-out ' + (i * 0.15) + 's infinite' } })));
+    return {
+      p, chips, rows, fade: s.fade,
+      openSheet: () => this.setState({ sheet: true }), closeSheet: () => !s.pending && this.setState({ sheet: false }),
+      scrimOp: s.sheet ? 1 : 0, scrimPe: s.sheet ? 'auto' : 'none', sheetTf: s.sheet ? 'translateY(0)' : 'translateY(105%)',
+      snack: s.snack, snackOp: s.snackOn ? 1 : 0, snackTf: s.snackOn ? 'translateY(0)' : 'translateY(12px)',
+      t: s.t, limit, ph: srcBo ? 'ཡི་གེ་འདིར་འབྲི། · Type Tibetan or Wylie' : 'Type English text',
+      onType: e => this.setState({ t: e.target.value.slice(0, limit), phase: s.phase === 'done' || s.phase === 'error' ? 'idle' : s.phase }),
+      inFont: srcBo ? BO : EN, inSize: srcBo ? '20px' : '18px', hasText: len > 0,
+      inRing: len >= limit ? 'inset 0 0 0 1.5px #C8402F' : 'inset 0 0 0 1px transparent',
+      count: len + ' / ' + limit, countFg: len >= limit ? '#B3261E' : len >= limit * 0.85 ? '#8A5A00' : '#6B5F54',
+      srcName: src, tgtName: tgt, swapTf: 'rotate(' + s.rot + 'deg)',
+      swap: () => this.setState(st => ({ dir: 1 - st.dir, rot: st.rot + 180, t: st.out ? st.out.text : st.t, phase: 'idle', out: null })),
+      paste: () => this.setState({ t: srcBo ? 'ང་བོད་པ་ཡིན།' : 'May all beings be happy', phase: 'idle' }),
+      clear: () => this.setState({ t: '', phase: 'idle', out: null }),
+      notLimit: !isLimit, isLimit,
+      btnLabel: s.phase === 'loading' ? 'Translating…' : 'Translate', btnBg: can ? '#8A2E1C' : '#EADFCF', btnFg: can ? '#FBF8F3' : '#9A8D80',
+      translate: () => this.doTranslate(),
+      isLoading: s.phase === 'loading', isError: s.phase === 'error', isDone: s.phase === 'done' && !!s.out, isIdle: s.phase === 'idle' && len === 0,
+      skel, tokens, outFont: outBo ? BO : EN, outSize: outBo ? '22px' : '19px',
+      outNote: s.out && s.out.cached ? 'From cache · not counted' : '',
+      copy: () => this.toast('Copied'), share: () => this.toast('Share sheet opens'),
+      save: () => { this.setState({ saved: !s.saved }); this.toast(s.saved ? 'Removed from Saved' : 'Saved to Translations'); },
+      saveFg: s.saved ? '#8A2E1C' : '#6B5F54', saveFill: s.saved ? '#8A2E1C' : 'none',
+      samples,
+      recent: s.recent.map(r => ({ src: r.src, out: r.out, sf: r.dir === 0 ? BO : EN, of: r.dir === 0 ? EN : BO, on: () => this.setState({ t: r.src, dir: r.dir, phase: 'done', out: { text: r.out, cached: true } }) })),
+      leftLabel: isLimit ? 'Limit reached' : s.left + ' of 10 left', pillBg: low ? '#FBE9C8' : '#F3EDE3', pillFg: low ? '#7A4E00' : '#6B5F54',
+      resetLabel: 'Resets at midnight',
+      simLow: () => this.setState({ left: 2 }), simZero: () => this.setState({ left: 0, phase: 'idle' }),
+      simOffline: () => this.setState({ offline: !s.offline }), offLabel: s.offline ? 'Go online' : 'Go offline',
+      simReset: () => this.setState({ left: 7, offline: false, phase: 'idle', out: null, t: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

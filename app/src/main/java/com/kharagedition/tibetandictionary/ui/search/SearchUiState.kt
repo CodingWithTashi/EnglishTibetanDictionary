@@ -5,7 +5,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import com.kharagedition.tibetandictionary.data.model.Direction
 import com.kharagedition.tibetandictionary.domain.DirectionSlots
 import com.kharagedition.tibetandictionary.domain.InputScript
+import com.kharagedition.tibetandictionary.domain.OutputWord
 import com.kharagedition.tibetandictionary.ui.model.SearchResultUi
+import com.kharagedition.tibetandictionary.ui.model.UiText
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 
 /** What the Search route shows below its header. */
 enum class SearchPhase {
@@ -58,6 +61,9 @@ data class SuggestionUi(
  * [settledQuery] is the (normalised) query the shown results or "No match for …" are for; it trails [query]
  * while the next search is pending. [searchId] identifies that search and changes with every new one, but not
  * with paging; [pagesLoaded] counts the pages it has fetched.
+ *
+ * [smartTranslate] is the quick translation of the settled query (null = no translate UI), [phraseWords] the
+ * phrase's words found as headwords ("In the dictionary"); [showProSheet] while the Pro sheet is open.
  */
 @Immutable
 data class SearchUiState(
@@ -80,6 +86,9 @@ data class SearchUiState(
     val settledQuery: String = "",
     val searchId: Int = 0,
     val pagesLoaded: Int = 0,
+    val smartTranslate: SmartTranslateUi? = null,
+    val phraseWords: List<SearchResultUi> = emptyList(),
+    val showProSheet: Boolean = false,
 )
 
 /** User actions on the Search route. */
@@ -109,6 +118,22 @@ sealed interface SearchEvent {
 
     /** The end of the result list came into view. */
     data object LoadMore : SearchEvent
+
+    /** The quick-translate row's Translate, or Retry. */
+    data object TranslateQuery : SearchEvent
+
+    data object OpenInTranslate : SearchEvent
+
+    /** A word of the quick translation: searched in its own direction. */
+    data class SmartWordTap(val word: OutputWord) : SearchEvent
+
+    /** "Sign in to translate"; the route runs sign-in, which needs the activity. */
+    data object SmartSignIn : SearchEvent
+
+    /** "Daily limit reached · Upgrade": the Pro sheet. */
+    data object SmartUpgrade : SearchEvent
+
+    data object DismissProSheet : SearchEvent
 }
 
 /** One-shot effects the Search route performs. */
@@ -122,4 +147,9 @@ sealed interface SearchEffect {
 
     /** Focus the search field (and so show the keyboard). */
     data object FocusField : SearchEffect
+
+    /** Switch to the Translate tab with [request]. */
+    data class OpenTranslate(val request: TranslateRequest) : SearchEffect
+
+    data class Toast(val message: UiText) : SearchEffect
 }

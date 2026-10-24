@@ -34,31 +34,46 @@ import com.kharagedition.tibetandictionary.ui.components.ExtremeScalePreview
 import com.kharagedition.tibetandictionary.ui.components.LocalToaster
 import com.kharagedition.tibetandictionary.ui.components.PreviewSamples
 import com.kharagedition.tibetandictionary.ui.theme.DictTheme
+import com.kharagedition.tibetandictionary.ui.translate.TranslateRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
-/** The Saved tab (1i/3c): [onOpenEntry] opens a saved entry. */
+/** The Saved tab (1i/3c/1y): [onOpenEntry] opens a saved entry, [onOpenTranslate] a saved translation in Translate. */
 @Composable
-fun SavedScreen(onOpenEntry: (Long) -> Unit) {
+fun SavedScreen(onOpenEntry: (Long) -> Unit, onOpenTranslate: (TranslateRequest) -> Unit) {
     val viewModel = hiltViewModel<SavedViewModel>()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    SavedEffects(viewModel.effects, viewModel::onEvent, onOpenEntry)
+    SavedEffects(viewModel.effects, viewModel::onEvent, onOpenEntry, onOpenTranslate)
     SavedContent(state, viewModel::onEvent)
 }
 
 /** Performs [effects]: navigation and toasts (copy resolved in the app language); toast actions send events. */
 @Composable
-internal fun SavedEffects(effects: Flow<SavedEffect>, onEvent: (SavedEvent) -> Unit, onOpenEntry: (Long) -> Unit) {
+internal fun SavedEffects(
+    effects: Flow<SavedEffect>,
+    onEvent: (SavedEvent) -> Unit,
+    onOpenEntry: (Long) -> Unit,
+    onOpenTranslate: (TranslateRequest) -> Unit,
+) {
     val resources = LocalResources.current
     val toaster = LocalToaster.current
     // Toasts outlive the collector's turn (they suspend until closed) but not the screen.
     val toastScope = rememberCoroutineScope()
     val send by rememberUpdatedState(onEvent)
     val openEntry by rememberUpdatedState(onOpenEntry)
+    val openTranslate by rememberUpdatedState(onOpenTranslate)
     LaunchedEffect(effects) {
         effects.collect { effect ->
             when (effect) {
                 is SavedEffect.NavigateEntry -> openEntry(effect.entryId)
+                is SavedEffect.OpenTranslate -> openTranslate(effect.request)
+                is SavedEffect.TranslationRemoved -> toastScope.launch {
+                    toaster.show(
+                        message = resources.getString(R.string.removed),
+                        action = resources.getString(R.string.undo),
+                        onAction = { send(SavedEvent.UndoRemoveTranslation(effect.record)) },
+                    )
+                }
                 is SavedEffect.Removed -> toastScope.launch {
                     toaster.show(
                         message = resources.getString(R.string.removed),
@@ -79,12 +94,13 @@ internal fun SavedEffects(effects: Flow<SavedEffect>, onEvent: (SavedEvent) -> U
 }
 
 /**
- * The stateless Saved tab: title (with the word count), the search-within field, folder chips, then the list in
- * sections, the inline "No matches", or the empty state; the folder picker and new-folder sheets while open.
+ * The stateless Saved tab: title (with the word count), the Words | Translations switch, then on the Words tab the
+ * search-within field, folder chips and the list in sections, the inline "No matches", or the empty state; on the
+ * Translations tab their list in sections or its own empty state. The folder picker and new-folder sheets while open.
  *
- * Test tags: `saved_screen`, `saved_search`, `folder_chip_all`, `folder_chip_{id}`, `saved_add_folder`,
- * `saved_group_{today|week|month|earlier}`, `saved_row_{id}`, `saved_no_matches`, `saved_empty_cta`,
- * `saved_folder_name`.
+ * Test tags: `saved_screen`, `saved_tab_words`, `saved_tab_translations`, `saved_search`, `folder_chip_all`,
+ * `folder_chip_{id}`, `saved_add_folder`, `saved_group_{today|week|month|earlier}`, `saved_row_{id}`,
+ * `saved_no_matches`, `saved_empty_cta`, `saved_folder_name`, `saved_translation_{id}`, `saved_translations_empty`.
  */
 @Composable
 fun SavedContent(state: SavedUiState, onEvent: (SavedEvent) -> Unit, modifier: Modifier = Modifier) {
@@ -98,6 +114,11 @@ fun SavedContent(state: SavedUiState, onEvent: (SavedEvent) -> Unit, modifier: M
         SavedHeader(state, onEvent)
         when {
             state.loading -> Unit
+            state.tab == SavedTab.TRANSLATIONS -> if (state.translationGroups.isEmpty()) {
+                SavedTranslationsEmpty(Modifier.weight(1f))
+            } else {
+                SavedTranslationList(state.translationGroups, onEvent, Modifier.weight(1f))
+            }
             state.isEmpty -> SavedEmpty(
                 wotd = state.wotd?.takeIf { state.showSaveWotd },
                 onSaveWotd = { onEvent(SavedEvent.SaveWotd) },

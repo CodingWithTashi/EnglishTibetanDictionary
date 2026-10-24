@@ -6,6 +6,8 @@ import com.kharagedition.tibetandictionary.core.di.IoDispatcher
 import com.kharagedition.tibetandictionary.core.error.ErrorReporter
 import com.kharagedition.tibetandictionary.core.locale.AppLanguage
 import com.kharagedition.tibetandictionary.core.locale.AppLocale
+import com.kharagedition.tibetandictionary.data.billing.BillingIdentitySync
+import com.kharagedition.tibetandictionary.data.billing.ProReconciler
 import com.kharagedition.tibetandictionary.data.install.DictionaryInstaller
 import com.kharagedition.tibetandictionary.data.model.DictionaryPack
 import com.kharagedition.tibetandictionary.data.prefs.UserPreferencesRepository
@@ -21,7 +23,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Start-up work, run once per process off the main thread: legacy cleanup, the pack choice of an onboarded user, then the dictionary install, then
- * [ready]. A failing step is reported and skipped so the app always gets past the splash. Install failures show on
+ * the store identity sync and the Pro reconciler, then [ready]. A failing step is reported and skipped so the app always gets past the splash. Install failures show on
  * the installing screen through the installer's state; an installer that throws before reporting anything is
  * still at `Checking` once [ready] is set, which the root view model shows as a failure with retry.
  */
@@ -30,6 +32,8 @@ class AppInitializer @Inject constructor(
     private val legacyCleanup: LegacyCleanup,
     private val installer: DictionaryInstaller,
     private val prefs: UserPreferencesRepository,
+    private val billingIdentity: BillingIdentitySync,
+    private val proReconciler: ProReconciler,
     private val errors: ErrorReporter,
     @param:ApplicationScope private val scope: CoroutineScope,
     @param:IoDispatcher private val io: CoroutineDispatcher,
@@ -47,6 +51,9 @@ class AppInitializer @Inject constructor(
             step("legacyCleanup") { legacyCleanup.runOnce() }
             step("keepTibetanPack") { keepTibetanPackForOnboardedUser() }
             step("install") { installer.ensureInstalled(prefs.snapshot().dictionaryPack) }
+            // Both only launch collectors; the paywall can't open before ready.
+            step("billingIdentity") { billingIdentity.start() }
+            step("proReconciler") { proReconciler.start() }
             _ready.value = true
             // After ready: only keeps the stored language in step with the UI, so it must not delay start-up.
             step("syncLanguage") { syncLanguage() }

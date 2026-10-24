@@ -58,7 +58,7 @@ class LicencesScreenTest {
         assertThat(bundledLicences(DictionaryPack.DZONGKHA).first())
             .isEqualTo("licenses/DDC-permission.txt" to R.string.licence_data_dz)
         assertThat(bundledLicences(DictionaryPack.TIBETAN).first())
-            .isEqualTo("licenses/GPL-3.0.txt" to R.string.licence_data)
+            .isEqualTo("licenses/GPL-3.0.txt" to R.string.licence_data_bo)
         assertThat(bundledLicences(DictionaryPack.DZONGKHA).drop(1))
             .isEqualTo(bundledLicences(DictionaryPack.TIBETAN).drop(1))
     }
@@ -101,7 +101,7 @@ class LicencesScreenTest {
         val licences = context.assets.readLicences(DictionaryPack.TIBETAN)
 
         assertThat(licences.map { it.title })
-            .containsExactly(R.string.licence_data, R.string.licence_font_jomolhari, R.string.licence_font_noto_sans)
+            .containsExactly(R.string.licence_data_bo, R.string.licence_font_jomolhari, R.string.licence_font_noto_sans)
             .inOrder()
         val (gpl, jomolhari, noto) = licences
         assertThat(gpl.paragraphs.first()).isEqualTo(GPL_TITLE)

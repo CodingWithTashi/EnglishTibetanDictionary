@@ -1,0 +1,52 @@
+{
+  "name": "translation-functions",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-translation \"vitest run --config vitest.emulator.config.ts\"",
+    "coverage": "vitest run --coverage",
+    "coverage:emulator": "firebase emulators:exec --only firestore --project demo-translation \"vitest run --config vitest.emulator.config.ts --coverage\"",
+    "check-providers": "tsx scripts/check-providers.ts",
+    "smoke": "tsx scripts/smoke-callable.ts"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0",
+    "firebase-functions": "7.4.0",
+    "google-auth-library": "11.3.1",
+    "lru-cache": "11.5.3",
+    "luxon": "3.7.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@types/luxon": "3.7.6",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.34.1",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "firebase": {
+      "@firebase/app": "0.16.4",
+      "@firebase/app-compat": "0.5.20"
+    }
+  }
+}

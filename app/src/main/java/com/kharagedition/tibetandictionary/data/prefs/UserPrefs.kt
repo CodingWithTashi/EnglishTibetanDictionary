@@ -20,11 +20,13 @@ data class UserPrefs(
     val dictionaryPack: DictionaryPack = DictionaryPack.TIBETAN,
     /** True once a pack has been chosen explicitly through `setDictionaryPack`. */
     val dictionaryPackChosen: Boolean = false,
-    val defaultDirectionId: String = "bo-en",
+    val defaultDirectionId: String = DictionaryPack.TIBETAN.defaultDirectionId,
     /** Folder the last word was saved to in the current pack; new saves go there. */
     val lastUsedFolderId: Long? = null,
     val wotdNotificationEnabled: Boolean = false,
     /** Local time of the word-of-the-day notification, always within [WotdNotificationMinute] (540 = 09:00). */
     val wotdNotificationMinute: Int = WotdNotificationMinute.DEFAULT,
     val legacyCleanupDone: Boolean = false,
+    /** Search translates phrases with no dictionary match (automatically only while more than 3 are left). */
+    val smartTranslate: Boolean = true,
 )

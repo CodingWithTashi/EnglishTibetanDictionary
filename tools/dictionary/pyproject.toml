@@ -1,4 +1,4 @@
-# Build pipeline for the app's prebuilt dictionary.db (see README.md).
+# Build pipeline for the app's prebuilt dictionary databases (see README.md).
 # Run the tests from this directory with:  .venv/bin/python -I -m pytest -q
 
 [tool.pytest.ini_options]

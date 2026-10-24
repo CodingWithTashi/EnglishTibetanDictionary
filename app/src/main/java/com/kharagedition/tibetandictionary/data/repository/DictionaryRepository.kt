@@ -36,6 +36,12 @@ interface DictionaryRepository {
     /** Summaries for [ids], in the order of [ids]; unknown ids are skipped. */
     suspend fun summaries(ids: List<Long>): List<EntrySummary>
 
+    /**
+     * Entries of [directionId] whose headword is exactly one of [headwords] (with or without a trailing tsheg, in any
+     * letter case), keyed by the asked headword, in the order of [headwords]; headwords with no entry are left out.
+     */
+    suspend fun exactMatches(headwords: List<String>, directionId: String): Map<String, EntrySummary>
+
     /** Closest entries to [text] (did-you-mean), each tagged with the direction it was found in. */
     suspend fun closest(text: String, directionId: String?, limit: Int = 5): List<Suggestion>
 }

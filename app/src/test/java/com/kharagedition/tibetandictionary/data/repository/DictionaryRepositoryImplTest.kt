@@ -707,6 +707,29 @@ class DictionaryRepositoryImplTest {
         assertThat(repo.summaries((1L..2_000L).toList() + TRAG).map { it.id }).containsExactly(TRAG)
     }
 
+    // Exact headword matches ("In the dictionary")
+
+    @Test
+    fun exactMatchesFindHeadwordsWithAndWithoutATrailingTsheg() = runTest {
+        val repo = miniRepository()
+
+        val found = repo.exactMatches(listOf("བཀྲ་ཤིས", "ཀ་བ་", "བཀྲ་ཤིས་བདེ", "ཤིས", "བཀྲ་ཤིས"), BO_EN)
+
+        assertThat(found.mapValues { it.value.id }).containsExactly("བཀྲ་ཤིས", TASHI, "ཀ་བ་", KAWA).inOrder()
+        assertThat(found.getValue("བཀྲ་ཤིས").headword).isEqualTo("བཀྲ་ཤིས་")
+        // English headwords match whatever their case; only the asked direction is searched.
+        assertThat(repo.exactMatches(listOf("Fortune", "pill", "beings"), EN_BO).mapValues { it.value.id })
+            .containsExactly("Fortune", FORTUNE, "pill", PILL)
+            .inOrder()
+        assertThat(repo.exactMatches(listOf("བཀྲ་ཤིས"), BO_BO).mapValues { it.value.id })
+            .containsExactly("བཀྲ་ཤིས", BOBO_TASHI)
+        assertThat(repo.exactMatches(listOf("བཀྲ་ཤིས"), EN_BO)).isEmpty()
+        assertThat(repo.exactMatches(emptyList(), BO_EN)).isEmpty()
+        // More headwords than SQLite's bind-variable limit on old devices (999), each also asked with a tsheg.
+        assertThat(repo.exactMatches(List(1_200) { "w$it" } + "pillow", EN_BO).mapValues { it.value.id })
+            .containsExactly("pillow", PILLOW)
+    }
+
     // Empty-query suggestions
 
     @Test

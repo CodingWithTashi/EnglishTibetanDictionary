@@ -3,16 +3,16 @@ package com.kharagedition.tibetandictionary.data.model
 import androidx.annotation.DrawableRes
 import androidx.annotation.IntegerRes
 import androidx.annotation.StringRes
-import com.kharagedition.tibetandictionary.R
 
 /**
- * Every resource the app shows for one pack. A new pack adds one value to [DictionaryPack.resources] (the `when` is
- * exhaustive, so the build fails until it exists) and the resources it names. `docs/adding-a-dictionary-pack.md` lists
- * the other places a pack touches.
+ * Everything the app shows for one pack. Each pack defines its value in its own file ([TibetanPackResources],
+ * [DzongkhaPackResources]); [DictionaryPack.resources] maps the packs to them, and its `when` is exhaustive, so the
+ * build fails until a new pack has one. Its strings live in `res/values/strings_pack_<id>.xml` (and the `values-bo`
+ * copy); `docs/adding-a-dictionary-pack.md` lists the rest.
  *
  * @property name the pack's name in the UI language ("Tibetan Dictionary").
  * @property gloss the name in the other UI language, shown beside [name].
- * @property title the name in Tibetan script in every UI language (installing screen, About).
+ * @property title the name in the pack's own script in every UI language (installing screen, About).
  * @property titleLatin the name in Latin letters in every UI language, under [title] on the installing screen.
  * @property language the dictionary's language in the UI language ("Tibetan"), for copy that names it.
  * @property description one line about the pack; takes the entry count as its only `%1$s`.
@@ -21,9 +21,14 @@ import com.kharagedition.tibetandictionary.R
  * @property greetingAfternoon the Home greeting from noon.
  * @property greetingEvening the Home greeting in the evening.
  * @property licenceTitle heading of the pack's data licence on the Licences screen.
+ * @property directionDescriptions what each of the pack's directions is for (direction id to string resource), shown
+ *   by the direction pickers. A direction without one shows its label from the data instead.
  * @property tile the app-icon tile with its shadow, drawn by the installing screen while the pack is prepared.
  * @property entryCount entry count of the bundled asset, as the data build recorded it.
  * @property assetBytes size in bytes of the bundled asset, as the data build recorded it; 0 means unknown.
+ * @property sample the entry the reading previews draw; see [PackSample].
+ * @property translateSamples the Translate tab's "Try" chips when the pack's language is the source, in that
+ *   language in every UI language; [EnglishTranslateSamples] are the chips for English.
  */
 data class PackResources(
     @param:StringRes val name: Int,
@@ -37,48 +42,34 @@ data class PackResources(
     @param:StringRes val greetingAfternoon: Int,
     @param:StringRes val greetingEvening: Int,
     @param:StringRes val licenceTitle: Int,
+    val directionDescriptions: Map<String, Int>,
     @param:DrawableRes val tile: Int,
     @param:IntegerRes val entryCount: Int,
     @param:IntegerRes val assetBytes: Int,
+    val sample: PackSample,
+    val translateSamples: List<String>,
+)
+
+/** The Translate tab's "Try" chips when English is the source, for every pack. */
+val EnglishTranslateSamples = listOf("Where is the monastery?", "May all beings be happy")
+
+/**
+ * The entry the reading preview draws for a pack: a headword with its Wylie, numbered English glosses and a line in
+ * the pack's own language, taken from that pack's data so the preview reads as the dictionary does. [shortGloss] is
+ * the one-word gloss beside the headword in Profile's reading row. The onboarding reading step, the text-size sheet
+ * and Profile draw it.
+ */
+data class PackSample(
+    val headword: String,
+    val wylie: String,
+    val glosses: List<String>,
+    val definition: String,
+    val shortGloss: String,
 )
 
 /** The resources of this pack; see [PackResources]. */
 val DictionaryPack.resources: PackResources
     get() = when (this) {
-        DictionaryPack.TIBETAN -> TibetanResources
-        DictionaryPack.DZONGKHA -> DzongkhaResources
+        DictionaryPack.TIBETAN -> TibetanPackResources
+        DictionaryPack.DZONGKHA -> DzongkhaPackResources
     }
-
-private val TibetanResources = PackResources(
-    name = R.string.pack_name_bo,
-    gloss = R.string.pack_gloss_bo,
-    title = R.string.pack_title_bo,
-    titleLatin = R.string.pack_title_latin_bo,
-    language = R.string.pack_language_bo,
-    description = R.string.pack_desc_bo,
-    welcome = R.string.pack_welcome_bo,
-    greetingMorning = R.string.greeting_morning_bo,
-    greetingAfternoon = R.string.greeting_afternoon_bo,
-    greetingEvening = R.string.greeting_evening_bo,
-    licenceTitle = R.string.licence_data,
-    tile = R.drawable.ic_splash_tile,
-    entryCount = R.integer.dictionary_entry_count_bo,
-    assetBytes = R.integer.dictionary_asset_bytes_bo,
-)
-
-private val DzongkhaResources = PackResources(
-    name = R.string.pack_name_dz,
-    gloss = R.string.pack_gloss_dz,
-    title = R.string.pack_title_dz,
-    titleLatin = R.string.pack_title_latin_dz,
-    language = R.string.pack_language_dz,
-    description = R.string.pack_desc_dz,
-    welcome = R.string.pack_welcome_dz,
-    greetingMorning = R.string.greeting_morning_dz,
-    greetingAfternoon = R.string.greeting_afternoon_dz,
-    greetingEvening = R.string.greeting_evening_dz,
-    licenceTitle = R.string.licence_data_dz,
-    tile = R.drawable.ic_splash_tile_dz,
-    entryCount = R.integer.dictionary_entry_count_dz,
-    assetBytes = R.integer.dictionary_asset_bytes_dz,
-)

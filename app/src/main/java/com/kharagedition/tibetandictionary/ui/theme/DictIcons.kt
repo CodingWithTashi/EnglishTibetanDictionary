@@ -110,6 +110,24 @@ open class DictIconSet(val strokeWidth: Float) {
 
     val OpenExternal: ImageVector by lazy { icon("OpenExternal") { stroke("M7 17L17 7M9 7h8v8") } }
 
+    /** Two opposite arrows: the Translate tab and the swap-languages button. */
+    val Translate: ImageVector by lazy { icon("Translate") { stroke("M4 8h13l-3-3M20 16H7l3 3") } }
+
+    /** Clipboard. */
+    val Paste: ImageVector by lazy {
+        icon("Paste") {
+            stroke { roundRect(6f, 4f, 12f, 17f, 2f) }
+            stroke("M9 3h6v3H9z")
+        }
+    }
+
+    /** Struck-through signal arcs: offline. */
+    val WifiOff: ImageVector by lazy {
+        icon("WifiOff") {
+            stroke("M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19h.01M3 3l18 18")
+        }
+    }
+
     /** Every icon by name, for the icon preview and tests. */
     val all: Map<String, ImageVector> by lazy {
         linkedMapOf(
@@ -117,7 +135,7 @@ open class DictIconSet(val strokeWidth: Float) {
             "HeartFilled" to HeartFilled, "Share" to Share, "Copy" to Copy, "Learn" to Learn, "Person" to Person,
             "Back" to Back, "Close" to Close, "ChevronRight" to ChevronRight, "ChevronDown" to ChevronDown,
             "ChevronLeft" to ChevronLeft, "Check" to Check, "Plus" to Plus, "History" to History,
-            "OpenExternal" to OpenExternal,
+            "OpenExternal" to OpenExternal, "Translate" to Translate, "Paste" to Paste, "WifiOff" to WifiOff,
         )
     }
 

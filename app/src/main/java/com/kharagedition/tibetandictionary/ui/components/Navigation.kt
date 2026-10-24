@@ -53,6 +53,7 @@ private const val SELECTION_MS = 180
 
 private fun MainTab.icon(set: DictIconSet, selected: Boolean): ImageVector = when (this) {
     MainTab.SEARCH -> set.Search
+    MainTab.TRANSLATE -> set.Translate
     MainTab.SAVED -> if (selected) set.HeartFilled else set.Heart
     MainTab.LEARN -> set.Learn
     MainTab.PROFILE -> set.Person
@@ -61,6 +62,7 @@ private fun MainTab.icon(set: DictIconSet, selected: Boolean): ImageVector = whe
 @StringRes
 private fun MainTab.labelRes(): Int = when (this) {
     MainTab.SEARCH -> R.string.tab_search
+    MainTab.TRANSLATE -> R.string.tab_translate
     MainTab.SAVED -> R.string.tab_saved
     MainTab.LEARN -> R.string.tab_learn
     MainTab.PROFILE -> R.string.tab_profile
@@ -69,6 +71,7 @@ private fun MainTab.labelRes(): Int = when (this) {
 @StringRes
 private fun MainTab.glossRes(): Int = when (this) {
     MainTab.SEARCH -> R.string.tab_search_gloss
+    MainTab.TRANSLATE -> R.string.tab_translate_gloss
     MainTab.SAVED -> R.string.tab_saved_gloss
     MainTab.LEARN -> R.string.tab_learn_gloss
     MainTab.PROFILE -> R.string.tab_profile_gloss
@@ -161,7 +164,7 @@ private fun NavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit, langua
     }
 }
 
-private val ReleaseTabs = listOf(MainTab.SEARCH, MainTab.SAVED, MainTab.PROFILE)
+private val ReleaseTabs = listOf(MainTab.SEARCH, MainTab.TRANSLATE, MainTab.SAVED, MainTab.PROFILE)
 
 @PreviewLightDark
 @BoPreview

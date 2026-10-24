@@ -18,15 +18,17 @@ object OnboardingStep {
     /** 2c: text size and line spacing. */
     const val READING = 3
 
-    /** 2d: optional sign-in; only while `Features.ACCOUNTS`. */
+    /** 2d: optional sign-in; only while `Features.ONBOARDING_SIGN_IN`. */
     const val ACCOUNT = 4
 }
 
 /** The step count with accounts on; the account step is the fourth. */
 internal const val STEP_COUNT_WITH_ACCOUNTS = 4
 
-/** How many steps onboarding has: dictionary, direction and reading, plus sign-in while `Features.ACCOUNTS`. */
-internal val STEP_COUNT: Int = if (Features.ACCOUNTS) STEP_COUNT_WITH_ACCOUNTS else 3
+/**
+ * How many steps onboarding has: dictionary, direction and reading, plus sign-in while `Features.ONBOARDING_SIGN_IN`.
+ */
+internal val STEP_COUNT: Int = if (Features.ONBOARDING_SIGN_IN) STEP_COUNT_WITH_ACCOUNTS else 3
 
 /**
  * First-run setup (2a/2b/2c/2d). [step] runs from 1 to [stepCount] (see [OnboardingStep]). [packs] are the
